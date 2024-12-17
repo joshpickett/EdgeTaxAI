@@ -42,4 +42,14 @@ const AppNavigator = () => {
   );
 };
 
+import MileageTrackingScreen from "../screens/MileageTrackingScreen";
+
+// Add the new screen to your navigator
+<Stack.Screen
+  name="MileageTracking"
+  component={MileageTrackingScreen}
+  options={{ title: "Mileage Tracking" }}
+/>;
+
+
 export default AppNavigator;
