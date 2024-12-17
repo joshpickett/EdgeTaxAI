@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "expo-notifications": "^0.29.11",
+    "firebase": "^11.1.0"
+  },
+  "devDependencies": {
+    "expo-cli": "^4.0.17"
+  }
+}

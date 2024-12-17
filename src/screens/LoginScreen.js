@@ -1,47 +1,56 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, Alert } from "react-native";
-import InputField from "../components/InputField";
+import { View, Text, TextInput, StyleSheet, Alert } from "react-native";
 import CustomButton from "../components/CustomButton";
-import { loginUser } from "../services/api";
 
 const LoginScreen = ({ navigation }) => {
-  const [identifier, setIdentifier] = useState(""); // Accepts email or phone
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleLogin = async () => {
-    try {
-      const result = await loginUser(identifier, password);
-      if (result.success) {
-        Alert.alert("Login Successful!", "Welcome back!");
-        navigation.navigate("Dashboard");
-      } else {
-        Alert.alert("Error", result.message || "Invalid credentials.");
-      }
-    } catch (error) {
-      Alert.alert("Login Error", "Unable to login. Please try again.");
+  const handleLogin = () => {
+    // Placeholder login logic
+    if (email && password) {
+      Alert.alert("Login Successful!", "Welcome back.");
+      navigation.navigate("Dashboard");
+    } else {
+      Alert.alert("Error", "Please enter both email and password.");
     }
   };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Login</Text>
-      <InputField
-        label="Email or Phone"
-        placeholder="Enter email or phone number"
-        value={identifier}
-        onChangeText={setIdentifier}
-        keyboardType="default"
+
+      <TextInput
+        style={styles.input}
+        placeholder="Email or Phone"
+        value={email}
+        onChangeText={setEmail}
+        keyboardType="email-address"
       />
-      <InputField
-        label="Password"
-        placeholder="Enter your password"
+
+      <TextInput
+        style={styles.input}
+        placeholder="Password"
         value={password}
         onChangeText={setPassword}
         secureTextEntry
       />
+
+      {/* Forgot Password Link */}
+      <Text
+        style={styles.forgotPassword}
+        onPress={() => navigation.navigate("PasswordReset")}
+      >
+        Forgot Password?
+      </Text>
+
       <CustomButton title="Login" onPress={handleLogin} />
-      <Text style={styles.signupText} onPress={() => navigation.navigate("Signup")}>
-        Don’t have an account? Sign Up
+
+      <Text
+        style={styles.signupText}
+        onPress={() => navigation.navigate("Signup")}
+      >
+        Don't have an account? Sign Up
       </Text>
     </View>
   );
@@ -49,8 +58,16 @@ const LoginScreen = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, justifyContent: "center" },
-  title: { fontSize: 24, fontWeight: "bold", marginBottom: 20, textAlign: "center" },
-  signupText: { marginTop: 15, textAlign: "center", color: "#007BFF" },
+  title: { fontSize: 24, fontWeight: "bold", textAlign: "center", marginBottom: 20 },
+  input: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    padding: 10,
+    borderRadius: 5,
+    marginBottom: 15,
+  },
+  forgotPassword: { color: "#007BFF", textAlign: "right", marginBottom: 20 },
+  signupText: { textAlign: "center", color: "#007BFF", marginTop: 20 },
 });
 
 export default LoginScreen;
