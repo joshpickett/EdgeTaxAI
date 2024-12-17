@@ -29,3 +29,41 @@ export const signupUser = async (email, phone, password) => {
     throw error;
   }
 };
+// Add expense (manual input or OCR)
+export const addExpense = async (description, amount, category, date, receiptFile) => {
+    const formData = new FormData();
+    formData.append("description", description);
+    formData.append("amount", amount);
+    formData.append("category", category);
+    formData.append("date", date);
+    if (receiptFile) {
+      formData.append("receipt", {
+        uri: receiptFile.uri,
+        name: receiptFile.name,
+        type: receiptFile.type,
+      });
+    }
+  
+    try {
+      const response = await fetch(`${BASE_URL}/expenses`, {
+        method: "POST",
+        body: formData,
+      });
+      return await response.json();
+    } catch (error) {
+      console.error("Add Expense Error:", error);
+      throw error;
+    }
+  };
+  
+  // Fetch all expenses
+  export const getExpenses = async () => {
+    try {
+      const response = await fetch(`${BASE_URL}/expenses`);
+      return await response.json();
+    } catch (error) {
+      console.error("Fetch Expenses Error:", error);
+      throw error;
+    }
+  };
+  
