@@ -1,0 +1,35 @@
+#User Authentication Endpoints
+from flask import Blueprint, request, jsonify
+from utils.auth_utils import hash_password, validate_login
+from utils.db_utils import save_user
+
+auth_bp = Blueprint("auth", __name__)
+
+@auth_bp.route("/signup", methods=["POST"])
+def signup():
+    data = request.json
+    full_name = data.get("full_name")
+    email = data.get("email")
+    phone_number = data.get("phone_number")
+    password = data.get("password")
+
+    if not all([full_name, email, phone_number, password]):
+        return jsonify({"error": "All fields are required"}), 400
+
+    try:
+        hashed_pw = hash_password(password)
+        save_user(full_name, email, phone_number, hashed_pw)
+        return jsonify({"message": "User created successfully"}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@auth_bp.route("/login", methods=["POST"])
+def login():
+    data = request.json
+    email = data.get("email")
+    password = data.get("password")
+    
+    user_id = validate_login(email, password)
+    if user_id:
+        return jsonify({"message": "Login successful", "user_id": user_id}), 200
+    return jsonify({"error": "Invalid credentials"}), 401
