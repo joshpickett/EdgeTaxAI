@@ -1,34 +1,54 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet } from 'react-native';
+import React, { useState } from "react";
+import { View, Text, StyleSheet, Alert } from "react-native";
+import InputField from "../components/InputField";
+import CustomButton from "../components/CustomButton";
+import { signupUser } from "../services/api";
 
 const SignupScreen = ({ navigation }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
 
-  const handleSignup = () => {
-    console.log("Signing up with:", email, password);
-    // Add API call logic here
+  const handleSignup = async () => {
+    try {
+      const result = await signupUser(email, phone, password);
+      if (result.success) {
+        Alert.alert("Signup Successful!", "You can now log in.");
+        navigation.navigate("Login");
+      } else {
+        Alert.alert("Error", result.message || "Could not sign up.");
+      }
+    } catch (error) {
+      Alert.alert("Signup Error", "Something went wrong. Please try again.");
+    }
   };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Sign Up</Text>
-      <TextInput 
-        style={styles.input} 
-        placeholder="Email" 
+      <InputField
+        label="Email"
+        placeholder="Enter your email"
         value={email}
         onChangeText={setEmail}
         keyboardType="email-address"
       />
-      <TextInput 
-        style={styles.input} 
-        placeholder="Password" 
+      <InputField
+        label="Phone Number"
+        placeholder="Enter your phone number"
+        value={phone}
+        onChangeText={setPhone}
+        keyboardType="phone-pad"
+      />
+      <InputField
+        label="Password"
+        placeholder="Enter your password"
         value={password}
         onChangeText={setPassword}
         secureTextEntry
       />
-      <Button title="Sign Up" onPress={handleSignup} />
-      <Text style={styles.loginLink} onPress={() => navigation.navigate('Login')}>
+      <CustomButton title="Sign Up" onPress={handleSignup} />
+      <Text style={styles.loginText} onPress={() => navigation.navigate("Login")}>
         Already have an account? Login
       </Text>
     </View>
@@ -36,10 +56,9 @@ const SignupScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 20 },
-  title: { fontSize: 24, marginBottom: 20, textAlign: 'center' },
-  input: { borderBottomWidth: 1, marginBottom: 15, padding: 10 },
-  loginLink: { marginTop: 15, textAlign: 'center', color: 'blue' },
+  container: { flex: 1, padding: 20, justifyContent: "center" },
+  title: { fontSize: 24, fontWeight: "bold", marginBottom: 20, textAlign: "center" },
+  loginText: { marginTop: 15, textAlign: "center", color: "#007BFF" },
 });
 
 export default SignupScreen;
