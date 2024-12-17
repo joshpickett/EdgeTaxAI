@@ -1,37 +1,20 @@
-import os
-from dotenv import load_dotenv
+# config.py - Streamlit Desktop Configuration
 
-# Load environment variables from a `.env` file
-load_dotenv()
+# ---- API Configuration ----
+# Base URL for the Flask backend API
+API_BASE_URL = "http://localhost:5000/api"  # Update this for production/staging
 
-# ---- General Flask Configuration ----
-class Config:
-    APP_NAME = "TaxEdgeAI Backend"
-    DEBUG = os.getenv("DEBUG_MODE", "False").lower() == "true"  # Enable Flask debug mode
-    SECRET_KEY = os.getenv("SECRET_KEY", "supersecretkey")  # Flask session encryption key
+# ---- App Settings ----
+APP_NAME = "TaxEdgeAI Desktop"
+DEBUG_MODE = True  # Set to False for production
 
-    # ---- Logging Configuration ----
-    LOG_FILE = os.getenv("LOG_FILE", "api.log")  # Log file location
-    LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()  # Logging level (DEBUG, INFO, ERROR)
+# ---- Logging Configuration ----
+LOG_FILE = "desktop_app.log"  # Log file for desktop app
+LOG_LEVEL = "INFO"  # Options: DEBUG, INFO, WARNING, ERROR
 
-    # ---- Database Configuration ----
-    DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///database.db")  # Default SQLite database
-    SQLALCHEMY_TRACK_MODIFICATIONS = False
+# ---- IRS Configuration ----
+IRS_MILEAGE_RATE = 0.655  # Default IRS mileage rate (2023)
 
-    # ---- API Keys ----
-    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-    PLAID_CLIENT_ID = os.getenv("PLAID_CLIENT_ID", "")
-    PLAID_SECRET = os.getenv("PLAID_SECRET", "")
-    PLAID_ENV = os.getenv("PLAID_ENV", "sandbox")
-
-    TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
-    TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
-    TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER", "")
-
-    GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY", "")
-
-    # ---- IRS Configuration ----
-    IRS_MILEAGE_RATE = float(os.getenv("IRS_MILEAGE_RATE", "0.655"))  # Default IRS mileage rate
-
-    # ---- CORS (Cross-Origin Resource Sharing) ----
-    ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*")  # Adjust for production to specific domains
+# ---- UI Configuration ----
+# Custom messages and settings for Streamlit app
+WELCOME_MESSAGE = "Welcome to TaxEdgeAI - Your Tax Optimization Assistant"

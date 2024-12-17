@@ -1,0 +1,6 @@
+Flask
+Flask-Cors
+bcrypt
+openai
+sqlite3
+python-dotenv
