@@ -66,4 +66,23 @@ export const addExpense = async (description, amount, category, date, receiptFil
       throw error;
     }
   };
+
+
+
+// Password Reset: Sends a reset link to email or phone
+export const resetPassword = async (emailOrPhone) => {
+  try {
+    const response = await fetch(`${BASE_URL}/password-reset`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ identifier: emailOrPhone }),
+    });
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error("Error resetting password:", error);
+    throw error;
+  }
+};
+
   

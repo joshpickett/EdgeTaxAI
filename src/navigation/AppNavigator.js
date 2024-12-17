@@ -1,15 +1,12 @@
-import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import React from "react";
+import { NavigationContainer } from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
 
 // Screens
-import LoginScreen from '../screens/LoginScreen';
-import SignupScreen from '../screens/SignupScreen';
-import DashboardScreen from '../screens/DashboardScreen';
-
-// Expense Screens
-import AddExpenseScreen from '../screens/expenses/AddExpenseScreen';
-import ExpenseDashboardScreen from '../screens/expenses/ExpenseDashboardScreen';
+import LoginScreen from "../screens/LoginScreen";
+import SignupScreen from "../screens/SignupScreen";
+import DashboardScreen from "../screens/DashboardScreen";
+import PasswordResetScreen from "../screens/PasswordResetScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -28,24 +25,17 @@ const AppNavigator = () => {
           component={SignupScreen} 
           options={{ title: "Sign Up" }} 
         />
+        <Stack.Screen 
+          name="PasswordReset" 
+          component={PasswordResetScreen} 
+          options={{ title: "Reset Password" }} 
+        />
 
-        {/* Main Dashboard */}
+        {/* Main App Screens */}
         <Stack.Screen 
           name="Dashboard" 
           component={DashboardScreen} 
           options={{ title: "Dashboard" }} 
-        />
-
-        {/* Expense Tracking Screens */}
-        <Stack.Screen 
-          name="AddExpense" 
-          component={AddExpenseScreen} 
-          options={{ title: "Add Expense" }} 
-        />
-        <Stack.Screen 
-          name="ExpenseDashboard" 
-          component={ExpenseDashboardScreen} 
-          options={{ title: "Expense Dashboard" }} 
         />
       </Stack.Navigator>
     </NavigationContainer>
