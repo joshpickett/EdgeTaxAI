@@ -1,11 +1,12 @@
 const BASE_URL = "https://your-backend-api.com/api";
 
+// Login function: accepts email or phone as "identifier"
 export const loginUser = async (identifier, password) => {
   try {
     const response = await fetch(`${BASE_URL}/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ identifier, password }), // identifier can be email or phone
+      body: JSON.stringify({ identifier, password }),
     });
     return await response.json();
   } catch (error) {
@@ -14,6 +15,7 @@ export const loginUser = async (identifier, password) => {
   }
 };
 
+// Signup function: accepts email, phone, and password
 export const signupUser = async (email, phone, password) => {
   try {
     const response = await fetch(`${BASE_URL}/signup`, {

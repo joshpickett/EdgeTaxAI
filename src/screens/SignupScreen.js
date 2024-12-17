@@ -19,7 +19,7 @@ const SignupScreen = ({ navigation }) => {
         Alert.alert("Error", result.message || "Could not sign up.");
       }
     } catch (error) {
-      Alert.alert("Signup Error", "Something went wrong. Please try again.");
+      Alert.alert("Signup Error", "Unable to sign up. Please try again.");
     }
   };
 

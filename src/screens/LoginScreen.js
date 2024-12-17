@@ -5,7 +5,7 @@ import CustomButton from "../components/CustomButton";
 import { loginUser } from "../services/api";
 
 const LoginScreen = ({ navigation }) => {
-  const [identifier, setIdentifier] = useState(""); // email or phone number
+  const [identifier, setIdentifier] = useState(""); // Accepts email or phone
   const [password, setPassword] = useState("");
 
   const handleLogin = async () => {
@@ -18,7 +18,7 @@ const LoginScreen = ({ navigation }) => {
         Alert.alert("Error", result.message || "Invalid credentials.");
       }
     } catch (error) {
-      Alert.alert("Login Error", "Something went wrong. Please try again.");
+      Alert.alert("Login Error", "Unable to login. Please try again.");
     }
   };
 
