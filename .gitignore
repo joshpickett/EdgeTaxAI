@@ -4,3 +4,8 @@ __pycache__/
 *.log
 *.sqlite
 .DS_Store
+node_modules/
+.env
+__pycache__/
+*.log
+*.sqlite
