@@ -1,4 +1,4 @@
-const BASE_URL = "https://your-backend-api.com/api"; // Update with your backend base URL
+const BASE_URL = "https://your-backend-api.com/api"; // Replace with your backend base URL
 
 // Fetch Real-Time Tax Savings
 export const getTaxSavings = async (amount) => {
@@ -14,9 +14,9 @@ export const getTaxSavings = async (amount) => {
     }
 
     const data = await response.json();
-    return data.savings; // Returns calculated tax savings
+    return data.savings; // Returns the calculated tax savings amount
   } catch (error) {
-    console.error("Error fetching tax savings:", error);
+    console.error("Error fetching tax savings:", error.message);
     throw error;
   }
 };
@@ -35,9 +35,9 @@ export const getDeductionSuggestions = async (expenses) => {
     }
 
     const data = await response.json();
-    return data.suggestions; // Returns list of AI-suggested deductions
+    return data.suggestions; // Returns the AI-suggested deduction list
   } catch (error) {
-    console.error("Error fetching deduction suggestions:", error);
+    console.error("Error fetching deduction suggestions:", error.message);
     throw error;
   }
 };
@@ -51,10 +51,29 @@ export const getTaxRate = async () => {
     }
 
     const data = await response.json();
-    return data.tax_rate; // Returns the tax rate
+    return data.tax_rate; // Returns the centralized tax rate
   } catch (error) {
-    console.error("Error fetching tax rate:", error);
+    console.error("Error fetching tax rate:", error.message);
     throw error;
   }
 };
 
+// Fetch Detailed Tax Reports
+export const getTaxReports = async (userId) => {
+  try {
+    const response = await fetch(`${BASE_URL}/reports/${userId}`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch tax reports.");
+    }
+
+    const data = await response.json();
+    return data.reports; // Returns detailed tax reports
+  } catch (error) {
+    console.error("Error fetching tax reports:", error.message);
+    throw error;
+  }
+};

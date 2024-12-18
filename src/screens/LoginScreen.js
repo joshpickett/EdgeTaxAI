@@ -1,18 +1,29 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, StyleSheet, Alert } from "react-native";
 import CustomButton from "../components/CustomButton";
+import { loginUser } from "../services/api";
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleLogin = () => {
-    // Placeholder login logic
-    if (email && password) {
-      Alert.alert("Login Successful!", "Welcome back.");
-      navigation.navigate("Dashboard");
-    } else {
-      Alert.alert("Error", "Please enter both email and password.");
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert("Error", "Please enter both email/phone and password.");
+      return;
+    }
+
+    try {
+      const result = await loginUser(email, password); // Call the API
+      if (result && result.user_id) {
+        Alert.alert("Login Successful!", "Welcome back.");
+        navigation.navigate("Dashboard");
+      } else {
+        Alert.alert("Error", result?.message || "Invalid credentials.");
+      }
+    } catch (error) {
+      console.error("Login Error:", error);
+      Alert.alert("Error", "Unable to log in. Please try again.");
     }
   };
 

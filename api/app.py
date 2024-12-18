@@ -2,9 +2,10 @@ from flask import Flask
 from flask_cors import CORS
 from routes.auth_routes import auth_bp
 from routes.expense_routes import expense_bp
-from routes.reports_routes import reports_bp
+from routes.reports_routes import reports_bp  # Import Reports API
 from routes.bank_routes import bank_bp
-from routes.tax_routes import tax_bp
+from routes.tax_routes import tax_bp  # Import Tax API
+from routes.mileage_routes import mileage_bp  # Import Mileage API
 import logging
 
 # Configure Logging
@@ -24,9 +25,10 @@ def create_app():
     # Register Blueprints
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(expense_bp, url_prefix="/api/expenses")
-    app.register_blueprint(reports_bp, url_prefix="/api/reports")
+    app.register_blueprint(reports_bp, url_prefix="/api/reports")  # Reports API
     app.register_blueprint(bank_bp, url_prefix="/api/banks")
-    app.register_blueprint(tax_bp, url_prefix="/api/tax")
+    app.register_blueprint(tax_bp, url_prefix="/api/tax")  # Tax API
+    app.register_blueprint(mileage_bp, url_prefix="/api/mileage")  # Mileage API
 
     # Log API Startup
     log_api_startup(app)

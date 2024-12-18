@@ -1,58 +1,131 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, TextInput, Button, Alert } from "react-native";
-import * as ImagePicker from "expo-image-picker";
-import { addExpense } from "../services/api";
+import {
+  View,
+  Text,
+  TextInput,
+  Button,
+  StyleSheet,
+  Alert,
+  TouchableOpacity,
+} from "react-native";
+import * as DocumentPicker from "expo-document-picker";
+import { addExpense } from "../services/expenseService"; // Unified expense service
 
 const AddExpenseScreen = ({ navigation }) => {
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+  const [date, setDate] = useState("");
   const [receipt, setReceipt] = useState(null);
 
-  const pickReceipt = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 1,
-    });
-    if (!result.canceled) {
-      setReceipt(result.assets[0]);
+  // Handle Receipt Upload
+  const pickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: "*/*", // Allow all file types
+        copyToCacheDirectory: true,
+      });
+
+      if (result.type === "success") {
+        setReceipt(result);
+        Alert.alert("Success", "Receipt selected successfully.");
+      }
+    } catch (error) {
+      console.error("Error picking receipt:", error.message);
+      Alert.alert("Error", "Failed to select receipt.");
     }
   };
 
+  // Handle Add Expense
   const handleAddExpense = async () => {
+    if (!description || !amount || !category || !date) {
+      Alert.alert("Error", "Please fill in all required fields.");
+      return;
+    }
+
     try {
-      const response = await addExpense(description, amount, category, date, receipt);
-      if (response.success) {
-        Alert.alert("Success", "Expense added successfully!");
-        navigation.goBack();
-      } else {
-        Alert.alert("Error", response.message || "Failed to add expense.");
-      }
+      // Call the addExpense API with receipt (optional)
+      await addExpense(description, amount, category, date, receipt);
+      Alert.alert("Success", "Expense added successfully!");
+      navigation.goBack(); // Navigate back after success
     } catch (error) {
-      Alert.alert("Error", "Unable to add expense.");
+      console.error("Error adding expense:", error.message);
+      Alert.alert("Error", "Failed to add expense. Please try again.");
     }
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Add Expense</Text>
-      <TextInput placeholder="Description" value={description} onChangeText={setDescription} style={styles.input} />
-      <TextInput placeholder="Amount" value={amount} onChangeText={setAmount} keyboardType="numeric" style={styles.input} />
-      <TextInput placeholder="Category" value={category} onChangeText={setCategory} style={styles.input} />
-      <TextInput placeholder="Date" value={date} onChangeText={setDate} style={styles.input} />
-      <Button title="Upload Receipt" onPress={pickReceipt} />
-      {receipt && <Text>Receipt: {receipt.fileName}</Text>}
-      <Button title="Add Expense" onPress={handleAddExpense} />
+      <Text style={styles.title}>Add New Expense</Text>
+
+      <TextInput
+        style={styles.input}
+        placeholder="Description"
+        value={description}
+        onChangeText={setDescription}
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Amount"
+        value={amount}
+        keyboardType="numeric"
+        onChangeText={setAmount}
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Category"
+        value={category}
+        onChangeText={setCategory}
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Date (YYYY-MM-DD)"
+        value={date}
+        onChangeText={setDate}
+      />
+
+      <TouchableOpacity style={styles.uploadButton} onPress={pickDocument}>
+        <Text style={styles.buttonText}>
+          {receipt ? "Receipt Selected" : "Upload Receipt (Optional)"}
+        </Text>
+      </TouchableOpacity>
+
+      <Button title="Add Expense" onPress={handleAddExpense} color="#007BFF" />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20 },
-  title: { fontSize: 24, marginBottom: 20, textAlign: "center" },
-  input: { borderWidth: 1, padding: 10, marginVertical: 10, borderRadius: 5 },
+  container: {
+    flex: 1,
+    padding: 20,
+    backgroundColor: "#f9f9f9",
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: "bold",
+    marginBottom: 20,
+    textAlign: "center",
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    padding: 10,
+    marginBottom: 10,
+    borderRadius: 5,
+    backgroundColor: "#fff",
+  },
+  uploadButton: {
+    backgroundColor: "#28a745",
+    padding: 10,
+    borderRadius: 5,
+    marginBottom: 20,
+    alignItems: "center",
+  },
+  buttonText: {
+    color: "#fff",
+    fontWeight: "bold",
+  },
 });
 
 export default AddExpenseScreen;

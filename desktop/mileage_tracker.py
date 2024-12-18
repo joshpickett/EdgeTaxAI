@@ -1,5 +1,3 @@
-#Mileage Plan Tracker Page on App
-
 import streamlit as st
 import requests
 
@@ -8,14 +6,10 @@ def mileage_tracker_page(api_base_url):
     Mileage Tracker Page: Calculate mileage between two locations via API.
     """
     st.title("Mileage Tracker")
-    st.markdown("#### Track your work-related mileage.")
+    st.markdown("#### Enter start and end locations to calculate mileage.")
 
-    if "user_id" not in st.session_state:
-        st.error("Please log in to track mileage.")
-        return
-
-    start_location = st.text_input("Start Location")
-    end_location = st.text_input("End Location")
+    start_location = st.text_input("Start Location", placeholder="Enter starting address")
+    end_location = st.text_input("End Location", placeholder="Enter destination address")
 
     if st.button("Calculate Mileage"):
         if not start_location or not end_location:
@@ -23,12 +17,13 @@ def mileage_tracker_page(api_base_url):
         else:
             try:
                 payload = {"start": start_location, "end": end_location}
-                response = requests.post(f"{api_base_url}/tax/mileage", json=payload)
+                response = requests.post(f"{api_base_url}/mileage", json=payload)
 
                 if response.status_code == 200:
                     distance = response.json().get("distance")
-                    st.success(f"Total Distance: {distance} miles")
+                    st.success(f"Total Distance: {distance}")
                 else:
-                    st.error(response.json().get("error", "Failed to calculate mileage."))
+                    error = response.json().get("error", "Failed to calculate mileage.")
+                    st.error(f"Error: {error}")
             except Exception as e:
                 st.error(f"An error occurred: {e}")

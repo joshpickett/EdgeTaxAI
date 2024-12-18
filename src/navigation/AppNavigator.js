@@ -10,6 +10,7 @@ import DashboardScreen from "../screens/DashboardScreen";
 import MileageTrackingScreen from "../screens/MileageTrackingScreen";
 import ReportsScreen from "../screens/ReportsScreen";
 import ExpensesScreen from "../screens/ExpensesScreen";
+import BankIntegrationScreen from "../screens/BankIntegrationScreen"; // New Bank Integration Screen
 
 const Stack = createNativeStackNavigator();
 
@@ -45,14 +46,20 @@ const AppNavigator = () => {
           component={MileageTrackingScreen}
           options={{ title: "Mileage Tracking" }}
         />
-        <Stack.Screen 
-        name="Expenses" component={ExpensesScreen} 
-        options={{ title: "Manage Expenses" }} />;
-
+        <Stack.Screen
+          name="Expenses"
+          component={ExpensesScreen}
+          options={{ title: "Manage Expenses" }}
+        />
         <Stack.Screen
           name="Reports"
           component={ReportsScreen}
           options={{ title: "Reports" }}
+        />
+        <Stack.Screen
+          name="BankIntegration"
+          component={BankIntegrationScreen} // New Screen
+          options={{ title: "Bank Integration" }}
         />
       </Stack.Navigator>
     </NavigationContainer>
@@ -60,7 +67,3 @@ const AppNavigator = () => {
 };
 
 export default AppNavigator;
-
-
-
-
