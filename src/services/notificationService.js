@@ -1,13 +1,17 @@
 import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
-import firebase from "./firebaseConfig";
+import firebase from "firebase/app";
+import "firebase/messaging";
 
-// Request permission for notifications and get FCM token
+// Request permission and set up push notifications
 export const registerForPushNotifications = async () => {
-  let token;
+  try {
+    if (!Constants.isDevice) {
+      alert("Push notifications are only supported on physical devices.");
+      return;
+    }
 
-  if (Constants.isDevice) {
-    // Ask for permission to send notifications
+    // Request notification permissions
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
 
@@ -21,34 +25,37 @@ export const registerForPushNotifications = async () => {
       return;
     }
 
-    // Retrieve the Expo Push Token
-    token = (await Notifications.getExpoPushTokenAsync()).data;
-    console.log("Expo Push Token:", token);
+    // Get Expo Push Token
+    const expoPushToken = (await Notifications.getExpoPushTokenAsync()).data;
+    console.log("Expo Push Token:", expoPushToken);
 
-    // Optional: Send the token to Firebase Cloud Messaging (FCM)
-    const messaging = firebase.messaging();
-    messaging
-      .getToken()
-      .then((fcmToken) => {
-        console.log("FCM Token:", fcmToken);
-      })
-      .catch((error) => {
-        console.error("Error getting FCM Token:", error);
-      });
-  } else {
-    alert("Push notifications are not supported on simulators.");
+    // Get Firebase Cloud Messaging (FCM) Token
+    const fcmToken = await firebase.messaging().getToken();
+    console.log("FCM Token:", fcmToken);
+
+    return { expoPushToken, fcmToken };
+  } catch (error) {
+    console.error("Error setting up push notifications:", error.message);
+    throw error;
   }
-
-  return token;
 };
 
-// Schedule a notification (example: 10 seconds from now)
-export const scheduleLocalNotification = async (title, body) => {
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title,
-      body,
-    },
-    trigger: { seconds: 10 }, // Trigger after 10 seconds
+// Handle foreground notifications
+export const handleForegroundNotifications = () => {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    }),
+  });
+
+  // Listen for notifications in the foreground
+  Notifications.addNotificationReceivedListener((notification) => {
+    console.log("Foreground Notification Received:", notification);
+  });
+
+  Notifications.addNotificationResponseReceivedListener((response) => {
+    console.log("Notification Response:", response);
   });
 };
