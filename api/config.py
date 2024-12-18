@@ -35,3 +35,6 @@ class Config:
 
     # ---- CORS (Cross-Origin Resource Sharing) ----
     ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*")  # Adjust for production to specific domains
+
+    # Centralized configuration file for shared settings
+    TAX_RATE = 0.25  # 25% tax rate
