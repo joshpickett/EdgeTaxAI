@@ -1,7 +1,9 @@
 {
   "dependencies": {
     "expo-notifications": "^0.29.11",
-    "firebase": "^11.1.0"
+    "firebase": "^11.1.0",
+    "react-native-svg": "^15.10.1",
+    "victory-native": "^41.14.0"
   },
   "devDependencies": {
     "expo-cli": "^4.0.17"

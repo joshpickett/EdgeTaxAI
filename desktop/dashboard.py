@@ -1,70 +1,96 @@
-import streamlit as st
+import tkinter as tk
+from tkinter import messagebox, simpledialog
 import requests
-import pandas as pd
-from config import API_BASE_URL
 
-def dashboard_page():
-    """
-    Dashboard Page: Fetch and display expenses dynamically with a loading spinner.
-    """
-    st.title("Dashboard")
-    st.markdown("#### Overview of Your Expenses")
+API_BASE_URL = "http://localhost:5000"  # Replace with your backend URL
 
-    # Validate User Session
-    if "user_id" not in st.session_state:
-        st.error("Please log in to view your dashboard.")
-        return
+# Dashboard Window
+class ExpenseDashboard(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        self.title("Expense Dashboard")
+        self.geometry("600x400")
 
-    user_id = st.session_state["user_id"]
+        # UI Elements
+        self.expense_listbox = tk.Listbox(self, width=80, height=15)
+        self.expense_listbox.pack(pady=20)
 
-    # Fetch expenses with a loading spinner
-    st.subheader("Your Expenses Summary")
-    with st.spinner("Fetching your expenses..."):
+        # Buttons
+        self.fetch_button = tk.Button(self, text="Fetch Expenses", command=self.fetch_expenses)
+        self.fetch_button.pack()
+
+        self.edit_button = tk.Button(self, text="Edit Selected Expense", command=self.edit_expense)
+        self.edit_button.pack()
+
+        self.delete_button = tk.Button(self, text="Delete Selected Expense", command=self.delete_expense)
+        self.delete_button.pack()
+
+        self.fetch_expenses()  # Load expenses on startup
+
+    def fetch_expenses(self):
         try:
-            response = requests.get(f"{API_BASE_URL}/expenses/list/{user_id}")
+            response = requests.get(f"{API_BASE_URL}/expenses/list")
             if response.status_code == 200:
-                expenses = response.json().get("expenses", [])
-                if expenses:
-                    # Convert expenses into a DataFrame and display
-                    df = pd.DataFrame(expenses)
-                    st.dataframe(df, use_container_width=True)
+                self.expense_listbox.delete(0, tk.END)
+                self.expenses = response.json()["expenses"]
+                for expense in self.expenses:
+                    self.expense_listbox.insert(tk.END, f"{expense['id']} - {expense['description']} - ${expense['amount']} - {expense['category']}")
+            else:
+                messagebox.showerror("Error", "Failed to fetch expenses.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Error fetching expenses: {e}")
+
+    def edit_expense(self):
+        try:
+            selected = self.expense_listbox.curselection()
+            if not selected:
+                messagebox.showwarning("Warning", "Please select an expense to edit.")
+                return
+
+            index = selected[0]
+            expense = self.expenses[index]
+
+            # Prompt for new values
+            new_description = simpledialog.askstring("Edit Expense", "Enter new description:", initialvalue=expense["description"])
+            new_amount = simpledialog.askfloat("Edit Expense", "Enter new amount:", initialvalue=expense["amount"])
+            new_category = simpledialog.askstring("Edit Expense", "Enter new category:", initialvalue=expense["category"])
+
+            if new_description and new_amount and new_category:
+                updated_data = {
+                    "description": new_description,
+                    "amount": new_amount,
+                    "category": new_category
+                }
+                response = requests.put(f"{API_BASE_URL}/expenses/edit/{expense['id']}", json=updated_data)
+                if response.status_code == 200:
+                    messagebox.showinfo("Success", "Expense updated successfully!")
+                    self.fetch_expenses()
                 else:
-                    st.info("No expenses found. Start adding your expenses!")
-            else:
-                st.error(response.json().get("error", "Failed to fetch expenses."))
+                    messagebox.showerror("Error", "Failed to update expense.")
         except Exception as e:
-            st.error("An error occurred while fetching expenses.")
-            st.exception(e)
+            messagebox.showerror("Error", f"Error editing expense: {e}")
 
-    # Expense Summary Section
-    st.subheader("Expense Overview")
-    with st.spinner("Calculating expense summary..."):
+    def delete_expense(self):
         try:
-            response = requests.get(f"{API_BASE_URL}/expenses/summary/{user_id}")
-            if response.status_code == 200:
-                summary = response.json()
-                st.write(f"**Total Expenses:** ${summary.get('total_expenses', 0):,.2f}")
-                st.write(f"**Number of Entries:** {summary.get('num_entries', 0)}")
-            else:
-                st.error(response.json().get("error", "Failed to fetch expense summary."))
-        except Exception as e:
-            st.error("An error occurred while calculating expense summary.")
-            st.exception(e)
+            selected = self.expense_listbox.curselection()
+            if not selected:
+                messagebox.showwarning("Warning", "Please select an expense to delete.")
+                return
 
-    # Visual Summary Section
-    st.subheader("Expenses Breakdown")
-    with st.spinner("Generating visual charts..."):
-        try:
-            response = requests.get(f"{API_BASE_URL}/expenses/breakdown/{user_id}")
-            if response.status_code == 200:
-                breakdown = response.json().get("breakdown", {})
-                if breakdown:
-                    df_breakdown = pd.DataFrame(list(breakdown.items()), columns=["Category", "Amount"])
-                    st.bar_chart(df_breakdown.set_index("Category"))
+            index = selected[0]
+            expense = self.expenses[index]
+
+            confirm = messagebox.askyesno("Confirm Deletion", f"Are you sure you want to delete expense '{expense['description']}'?")
+            if confirm:
+                response = requests.delete(f"{API_BASE_URL}/expenses/delete/{expense['id']}")
+                if response.status_code == 200:
+                    messagebox.showinfo("Success", "Expense deleted successfully!")
+                    self.fetch_expenses()
                 else:
-                    st.info("No data available for expense breakdown.")
-            else:
-                st.error(response.json().get("error", "Failed to fetch expense breakdown."))
+                    messagebox.showerror("Error", "Failed to delete expense.")
         except Exception as e:
-            st.error("An error occurred while generating visual charts.")
-            st.exception(e)
+            messagebox.showerror("Error", f"Error deleting expense: {e}")
+
+if __name__ == "__main__":
+    app = ExpenseDashboard()
+    app.mainloop()

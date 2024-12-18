@@ -9,6 +9,7 @@ import PasswordResetScreen from "../screens/PasswordResetScreen";
 import DashboardScreen from "../screens/DashboardScreen";
 import MileageTrackingScreen from "../screens/MileageTrackingScreen";
 import ReportsScreen from "../screens/ReportsScreen";
+import ExpensesScreen from "../screens/ExpensesScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -44,6 +45,10 @@ const AppNavigator = () => {
           component={MileageTrackingScreen}
           options={{ title: "Mileage Tracking" }}
         />
+        <Stack.Screen 
+        name="Expenses" component={ExpensesScreen} 
+        options={{ title: "Manage Expenses" }} />;
+
         <Stack.Screen
           name="Reports"
           component={ReportsScreen}
@@ -55,3 +60,7 @@ const AppNavigator = () => {
 };
 
 export default AppNavigator;
+
+
+
+
