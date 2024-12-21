@@ -47,7 +47,14 @@ class ProfilePage:
         st.subheader("Profile Information")
         
         # Profile tabs
-        tabs = st.tabs(["Basic Info", "Tax Settings", "Tax Documents", "Security", "Data Management"])
+        tabs = st.tabs([
+            "Basic Info",
+            "Tax Settings",
+            "Gig Platforms",
+            "Tax Documents",
+            "Security",
+            "Data Management"
+        ])
         
         with tabs[0]:
             self.render_basic_info()
@@ -56,12 +63,15 @@ class ProfilePage:
             self.render_tax_settings()
             
         with tabs[2]:
-            self.render_tax_documents()
+            self.render_gig_platforms()
             
         with tabs[3]:
-            self.render_security_settings()
+            self.render_tax_documents()
             
         with tabs[4]:
+            self.render_security_settings()
+            
+        with tabs[5]:
             self.render_data_management()
 
     def validate_email(self, email):
@@ -223,6 +233,42 @@ class ProfilePage:
                 st.error("New passwords do not match")
             else:
                 self.update_password(current_password, new_password)
+
+    def render_gig_platforms(self):
+        """Render gig platform management section"""
+        st.subheader("Gig Platform Management")
+        
+        try:
+            # Fetch connected platforms
+            connected_platforms = fetch_connected_platforms(self.user_id)
+            
+            if connected_platforms:
+                st.write("Connected Platforms:")
+                for platform in connected_platforms:
+                    with st.expander(f"{platform['platform'].title()} Settings"):
+                        # Platform status
+                        status = validate_platform_connection(self.user_id, platform['platform'])
+                        if status.connected:
+                            st.success("Connected")
+                            if status.last_sync:
+                                st.write(f"Last synced: {status.last_sync.strftime('%Y-%m-%d %H:%M:%S')}")
+                        else:
+                            st.error("Connection error")
+                            if status.error:
+                                st.write(f"Error: {status.error}")
+                        
+                        # Sync settings
+                        auto_sync = st.checkbox("Enable auto-sync", key=f"auto_sync_{platform['platform']}")
+                        sync_frequency = st.select_slider(
+                            "Sync frequency",
+                            options=["Daily", "Weekly", "Monthly"],
+                            key=f"sync_freq_{platform['platform']}"
+                        )
+            else:
+                st.info("No platforms connected yet.")
+                
+        except Exception as e:
+            st.error(f"Error loading gig platforms: {str(e)}")
 
 if __name__ == "__main__":
     profile_page_instance = ProfilePage()

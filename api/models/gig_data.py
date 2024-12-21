@@ -42,6 +42,20 @@ class GigData:
             )
         """)
 
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS gig_sync_status (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                platform TEXT NOT NULL,
+                last_sync TIMESTAMP,
+                sync_status TEXT,
+                error_message TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users (id),
+                UNIQUE(user_id, platform)
+            )
+        """)
+
         conn.commit()
         conn.close()
 
@@ -103,3 +117,26 @@ class GigData:
         except Exception as e:
             logging.error(f"Error storing earnings: {e}")
             return None
+
+    def update_sync_status(self, user_id: int, platform: str, status: str, error: str = None) -> bool:
+        """Update platform sync status"""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            cursor.execute("""
+                INSERT INTO gig_sync_status (user_id, platform, last_sync, sync_status, error_message)
+                VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?)
+                ON CONFLICT(user_id, platform) 
+                DO UPDATE SET 
+                    last_sync=CURRENT_TIMESTAMP,
+                    sync_status=excluded.sync_status,
+                    error_message=excluded.error_message
+            """, (user_id, platform, status, error))
+            
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            logging.error(f"Error updating sync status: {e}")
+            return False

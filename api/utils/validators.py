@@ -17,6 +17,25 @@ def validate_phone(phone: str) -> bool:
     pattern = r'^\+?1?\d{9,15}$'
     return bool(re.match(pattern, phone))
 
+def validate_platform(platform: str) -> bool:
+    """Validate gig platform name"""
+    valid_platforms = {'uber', 'lyft', 'doordash', 'instacart', 'upwork', 'fiverr'}
+    return platform.lower() in valid_platforms
+
+def validate_platform_data(data: Dict[str, Any]) -> Optional[Dict[str, str]]:
+    """Validate platform data structure"""
+    errors = {}
+    
+    required_fields = ['platform', 'user_id', 'access_token']
+    for field in required_fields:
+        if field not in data:
+            errors[field] = f"Missing required field: {field}"
+            
+    if errors:
+        return errors
+        
+    return None
+
 def validate_expense(data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """Validate expense data"""
     errors = {}

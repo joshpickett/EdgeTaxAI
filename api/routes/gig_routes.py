@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, redirect
 import logging
 import os
+from ..utils.retry_handler import with_retry
 import requests
 from typing import Optional, Dict, Any, Tuple
 from ..utils.api_config import APIConfig
@@ -21,6 +22,27 @@ OAUTH_URLS = {
     "lyft": "https://api.lyft.com/oauth/authorize",
     "upwork": "https://www.upwork.com/ab/account-security/oauth2/authorize"
 }
+
+class GigPlatformError(Exception):
+    """Custom exception for gig platform operations"""
+    def __init__(self, message: str, platform: str, error_code: Optional[str] = None):
+        self.message = message
+        self.platform = platform
+        self.error_code = error_code
+        super().__init__(self.message)
+
+def handle_platform_error(error: Exception) -> Tuple[Dict[str, Any], int]:
+    """Handle platform-specific errors"""
+    if isinstance(error, GigPlatformError):
+        return jsonify({
+            "error": error.message,
+            "platform": error.platform,
+            "error_code": error.error_code
+        }), 400
+    return jsonify({
+        "error": "Internal server error",
+        "details": str(error)
+    }), 500
 
 # OAuth Configuration
 OAUTH_CONFIG = {
@@ -55,27 +77,6 @@ VALID_PLATFORMS = {"uber", "lyft", "doordash", "instacart", "upwork", "fiverr"}
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class GigPlatformError(Exception):
-    """Custom exception for gig platform errors"""
-    def __init__(self, message: str, platform: str, error_code: Optional[str] = None):
-        self.message = message
-        self.platform = platform
-        self.error_code = error_code
-        super().__init__(self.message)
-
-def handle_platform_error(error: Exception) -> Tuple[Dict[str, Any], int]:
-    """Handle platform-specific errors"""
-    if isinstance(error, GigPlatformError):
-        return jsonify({
-            "error": error.message,
-            "platform": error.platform,
-            "error_code": error.error_code
-        }), 400
-    return jsonify({
-        "error": "Internal server error",
-        "details": str(error)
-    }), 500
-
 def get_oauth_url(platform: str) -> Optional[str]:
     """Get OAuth URL for platform with proper configuration."""
     try:
@@ -96,25 +97,28 @@ def get_oauth_url(platform: str) -> Optional[str]:
         logging.error(f"Error generating OAuth URL for {platform}: {e}")
         return None
 
+@with_retry(max_attempts=3, initial_delay=1.0)
 @gig_routes.route("/gig/connect/<platform>", methods=["GET"])
 def connect_platform(platform):
     try:
         platform = platform.lower()
         if not validate_platform(platform):
-            logging.error(f"Invalid platform specified: {platform}")
-            return jsonify({"error": f"Invalid platform: {platform}"}), 400
+            raise GigPlatformError(f"Invalid platform: {platform}", platform)
             
         oauth_url = get_oauth_url(platform)
         if not oauth_url:
-            logging.error(f"Failed to generate OAuth URL for platform: {platform}")
-            return jsonify({"error": "Failed to generate OAuth URL"}), 400
+            raise GigPlatformError("Failed to generate OAuth URL", platform)
             
-        logging.info(f"Redirecting to OAuth URL for {platform}: {oauth_url}")
-        return redirect(oauth_url)
+    except GigPlatformError as e:
+        return handle_platform_error(e)
     except Exception as e:
-        logging.error(f"Error in platform connection: {str(e)}")
-        return jsonify({"error": "Failed to connect platform"}), 500
+        logging.error(f"Platform connection error: {e}")
+        return handle_platform_error(e)
 
+    logging.info(f"Redirecting to OAuth URL for {platform}: {oauth_url}")
+    return redirect(oauth_url)
+
+@with_retry(max_attempts=3, initial_delay=1.0)
 @gig_routes.route("/gig/callback", methods=["POST"])
 def oauth_callback():
     data = request.json
@@ -155,6 +159,7 @@ def oauth_callback():
         logger.error(f"OAuth callback failed: {str(e)}")
         return jsonify({"error": "OAuth callback failed"}), 500
 
+@with_retry(max_attempts=3, initial_delay=1.0)
 @gig_routes.route("/gig/connections", methods=["GET"])
 def list_connections():
     user_id = request.args.get("user_id")
@@ -169,6 +174,7 @@ def list_connections():
         logger.error(f"Failed to fetch connections: {str(e)}")
         return jsonify({"error": "Failed to fetch connections"}), 500
 
+@with_retry(max_attempts=3, initial_delay=1.0)
 @gig_routes.route("/gig/fetch-data", methods=["GET"])
 def fetch_data():
     user_id = request.args.get("user_id")
@@ -194,6 +200,7 @@ def fetch_data():
         logger.error(f"Failed to fetch data: {str(e)}")
         return jsonify({"error": "Failed to fetch data"}), 500
 
+@with_retry(max_attempts=3, initial_delay=1.0)
 @gig_routes.route("/gig/exchange-token", methods=["POST"])
 def exchange_token():
     """Exchange OAuth code for access token."""
@@ -212,6 +219,7 @@ def exchange_token():
         logging.error(f"Token exchange error: {str(e)}")
         return jsonify({"error": "Failed to exchange token"}), 500
 
+@with_retry(max_attempts=3, initial_delay=1.0)
 @gig_routes.route("/refresh-token", methods=["POST"])
 def refresh_token():
     """Refresh OAuth token for platform"""

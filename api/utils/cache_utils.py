@@ -1,9 +1,9 @@
 import redis
 import json
 import logging
+from datetime import timedelta
 from typing import Optional, Any, Dict
 from functools import wraps
-from datetime import timedelta
 
 # Configure Redis client
 redis_client = redis.Redis(
@@ -32,7 +32,17 @@ class CacheManager:
                 return json.loads(value)
             return None
         except Exception as e:
-            logging.error(f"Cache get error: {str(e)}")
+            logging.error(f"Cache error: {e}")
+            return None
+
+    def get_platform_data(self, user_id: int, platform: str) -> Optional[Dict[str, Any]]:
+        """Get cached platform data"""
+        try:
+            key = f"platform_data:{user_id}:{platform}"
+            data = redis_client.get(key)
+            return json.loads(data) if data else None
+        except Exception as e:
+            logging.error(f"Cache get error: {e}")
             return None
 
     def set(self, key: str, value: Any, timeout: Optional[int] = None) -> bool:
@@ -48,12 +58,35 @@ class CacheManager:
             logging.error(f"Cache set error: {str(e)}")
             return False
 
+    def set_platform_data(self, user_id: int, platform: str, data: Dict[str, Any], 
+                         timeout: int = 3600) -> bool:
+        """Cache platform data with TTL"""
+        try:
+            key = f"platform_data:{user_id}:{platform}"
+            return redis_client.setex(
+                key,
+                timeout,
+                json.dumps(data)
+            )
+        except Exception as e:
+            logging.error(f"Cache set error: {e}")
+            return False
+
     def delete(self, key: str) -> bool:
         """Remove value from cache."""
         try:
             return redis_client.delete(key) > 0
         except Exception as e:
             logging.error(f"Cache delete error: {str(e)}")
+            return False
+
+    def invalidate_platform_cache(self, user_id: int, platform: str) -> bool:
+        """Invalidate platform cache"""
+        try:
+            key = f"platform_data:{user_id}:{platform}"
+            return redis_client.delete(key) > 0
+        except Exception as e:
+            logging.error(f"Cache invalidation error: {e}")
             return False
 
 def cache_response(timeout: int = 3600):
