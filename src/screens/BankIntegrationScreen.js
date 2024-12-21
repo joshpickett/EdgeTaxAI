@@ -2,22 +2,22 @@ import React, { useState } from "react";
 import {
   View,
   Text,
-  TextInput,
   Button,
   FlatList,
   StyleSheet,
   Alert,
   ActivityIndicator,
 } from "react-native";
-import {
-  connectBankAccount,
-  getBankTransactions,
-} from "../services/bankService";
+import { bankService } from "../services/bankService";
+import { useSelector } from 'react-redux';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 const BankIntegrationScreen = ({ userId }) => {
   const [bankName, setBankName] = useState("");
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [startDate, setStartDate] = useState(new Date());
+  const [endDate, setEndDate] = useState(new Date());
 
   // Connect Bank Account
   const handleConnectBank = async () => {
@@ -28,7 +28,7 @@ const BankIntegrationScreen = ({ userId }) => {
 
     try {
       setLoading(true);
-      const response = await connectBankAccount(userId, bankName);
+      const response = await bankService.getLinkToken(userId);
       Alert.alert("Success", response.message || "Bank account connected successfully!");
     } catch (error) {
       console.error("Error connecting bank account:", error.message);
@@ -42,7 +42,11 @@ const BankIntegrationScreen = ({ userId }) => {
   const handleFetchTransactions = async () => {
     try {
       setLoading(true);
-      const data = await getBankTransactions(userId);
+      const data = await bankService.getTransactions({
+        start_date: startDate.toISOString().split('T')[0],
+        end_date: endDate.toISOString().split('T')[0],
+        user_id: userId
+      });
       setTransactions(data.transactions || []);
     } catch (error) {
       console.error("Error fetching transactions:", error.message);
@@ -50,6 +54,24 @@ const BankIntegrationScreen = ({ userId }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCheckBalance = async () => {
+    try {
+      setLoading(true);
+      const data = await bankService.getBalance(userId);
+      Alert.alert("Account Balance", `Current Balance: $${data.balance}`);
+    } catch (error) {
+      console.error("Error checking balance:", error.message);
+      Alert.alert("Error", "Failed to fetch balance.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDateRangeSelect = (start, end) => {
+    setStartDate(start);
+    setEndDate(end);
   };
 
   return (
@@ -66,6 +88,14 @@ const BankIntegrationScreen = ({ userId }) => {
 
       {/* Connect Bank Account Button */}
       <Button title="Connect Bank Account" onPress={handleConnectBank} color="#007BFF" />
+
+      {/* Check Balance Button */}
+      <View style={styles.balanceButton}>
+        <Button title="Check Balance" onPress={handleCheckBalance} color="#28A745" />
+      </View>
+
+      {/* Date Range Picker */}
+      <DateRangePicker onSelect={handleDateRangeSelect} />
 
       {/* Fetch Transactions Button */}
       <View style={styles.fetchButton}>
@@ -111,6 +141,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
   },
   fetchButton: { marginTop: 10 },
+  balanceButton: { marginTop: 10 },
   transactionsContainer: { marginTop: 20 },
   subtitle: { fontSize: 18, fontWeight: "bold", marginBottom: 10 },
   transactionItem: {

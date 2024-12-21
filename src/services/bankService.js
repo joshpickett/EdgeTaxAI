@@ -1,30 +1,65 @@
-const BASE_URL = "https://your-backend-api.com/api/banks";
+import { apiClient } from './apiClient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Connect Bank Account
-export const connectBankAccount = async (userId, bankName) => {
-  try {
-    const response = await fetch(`${BASE_URL}/connect`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: userId, bank_name: bankName }),
-    });
-
-    if (!response.ok) throw new Error("Failed to connect bank account.");
-    return await response.json();
-  } catch (error) {
-    console.error("Error connecting bank account:", error.message);
-    throw error;
+class BankService {
+  constructor() {
+    this.baseUrl = '/api/banks/plaid';
   }
-};
 
-// Fetch Bank Transactions
-export const getBankTransactions = async (userId) => {
-  try {
-    const response = await fetch(`${BASE_URL}/transactions/${userId}`);
-    if (!response.ok) throw new Error("Failed to fetch transactions.");
-    return await response.json();
-  } catch (error) {
-    console.error("Error fetching bank transactions:", error.message);
-    throw error;
+  async getLinkToken(userId) {
+    try {
+      const response = await apiClient.post(`${this.baseUrl}/link-token`, { user_id: userId });
+      return response.data.link_token;
+    } catch (error) {
+      console.error('Error getting link token:', error);
+      throw error;
+    }
   }
-};
+
+  async exchangeToken(publicToken, userId) {
+    try {
+      const response = await apiClient.post(`${this.baseUrl}/exchange-token`, {
+        public_token: publicToken,
+        user_id: userId
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error exchanging token:', error);
+      throw error;
+    }
+  }
+
+  async getTransactions(params) {
+    try {
+      const response = await apiClient.get(`${this.baseUrl}/transactions`, { params });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+      throw error;
+    }
+  }
+
+  async getBalance(userId) {
+    try {
+      const response = await apiClient.get(`${this.baseUrl}/balance`, {
+        params: { user_id: userId }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching balance:', error);
+      throw error;
+    }
+  }
+
+  async disconnectBank(userId) {
+    try {
+      const response = await apiClient.post(`${this.baseUrl}/disconnect`, { user_id: userId });
+      return response.data;
+    } catch (error) {
+      console.error('Error disconnecting bank:', error);
+      throw error;
+    }
+  }
+}
+
+export const bankService = new BankService();

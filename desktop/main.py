@@ -1,5 +1,6 @@
 import streamlit as st
 import requests
+from bank_integration import bank_integration_page
 from login_page import show_login_page  # Import the login page logic
 
 # Check if user is logged in
@@ -20,7 +21,7 @@ def main():
     st.sidebar.title("Navigation")
     menu = st.sidebar.radio(
         "Go to",
-        ["Dashboard", "Reports", "Tax Optimization", "Logout"]
+        ["Dashboard", "Bank Integration", "Reports", "Tax Optimization", "Logout"]
     )
 
     # Logout Button in Sidebar
@@ -35,6 +36,10 @@ def main():
         st.subheader("Dashboard")
         st.write("This is the dashboard where you can manage your expenses and tax optimization.")
 
+    # Bank Integration
+    elif menu == "Bank Integration":
+        bank_integration_page()
+        
     # Reports
     elif menu == "Reports":
         st.subheader("Reports")
