@@ -13,6 +13,9 @@ client = vision.ImageAnnotatorClient()
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+def allowed_file_extension(filename, allowed_extensions):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_extensions
+
 @ocr_bp.route("/ocr/receipt", methods=["POST"])
 def process_receipt():
     """
@@ -20,6 +23,11 @@ def process_receipt():
     """
     if "receipt" not in request.files:
         return jsonify({"error": "No receipt file provided"}), 400
+
+    # Validate file type
+    allowed_extensions = {'png', 'jpg', 'jpeg', 'pdf'}
+    if not allowed_file_extension(request.files["receipt"].filename, allowed_extensions):
+        return jsonify({"error": "Invalid file type. Allowed types: PNG, JPG, JPEG, PDF"}), 400
 
     file = request.files["receipt"]
     if file.filename == "":

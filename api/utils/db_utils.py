@@ -17,7 +17,17 @@ DATABASE_FILE = "database.db"
 # --- Database Connection ---
 def get_db_connection():
     """Establish a database connection using the DATABASE environment variable."""
-    db_path = os.getenv("DATABASE", "default_database.db")  # Fallback if DATABASE not set
+    db_path = os.getenv("DATABASE", "default_database.db")
+    
+    # Ensure database directory exists
+    db_dir = os.path.dirname(db_path)
+    if db_dir and not os.path.exists(db_dir):
+        try:
+            os.makedirs(db_dir)
+        except OSError as e:
+            logging.error(f"Failed to create database directory: {e}")
+            return None
+            
     print(f"Connecting to database at: {db_path}")  # Debugging output
     return sqlite3.connect(db_path)
 
@@ -40,11 +50,10 @@ def save_otp_for_user(identifier, otp_code):
     """
     conn = get_db_connection()
     if conn is None:
-        logging.error("Failed to save OTP: Database connection could not be established.")
-        return
+        raise Exception("Database connection failed")
+    cursor = conn.cursor()
     try:
         expiry_time = datetime.datetime.now() + datetime.timedelta(minutes=5)  # OTP valid for 5 minutes
-        cursor = conn.cursor()
         cursor.execute(
             """
             UPDATE users 
@@ -149,4 +158,3 @@ def send_sms(phone_number, message):
     except Exception as e:
         logging.error(f"Failed to send SMS to {phone_number}: {e}")
         raise Exception(f"Failed to send SMS: {e}")
-

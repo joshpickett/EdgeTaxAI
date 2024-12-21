@@ -86,11 +86,10 @@ def create_link_token():
         )
         response = plaid_client.link_token_create(request_data)
         link_token = response.link_token
-
-        logging.info(f"Link token generated for User ID: {user_id}")
+        logging.info(f"Generated Plaid link token for user {user_id}")
         return jsonify({"link_token": link_token})
     except ApiException as e:
-        logging.error(f"Error generating Plaid link token: {e}")
+        logging.error(f"Plaid API error: {str(e)}")
         return jsonify({"error": "Failed to generate Plaid link token."}), 500
 
 # 2. Exchange Public Token for Access Token

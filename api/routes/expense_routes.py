@@ -69,6 +69,16 @@ def add_expense():
     If date is not provided, it defaults to the current date.
     """
     data = request.json
+    
+    # Enhanced input validation
+    required_fields = ['user_id', 'description', 'amount']
+    for field in required_fields:
+        if field not in data:
+            return jsonify({"error": f"Missing required field: {field}"}), 400
+            
+    if not isinstance(data['amount'], (int, float)) or data['amount'] <= 0:
+        return jsonify({"error": "Amount must be a positive number"}), 400
+
     user_id = data.get("user_id")
     description = data.get("description", "").strip() or "General"
     amount = data.get("amount")
@@ -77,8 +87,6 @@ def add_expense():
     # Input Validation
     if not isinstance(user_id, int) or user_id <= 0:
         return jsonify({"error": "Invalid user ID"}), 400
-    if not isinstance(amount, (int, float)) or amount <= 0:
-        return jsonify({"error": "Amount must be a positive number"}), 400
 
     try:
         conn = get_db_connection()

@@ -2,16 +2,25 @@ import React, { useState } from "react";
 import { View, Text, TextInput, StyleSheet, Alert } from "react-native";
 import CustomButton from "../components/CustomButton";
 import { sendLoginOTP, verifyLoginOTP } from "../services/api"; // Updated API functions
+import { validateEmail, validatePhone } from "../utils/validation";
 
 const LoginScreen = ({ navigation }) => {
   const [identifier, setIdentifier] = useState(""); // Email or Phone
   const [otp, setOtp] = useState("");
   const [isOtpSent, setIsOtpSent] = useState(false);
+  const [errors, setErrors] = useState({});
 
-  // Step 1: Send OTP for Login
+  // Validate before sending OTP
   const handleSendOTP = async () => {
-    if (!identifier) {
-      Alert.alert("Error", "Please enter your email or phone number.");
+    // Clear previous errors
+    setErrors({});
+
+    // Validate input
+    const emailError = validateEmail(identifier);
+    const phoneError = validatePhone(identifier);
+    
+    if (emailError && phoneError) {
+      setErrors({ identifier: "Please enter a valid email or phone number" });
       return;
     }
 
@@ -63,6 +72,7 @@ const LoginScreen = ({ navigation }) => {
         keyboardType="email-address"
         editable={!isOtpSent} // Prevent editing after OTP is sent
       />
+      {errors.identifier && <Text style={styles.errorText}>{errors.identifier}</Text>}
 
       {/* Input for OTP */}
       {isOtpSent && (
@@ -104,6 +114,12 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     marginBottom: 15,
     backgroundColor: "#fff",
+  },
+  errorText: {
+    color: '#ff0000',
+    fontSize: 12,
+    marginTop: -10,
+    marginBottom: 10,
   },
   signupText: { textAlign: "center", color: "#007BFF", marginTop: 20 },
 });

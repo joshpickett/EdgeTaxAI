@@ -3,16 +3,25 @@ import { View, Text, StyleSheet, Alert } from "react-native";
 import InputField from "../components/InputField";
 import CustomButton from "../components/CustomButton";
 import { sendSignupOTP, verifySignupOTP } from "../services/api";
+import { validateEmail, validatePhone } from "../utils/validation";
 
 const SignupScreen = ({ navigation }) => {
   const [identifier, setIdentifier] = useState(""); // Email or phone number
   const [otp, setOtp] = useState("");
   const [isOtpSent, setIsOtpSent] = useState(false); // Tracks if OTP has been sent
+  const [errors, setErrors] = useState({});
 
   // Step 1: Send OTP for Signup
   const handleSendOTP = async () => {
-    if (!identifier) {
-      Alert.alert("Error", "Please enter your email or phone number.");
+    // Clear previous errors
+    setErrors({});
+    
+    // Validate input
+    const emailError = validateEmail(identifier);
+    const phoneError = validatePhone(identifier);
+    
+    if (emailError && phoneError) {
+      setErrors({ identifier: "Please enter a valid email or phone number" });
       return;
     }
 
@@ -63,6 +72,7 @@ const SignupScreen = ({ navigation }) => {
         onChangeText={setIdentifier}
         keyboardType="email-address"
         editable={!isOtpSent} // Prevent editing after OTP is sent
+        error={errors.identifier}
       />
 
       {/* OTP Input */}
@@ -99,4 +109,3 @@ const styles = StyleSheet.create({
 });
 
 export default SignupScreen;
-

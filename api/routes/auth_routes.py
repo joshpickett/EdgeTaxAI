@@ -5,6 +5,7 @@ from twilio.rest import Client
 import random
 import os
 import re  # Added for validation
+import logging  # Added for logging
 
 # Blueprint Setup
 auth_bp = Blueprint("auth", __name__)
@@ -16,6 +17,11 @@ DATABASE_FILE = os.getenv("DB_PATH", "database.db")
 def get_db_connection():
     """Establish a connection to the database."""
     conn = sqlite3.connect(DATABASE_FILE)
+    try:
+        conn.execute('SELECT 1')  # Test connection
+    except sqlite3.Error as e:
+        logging.error(f"Database connection error: {e}")
+        return None
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -39,6 +45,8 @@ def save_otp_for_user(identifier, otp_code):
     expiry_time = (datetime.now() + timedelta(minutes=5)).strftime("%Y-%m-%d %H:%M:%S.%f")
 
     conn = get_db_connection()
+    if conn is None:
+        raise Exception("Database connection failed")
     cursor = conn.cursor()
     cursor.execute(
         "UPDATE users SET otp_code = ?, otp_expiry = ? WHERE email = ? OR phone_number = ?",
