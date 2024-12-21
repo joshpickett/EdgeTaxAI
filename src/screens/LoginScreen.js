@@ -1,20 +1,29 @@
-import React, { useState } from "react";
-import { View, Text, TextInput, StyleSheet, Alert } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Text, TextInput, StyleSheet, Alert, Platform } from "react-native";
 import { useDispatch, useSelector } from 'react-redux';
 import CustomButton from "../components/CustomButton";
-import { loginUser, verifyOTP } from '../store/slices/authSlice';
+import LoadingState from "../components/LoadingState";
+import ErrorMessage from "../components/ErrorMessage";
+import { loginUser, verifyOTP, verifyBiometric } from '../store/slices/authSlice';
 import { RootState } from '../store';
 import { validateEmail, validatePhone } from "../utils/validation";
+import * as LocalAuthentication from 'expo-local-authentication';
 
 const LoginScreen = ({ navigation }) => {
   const [identifier, setIdentifier] = useState(""); // Email or Phone
   const [otp, setOtp] = useState("");
+  const [isBiometricSupported, setIsBiometricSupported] = useState(false);
   const [errors, setErrors] = useState({});
   
   const dispatch = useDispatch();
   const { loading, error, otpSent } = useSelector(
     (state: RootState) => state.auth
   );
+
+  // Check biometric support on component mount
+  useEffect(() => {
+    checkBiometricSupport();
+  }, []);
 
   // Validate before sending OTP
   const handleSendOTP = async () => {
@@ -64,9 +73,42 @@ const LoginScreen = ({ navigation }) => {
     }
   };
 
+  // Check if device supports biometric authentication
+  const checkBiometricSupport = async () => {
+    const compatible = await LocalAuthentication.hasHardwareAsync();
+    setIsBiometricSupported(compatible);
+  };
+
+  // Handle biometric authentication
+  const handleBiometricAuth = async () => {
+    try {
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Login with biometrics',
+        fallbackLabel: 'Use OTP instead'
+      });
+
+      if (result.success) {
+        // Verify with backend
+        const biometricResult = await dispatch(verifyBiometric()).unwrap();
+        if (biometricResult) {
+          navigation.navigate("Dashboard");
+        }
+      }
+    } catch (error) {
+      console.error('Biometric auth error:', error);
+      Alert.alert('Error', 'Biometric authentication failed');
+    }
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Login with OTP</Text>
+      
+      {loading && <LoadingState />}
+      
+      {error && (
+        <ErrorMessage message={error} type="error" />
+      )}
 
       {/* Input for Email or Phone */}
       <TextInput
@@ -98,6 +140,15 @@ const LoginScreen = ({ navigation }) => {
         <CustomButton title="Verify OTP" onPress={handleVerifyOTP} />
       )}
 
+      {/* Biometric Authentication Option */}
+      {isBiometricSupported && !otpSent && (
+        <CustomButton
+          title="Login with Biometrics"
+          onPress={handleBiometricAuth}
+          style={styles.biometricButton}
+        />
+      )}
+
       {/* Navigation to Signup */}
       <Text
         style={styles.signupText}
@@ -119,6 +170,10 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     marginBottom: 15,
     backgroundColor: "#fff",
+  },
+  biometricButton: {
+    marginTop: 10,
+    backgroundColor: "#4CAF50",
   },
   errorText: {
     color: '#ff0000',

@@ -1,111 +1,97 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, Alert } from "react-native";
-import InputField from "../components/InputField";
+import { View, Text, TextInput, StyleSheet, Alert, ScrollView } from "react-native";
+import { useDispatch, useSelector } from 'react-redux';
 import CustomButton from "../components/CustomButton";
-import { sendSignupOTP, verifySignupOTP } from "../services/api";
+import LoadingState from "../components/LoadingState";
+import ErrorMessage from "../components/ErrorMessage";
+import InputField from "../components/InputField";
+import { signupUser, verifyOTP } from '../store/slices/authSlice';
 import { validateEmail, validatePhone } from "../utils/validation";
 
-const SignupScreen = ({ navigation }) => {
-  const [identifier, setIdentifier] = useState(""); // Email or phone number
+const SignupScreen = () => {
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
-  const [isOtpSent, setIsOtpSent] = useState(false); // Tracks if OTP has been sent
-  const [errors, setErrors] = useState({});
+  const [formErrors, setFormErrors] = useState({});
+   
+  const dispatch = useDispatch();
+  const { loading, error, otpSent } = useSelector((state) => state.auth);
 
-  // Step 1: Send OTP for Signup
-  const handleSendOTP = async () => {
-    // Clear previous errors
-    setErrors({});
-    
-    // Validate input
-    const emailError = validateEmail(identifier);
-    const phoneError = validatePhone(identifier);
-    
-    if (emailError && phoneError) {
-      setErrors({ identifier: "Please enter a valid email or phone number" });
-      return;
-    }
-
+  const handleSignup = async () => {
     try {
-      const result = await sendSignupOTP(identifier); // Call API to send OTP
-      if (result.success) {
-        setIsOtpSent(true);
-        Alert.alert("OTP Sent", "Please check your email or phone for the OTP.");
-      } else {
-        Alert.alert("Error", result.message || "Unable to send OTP.");
+      // Validate inputs
+      const emailError = validateEmail(email);
+      const phoneError = validatePhone(phone);
+      
+      if (emailError && phoneError) {
+        setFormErrors({
+          email: emailError,
+          phone: phoneError
+        });
+        return;
+      }
+      
+      setFormErrors({});
+ 
+      const identifier = email || phone;
+      
+      const result = await dispatch(signupUser({ identifier })).unwrap();
+      if (result) {
+        Alert.alert("Success", "OTP sent for verification");
       }
     } catch (error) {
-      console.error("Send OTP Error:", error);
-      Alert.alert("Error", "Failed to send OTP. Please try again.");
-    }
-  };
-
-  // Step 2: Verify OTP
-  const handleVerifyOTP = async () => {
-    if (!otp) {
-      Alert.alert("Error", "Please enter the OTP.");
-      return;
-    }
-
-    try {
-      const result = await verifySignupOTP(identifier, otp); // Call API to verify OTP
-      if (result.success) {
-        Alert.alert("Signup Successful!", "Your account has been created.");
-        navigation.navigate("Login"); // Redirect to Login
-      } else {
-        Alert.alert("Error", result.message || "Invalid or expired OTP.");
-      }
-    } catch (error) {
-      console.error("Verify OTP Error:", error);
-      Alert.alert("Error", "Failed to verify OTP. Please try again.");
+      Alert.alert("Error", error.message);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Sign Up</Text>
+    <ScrollView style={styles.container}>
+      <Text style={styles.title}>Create Account</Text>
 
-      {/* Input for Email or Phone */}
+      {loading && <LoadingState />}
+      {error && <ErrorMessage message={error} type="error" />}
+      
       <InputField
-        label="Email or Phone Number"
-        placeholder="Enter your email or phone number"
-        value={identifier}
-        onChangeText={setIdentifier}
+        label="Email"
+        placeholder="Enter your email"
+        value={email}
+        onChangeText={setEmail}
         keyboardType="email-address"
-        editable={!isOtpSent} // Prevent editing after OTP is sent
-        error={errors.identifier}
+        error={formErrors.email}
       />
 
-      {/* OTP Input */}
-      {isOtpSent && (
-        <InputField
-          label="OTP Code"
-          placeholder="Enter the OTP"
-          value={otp}
-          onChangeText={setOtp}
-          keyboardType="numeric"
-          maxLength={6}
-        />
-      )}
+      <InputField
+        label="Phone"
+        placeholder="Enter your phone number"
+        value={phone}
+        onChangeText={setPhone}
+        keyboardType="phone-pad"
+        error={formErrors.phone}
+      />
 
-      {/* Buttons */}
-      {!isOtpSent ? (
-        <CustomButton title="Send OTP" onPress={handleSendOTP} />
-      ) : (
-        <CustomButton title="Verify OTP" onPress={handleVerifyOTP} />
-      )}
+      {/* ...rest of the code... */}
 
-      {/* Navigation to Login */}
-      <Text style={styles.loginText} onPress={() => navigation.navigate("Login")}>
-        Already have an account? Login
+      <Text style={styles.footer}>
+        Don't have an account? Login
       </Text>
-    </View>
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, justifyContent: "center" },
-  title: { fontSize: 24, fontWeight: "bold", marginBottom: 20, textAlign: "center" },
-  loginText: { marginTop: 15, textAlign: "center", color: "#007BFF" },
+  container: {
+    flex: 1,
+    padding: 20,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 20,
+  },
+  footer: {
+    marginTop: 20,
+    textAlign: 'center',
+  },
 });
 
 export default SignupScreen;

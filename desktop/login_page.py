@@ -1,66 +1,94 @@
-import streamlit as st
+import streamlit as streamlit
 import requests
-from login_page import show_login_page  # Import the login page logic
+import platform
+import logging
+import keyring
+from utils import validate_input_fields, send_post_request
+from datetime import datetime, timedelta
 
-# Check if user is authenticated (OTP Verified)
-def check_auth():
-    """
-    Check if the user is authenticated. If not, redirect to the login page.
-    """
-    if "user_id" not in st.session_state or not st.session_state["user_id"]:
-        st.warning("Please log in to continue.")
-        show_login_page()  # Show the OTP-based login page
-        st.stop()
+def login_page(api_base_url: str):
+    streamlit.title("Login")
 
-# Logout Function
-def logout():
-    """
-    Clears session state and logs the user out.
-    """
-    st.session_state.clear()  # Clear all session variables
-    st.success("Logged out successfully!")
-    st.experimental_rerun()  # Reload the app to show the login page
+    # State management
+    if 'otp_sent' not in streamlit.session_state:
+        streamlit.session_state.otp_sent = False
+        streamlit.session_state.authenticated = False
 
-# Main Application Function
-def main():
-    """
-    Main application entry point with navigation.
-    """
-    st.title("Welcome to EdgeTaxAI")
+    # Add session expiry check
+    if 'session_expiry' in streamlit.session_state:
+        if datetime.now() > streamlit.session_state.session_expiry:
+            streamlit.session_state.clear()
+            streamlit.warning("Session expired. Please log in again.")
 
-    # Check if the user is logged in
-    check_auth()
+    # Check if biometric authentication is available
+    biometric_available = False
+    if platform.system() in ['Darwin', 'Windows']:  # macOS or Windows
+        try:
+            biometric_available = True
+        except Exception:
+            pass
 
-    # Sidebar Navigation
-    st.sidebar.title("Navigation")
-    menu = st.sidebar.radio(
-        "Go to",
-        ["Dashboard", "Reports", "Tax Optimization", "Logout"]
-    )
+    def handle_send_otp():
+        # Logic to send OTP
+        pass
 
-    # Logout Option
-    if menu == "Logout":
-        logout()
-        return
+    def handle_login(identifier, otp):
+        try:
+            response = requests.post(
+                f"{api_base_url}/auth/login",
+                json={"identifier": identifier, "otp": otp}
+            )
+            return response.status_code == 200
+        except Exception as e:
+            streamlit.error(f"Login failed: {str(e)}")
+            return False
 
-    # Dashboard
-    if menu == "Dashboard":
-        st.subheader("Dashboard")
-        st.write("This is the dashboard where you can manage your expenses and tax optimization.")
+    def handle_biometric_login():
+        try:
+            # Attempt to get stored credentials
+            stored_token = keyring.get_password("taxedgeai", "login_token")
+            if stored_token:
+                response = requests.post(
+                    f"{api_base_url}/auth/biometric/verify",
+                    json={"token": stored_token}
+                )
+                return response.status_code == 200
+            return False
+        except Exception as e:
+            streamlit.error(f"Biometric authentication failed: {str(e)}")
+            return False
 
-    # Reports
-    elif menu == "Reports":
-        st.subheader("Reports")
-        st.write("This is where you can generate and view reports.")
+    if not streamlit.session_state.otp_sent:
+        if streamlit.button("Send OTP"):
+            handle_send_otp()
+            
+        # Show biometric option if available
+        if biometric_available:
+            if streamlit.button("Login with Biometrics"):
+                if handle_biometric_login():
+                    streamlit.success("Login successful!")
+                    streamlit.session_state.authenticated = True
+                    streamlit.session_state.session_expiry = datetime.now() + timedelta(hours=24)
+                    return True
 
-    # Tax Optimization
-    elif menu == "Tax Optimization":
-        st.subheader("Tax Optimization")
-        st.write("View your tax savings and deduction suggestions here.")
+    # Input fields with validation
+    identifier = streamlit.text_input("Identifier (Email or Phone)")
+    otp = streamlit.text_input("OTP")
 
-if __name__ == "__main__":
-    # Initialize user session if not already set
-    if "user_id" not in st.session_state:
-        st.session_state["user_id"] = None
+    # Add remember me checkbox
+    remember_me = streamlit.checkbox("Remember me on this device")
+    
+    if remember_me:
+        try:
+            keyring.set_password("taxedgeai", "last_login", identifier)
+        except Exception as e:
+            logging.error(f"Error saving credentials: {e}")
 
-    main()
+    # OTP verification form
+    if streamlit.session_state.otp_sent:
+        if streamlit.button("Login"):
+            if handle_login(identifier, otp):
+                streamlit.success("Login successful!")
+                streamlit.session_state.authenticated = True
+                streamlit.session_state.session_expiry = datetime.now() + timedelta(hours=24)
+                return True
