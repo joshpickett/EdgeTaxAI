@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from api.utils.config import TAX_RATE, QUARTERLY_TAX_DATES
 from datetime import datetime
+from decimal import Decimal
 import logging
 from ..utils.analytics_helper import calculate_tax_savings, analyze_deductions
 from ..utils.ai_utils import analyze_tax_context
@@ -13,15 +14,15 @@ for tax optimization features. It serves as the central source for tax-related
 computations.
 """
 
-# Tax Brackets (2023)
+# Enhanced tax brackets for more accurate calculations
 TAX_BRACKETS = [
-    (0, 11000, 0.10),
-    (11001, 44725, 0.12),
-    (44726, 95375, 0.22),
-    (95376, 182100, 0.24),
-    (182101, 231250, 0.32),
-    (231251, 578125, 0.35),
-    (578126, float('inf'), 0.37)
+    (Decimal('0'), Decimal('11000'), Decimal('0.10')),
+    (Decimal('11000'), Decimal('44725'), Decimal('0.12')),
+    (Decimal('44725'), Decimal('95375'), Decimal('0.22')),
+    (Decimal('95375'), Decimal('182100'), Decimal('0.24')),
+    (Decimal('182100'), Decimal('231250'), Decimal('0.32')),
+    (Decimal('231250'), Decimal('578125'), Decimal('0.35')),
+    (Decimal('578125'), Decimal('inf'), Decimal('0.37'))
 ]
 
 # Configure Logging
@@ -137,8 +138,8 @@ def quarterly_tax_estimate():
         expenses = cursor.fetchone()[0] or 0
 
         # Calculate estimated tax
-        taxable_income = income - expenses
-        estimated_tax = taxable_income * TAX_RATE
+        taxable_income = max(Decimal('0'), Decimal(income) - Decimal(expenses))
+        estimated_tax = calculate_progressive_tax(taxable_income)
         
         due_date = QUARTERLY_TAX_DATES.get(str(quarter), "Unknown")
 
@@ -147,8 +148,8 @@ def quarterly_tax_estimate():
             "year": year,
             "income": income,
             "expenses": expenses,
-            "taxable_income": taxable_income,
-            "estimated_tax": estimated_tax,
+            "taxable_income": float(taxable_income),
+            "estimated_tax": float(estimated_tax['total_tax']),
             "due_date": due_date
         }), 200
     except Exception as e:
@@ -167,17 +168,17 @@ def calculate_effective_rate():
     """Calculate effective tax rate based on income and deductions"""
     try:
         data = request.json
-        gross_income = float(data.get("gross_income", 0))
-        deductions = float(data.get("deductions", 0))
+        gross_income = Decimal(data.get("gross_income", 0))
+        deductions = Decimal(data.get("deductions", 0))
         
-        taxable_income = max(0, gross_income - deductions)
+        taxable_income = max(Decimal('0'), gross_income - deductions)
         tax_rate, bracket = calculate_tax_bracket(taxable_income)
         
         return jsonify({
-            "taxable_income": taxable_income,
+            "taxable_income": float(taxable_income),
             "tax_bracket": bracket,
-            "tax_rate": tax_rate,
-            "estimated_tax": taxable_income * tax_rate
+            "tax_rate": float(tax_rate),
+            "estimated_tax": float(taxable_income * tax_rate)
         })
     except Exception as e:
         logging.error(f"Error calculating effective tax rate: {str(e)}")
