@@ -5,6 +5,7 @@ import logging
 from ..utils.analytics_helper import calculate_tax_savings
 from ..utils.tax_calculator import TaxCalculator
 from ..utils.db_utils import get_db_connection
+from ..utils.event_system import EventSystem
 
 """
 Core Tax Calculation Module - Centralized tax calculation functionality
@@ -17,6 +18,10 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
+
+# Initialize components
+calculator = TaxCalculator()
+event_system = EventSystem()
 
 # Blueprint Setup
 tax_bp = Blueprint("tax_routes", __name__)
@@ -42,8 +47,17 @@ def estimate_quarterly_tax():
         
         income = cursor.fetchone()[0] or 0
         
-        calculator = TaxCalculator()
         estimate = calculator.calculate_quarterly_tax(Decimal(str(income)), Decimal('0'))
+        
+        # Subscribe to expense events for real-time updates
+        event_system.subscribe('expense_added', lambda data: 
+            update_tax_estimates(data['user_id']))
+            
+        # Publish tax estimate event
+        event_system.publish('tax_estimate_updated', {
+            'user_id': user_id,
+            'estimate': estimate
+        })
         
         return jsonify(estimate), 200
     except Exception as e:
@@ -68,7 +82,6 @@ def real_time_tax_savings():
             return jsonify({"error": "Invalid amount"}), 400
 
         # Use centralized calculation
-        calculator = TaxCalculator()
         savings = calculator.calculate_tax_savings(Decimal(str(amount)))
 
         return jsonify({
@@ -129,7 +142,6 @@ def quarterly_tax_estimate():
         income = Decimal(str(data.get("income", 0)))
         expenses = Decimal(str(data.get("expenses", 0)))
 
-        calculator = TaxCalculator()
         tax_result = calculator.calculate_quarterly_tax(income, expenses)
 
         return jsonify({

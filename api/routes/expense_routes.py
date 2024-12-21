@@ -15,6 +15,7 @@ from ..routes.irs_routes import verify_irs_compliance
 from ..routes.ocr_routes import process_receipt_data
 from ..routes.ocr_routes import extract_receipt_data, analyze_receipt_text
 from ..routes.reports_routes import update_expense_reports
+from ..utils.event_system import EventSystem
 
 # Load environment variables from .env file
 load_dotenv()
@@ -25,6 +26,10 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
+
+# Initialize components
+logging.basicConfig(level=logging.INFO)
+event_system = EventSystem()
 
 # Input validation constants
 MAX_DESCRIPTION_LENGTH = 500
@@ -192,6 +197,14 @@ def add_expense() -> tuple[Dict[str, Any], int]:
         )
         conn.commit()
 
+        # Publish expense added event
+        event_system.publish('expense_added', {
+            'user_id': user_id,
+            'expense_id': cursor.lastrowid,
+            'amount': amount,
+            'category': final_category['category']
+        })
+        
         # Update reports
         update_expense_reports(user_id)
         
