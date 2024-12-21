@@ -6,6 +6,7 @@ from ..utils.analytics_helper import calculate_tax_savings
 from ..utils.tax_calculator import TaxCalculator
 from ..utils.db_utils import get_db_connection
 from ..utils.event_system import EventSystem
+from ..utils.document_manager import DocumentManager
 
 """
 Core Tax Calculation Module - Centralized tax calculation functionality
@@ -22,6 +23,7 @@ logging.basicConfig(
 # Initialize components
 calculator = TaxCalculator()
 event_system = EventSystem()
+document_manager = DocumentManager()
 
 # Blueprint Setup
 tax_bp = Blueprint("tax_routes", __name__)
@@ -49,6 +51,15 @@ def estimate_quarterly_tax():
         
         estimate = calculator.calculate_quarterly_tax(Decimal(str(income)), Decimal('0'))
         
+        # Generate and store tax document
+        doc_data = {
+            'user_id': user_id,
+            'type': 'quarterly_estimate',
+            'content': estimate,
+            'period': f"Q{quarter}-{year}"
+        }
+        doc_id = document_manager.store_document(doc_data)
+        
         # Subscribe to expense events for real-time updates
         event_system.subscribe('expense_added', lambda data: 
             update_tax_estimates(data['user_id']))
@@ -59,7 +70,10 @@ def estimate_quarterly_tax():
             'estimate': estimate
         })
         
-        return jsonify(estimate), 200
+        return jsonify({
+            'estimate': estimate,
+            'document_id': doc_id
+        }), 200
     except Exception as e:
         logging.error(f"Error calculating quarterly estimate: {e}")
         return jsonify({"error": "Failed to calculate quarterly estimate"}), 500

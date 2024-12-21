@@ -17,6 +17,7 @@ from ..utils.ai_utils import extract_receipt_data, analyze_receipt_text
 from ..utils.monitoring import monitor_api_calls
 from ..utils.batch_processor import BatchProcessor
 from ..utils.expense_integration import ExpenseIntegration
+from ..utils.document_manager import DocumentManager
 
 # Configure Redis
 redis_client = redis.Redis(host='localhost', port=6379, db=0)
@@ -41,6 +42,7 @@ logging.basicConfig(
 # Initialize components
 ocr_bp = Blueprint("ocr", __name__)
 batch_processor = BatchProcessor()
+document_manager = DocumentManager()
 expense_integration = ExpenseIntegration()
 
 # Initialize Google Cloud Vision client
@@ -176,10 +178,22 @@ def process_receipt():
             'confidence_score': None  # Placeholder for confidence score extraction
         }, user_id)
 
+        # Store document
+        doc_result = document_manager.store_document({
+            'user_id': user_id,
+            'type': 'receipt',
+            'content': file_content,
+            'metadata': {
+                'description': extracted_text,
+                'expense_id': expense_id
+            }
+        })
+
         # Return the extracted text
         return jsonify({
             "text": extracted_text,
-            "expense_id": expense_id
+            "expense_id": expense_id,
+            "document_id": doc_result.get('document_id')
         }), 200
 
     except Exception as e:

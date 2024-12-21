@@ -1,21 +1,25 @@
 const BASE_URL = "https://your-backend-api.com/api/auth";
 
-// Send OTP for Signup/Login
-export const sendOTP = async (identifier) => {
+// Send One-Time Password for Signup/Login
+export const sendOTP = async (identifier, type = 'signup') => {
   try {
     const response = await fetch(`${BASE_URL}/send-otp`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ identifier }),
+      body: JSON.stringify({ 
+        identifier,
+        type,
+        device_info: getDeviceInfo() 
+      }),
     });
     return await response.json();
   } catch (error) {
-    console.error("Send OTP Error:", error.message);
-    throw new Error("Failed to send OTP. Please try again.");
+    console.error("Send One-Time Password Error:", error.message);
+    throw new Error("Failed to send One-Time Password. Please try again.");
   }
 };
 
-// Verify OTP for Signup/Login
+// Verify One-Time Password for Signup/Login
 export const verifyOTP = async (identifier, otpCode) => {
   try {
     const response = await fetch(`${BASE_URL}/verify-otp`, {
@@ -25,8 +29,8 @@ export const verifyOTP = async (identifier, otpCode) => {
     });
     return await response.json();
   } catch (error) {
-    console.error("Verify OTP Error:", error.message);
-    throw new Error("Failed to verify OTP. Please try again.");
+    console.error("Verify One-Time Password Error:", error.message);
+    throw new Error("Failed to verify One-Time Password. Please try again.");
   }
 };
 

@@ -15,18 +15,18 @@ export const fetchExpenses = async () => {
   }
 };
 
-// Add New Expense
+// Add New Expense with receipt support
 export const addExpense = async (description, amount, category, date) => {
   try {
+    const formData = new FormData();
+    formData.append('description', description);
+    formData.append('amount', amount);
+    formData.append('category', category);
+    formData.append('date', date);
+
     const response = await fetch(`${BASE_URL}/add`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        description,
-        amount: parseFloat(amount),
-        category,
-        date,
-      }),
+      body: formData,
     });
 
     if (!response.ok) {
@@ -98,4 +98,3 @@ export const categorizeExpense = async (description) => {
     return "Uncategorized";
   }
 };
-

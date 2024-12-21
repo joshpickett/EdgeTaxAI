@@ -1,6 +1,7 @@
 import sqlite3
 from db_utils import get_db_connection
 import logging
+from typing import Optional, Dict, Any
 import requests
 from werkzeug.utils import secure_filename
 import os
@@ -12,28 +13,34 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
+# API Configuration
+API_BASE_URL = "http://localhost:5000/api"
+OCR_API_URL = f"{API_BASE_URL}/process-receipt"
+
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-OCR_API_URL = "https://your-backend-api.com/api/ocr/receipt"  # Replace with actual OCR endpoint
-
-def process_receipt_ocr(file_path):
+def process_receipt_ocr(file_path) -> Optional[Dict[str, Any]]:
     """Send the receipt image to the OCR API for text extraction."""
     try:
         with open(file_path, "rb") as file:
             files = {"receipt": file}
-            response = requests.post(OCR_API_URL, files=files)
+            headers = {"X-User-ID": str(st.session_state.get("user_id", ""))}
+            response = requests.post(OCR_API_URL, files=files, headers=headers)
+            
         if response.status_code == 200:
             data = response.json()
-            return data.get("text", "")
+            return {
+                "text": data.get("text", ""),
+                "expense_id": data.get("expense_id"),
+                "document_id": data.get("document_id")
+            }
         else:
             logging.error(f"OCR API Error: {response.json().get('error', 'Unknown error')}")
-            print("Error: Failed to process receipt.")
-            return ""
+            return None
     except Exception as e:
         logging.exception(f"Error during OCR processing: {e}")
-        print("Error: Could not process receipt.")
-        return ""
+        return None
 
 def add_expense():
     """Add a new expense to the database."""
@@ -49,12 +56,12 @@ def add_expense():
             saved_file_path = os.path.join(UPLOAD_FOLDER, filename)
             os.rename(receipt_path, saved_file_path)
             print("Processing receipt for text extraction...")
-            ocr_text = process_receipt_ocr(saved_file_path)
-            if ocr_text:
+            ocr_result = process_receipt_ocr(saved_file_path)
+            if ocr_result and ocr_result.get("text"):
                 print("Extracted Text from Receipt:")
-                print(ocr_text)
+                print(ocr_result["text"])
                 # Suggest description based on OCR result
-                description = description or ocr_text.split("\n")[0]  # Use first line as suggestion
+                description = description or ocr_result["text"].split("\n")[0]  # Use first line as suggestion
         except Exception as e:
             logging.exception(f"Error saving receipt file: {e}")
             print("Error: Could not save or process the receipt.")
@@ -75,11 +82,18 @@ def add_expense():
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute(
-            "INSERT INTO expenses (description, amount, category) VALUES (?, ?, ?)",
-            (description, amount, category)
-        )
-        conn.commit()
+        
+        # Create expense entry via API
+        expense_payload = {
+            "description": description,
+            "amount": amount,
+            "category": category
+        }
+        
+        response = requests.post(f"{API_BASE_URL}/expenses", json=expense_payload)
+        if response.status_code != 201:
+            raise Exception("Failed to create expense via API")
+            
         print("Expense added successfully!")
         logging.info(f"Expense added: {description} - ${amount} - {category}")
     except Exception as e:
