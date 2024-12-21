@@ -1,7 +1,11 @@
 import streamlit as st
 import requests
 import pandas as pd
+from datetime import datetime
+import json
 from config import API_BASE_URL
+from ..utils.db_utils import get_db_connection
+from ..utils.ai_utils import generate_tax_insights
 
 def reports_page():
     """
@@ -129,7 +133,7 @@ def reports_page():
             connected_accounts = response.json().get("connected_accounts", [])
             if connected_accounts:
                 for account in connected_accounts:
-                    st.write(f"✅ Connected: {account['platform'].capitalize()}")
+                    st.write(f"✔ Connected: {account['platform'].capitalize()}")
             else:
                 st.write("No connected platforms yet.")
         else:
@@ -163,6 +167,44 @@ def reports_page():
                     st.error(f"Failed to fetch data from {platform_choice}.")
             except Exception as e:
                 st.error(f"An error occurred while fetching data from {platform_choice}.")
+                st.exception(e)
+
+    # New Section: Generate Tax Report
+    st.subheader("Generate Tax Report")
+    if st.button("Generate Tax Report"):
+        with st.spinner("Generating Tax Report..."):
+            try:
+                response = requests.post(
+                    f"{API_BASE_URL}/generate-tax-report",
+                    json={"user_id": user_id, "year": datetime.now().year}
+                )
+                if response.status_code == 200:
+                    report_data = response.json()
+                    st.success("Tax Report generated successfully!")
+                    st.json(report_data)
+                else:
+                    st.error("Failed to generate tax report.")
+            except Exception as e:
+                st.error("An error occurred while generating tax report.")
+                st.exception(e)
+
+    # New Section: Generate Tax Insights
+    st.subheader("Generate Tax Insights")
+    if st.button("Generate Tax Insights"):
+        with st.spinner("Generating Tax Insights..."):
+            try:
+                response = requests.post(
+                    f"{API_BASE_URL}/tax-report",
+                    json={"user_id": user_id, "year": datetime.now().year}
+                )
+                if response.status_code == 200:
+                    insights_data = response.json()
+                    st.success("Tax Insights generated successfully!")
+                    st.json(insights_data)
+                else:
+                    st.error("Failed to generate tax insights.")
+            except Exception as e:
+                st.error("An error occurred while generating tax insights.")
                 st.exception(e)
 
 

@@ -1,6 +1,8 @@
 import os
 import requests
 import sqlite3
+import logging
+from typing import Dict, Any, List, Optional
 
 # OAuth URLs for each platform
 PLATFORM_OAUTH_URLS = {
@@ -26,8 +28,15 @@ PLATFORM_API_URLS = {
     "fiverr": "https://api.fiverr.com/v1/seller/orders",
 }
 
+# Configure Logging
+logging.basicConfig(
+    filename="gig_platform.log",
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
 # Function: Get OAuth URL for platform
-def get_oauth_url(platform):
+def get_oauth_url(platform: str) -> Optional[str]:
     """
     Generates OAuth URL for the specified platform.
     """
@@ -44,7 +53,7 @@ def get_oauth_url(platform):
     )
 
 # Function: Exchange Code for Access Token
-def exchange_code_for_token(platform, code):
+def exchange_code_for_token(platform: str, code: str) -> Dict[str, Any]:
     """
     Exchanges the authorization code for an access token.
     """
@@ -67,7 +76,7 @@ def exchange_code_for_token(platform, code):
     return response.json()
 
 # Function: Store Tokens in Database
-def store_platform_data(user_id, platform, token_data):
+def store_platform_data(user_id: int, platform: str, token_data: Dict[str, Any]) -> None:
     """
     Stores access tokens in the database for the connected platform.
     """
@@ -84,7 +93,7 @@ def store_platform_data(user_id, platform, token_data):
     conn.close()
 
 # Function: Get Connected Platforms
-def get_connected_accounts(user_id):
+def get_connected_accounts(user_id: int) -> List[Dict[str, str]]:
     """
     Fetches the list of platforms connected for a given user.
     """
@@ -101,7 +110,7 @@ def get_connected_accounts(user_id):
     return [{"platform": account[0]} for account in accounts]
 
 # Function: Fetch Access Token
-def fetch_access_token(user_id, platform):
+def fetch_access_token(user_id: int, platform: str) -> Optional[str]:
     """
     Retrieves the access token for the specified platform and user.
     """
@@ -120,7 +129,7 @@ def fetch_access_token(user_id, platform):
     return None
 
 # Function: Fetch Trip or Earnings Data
-def fetch_trip_data(platform, access_token):
+def fetch_trip_data(platform: str, access_token: str) -> Dict[str, Any]:
     """
     Fetch trip history or earnings data for the specified platform using the access token.
     """

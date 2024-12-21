@@ -2,8 +2,40 @@ import sqlite3
 import logging
 import datetime
 import random
-from twilio.rest import Client
 import os
+from contextlib import contextmanager
+from typing import Generator
+
+class DatabaseError(Exception):
+    """Custom exception for database errors"""
+    pass
+
+class Database:
+    def __init__(self, db_path: str):
+        self.db_path = db_path
+
+    @contextmanager
+    def get_connection(self) -> Generator[sqlite3.Connection, None, None]:
+        """Get a database connection with context management"""
+        conn = None
+        try:
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = sqlite3.Row
+            yield conn
+        except sqlite3.Error as e:
+            logging.error(f"Database connection error: {e}")
+            raise DatabaseError(f"Database connection failed: {e}")
+        finally:
+            if conn:
+                conn.close()
+
+    @contextmanager
+    def get_cursor(self) -> Generator[sqlite3.Cursor, None, None]:
+        """Get a database cursor with context management"""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            yield cursor
+            conn.commit()
 
 # Configure Logging
 logging.basicConfig(
@@ -48,26 +80,20 @@ def save_otp_for_user(identifier, otp_code):
         identifier (str): User's email or phone number.
         otp_code (str): Generated OTP.
     """
-    conn = get_db_connection()
-    if conn is None:
-        raise Exception("Database connection failed")
-    cursor = conn.cursor()
-    try:
-        expiry_time = datetime.datetime.now() + datetime.timedelta(minutes=5)  # OTP valid for 5 minutes
-        cursor.execute(
-            """
-            UPDATE users 
-            SET otp_code = ?, otp_expiry = ? 
-            WHERE email = ? OR phone_number = ?
-            """,
-            (otp_code, expiry_time.strftime("%Y-%m-%d %H:%M:%S"), identifier, identifier)
-        )
-        conn.commit()
-        logging.info(f"OTP saved successfully for {identifier}.")
-    except sqlite3.Error as e:
-        logging.error(f"Error saving OTP for {identifier}: {e}")
-    finally:
-        conn.close()
+    with Database(DATABASE_FILE).get_cursor() as cursor:
+        try:
+            expiry_time = datetime.datetime.now() + datetime.timedelta(minutes=5)  # OTP valid for 5 minutes
+            cursor.execute(
+                """
+                UPDATE users 
+                SET otp_code = ?, otp_expiry = ? 
+                WHERE email = ? OR phone_number = ?
+                """,
+                (otp_code, expiry_time.strftime("%Y-%m-%d %H:%M:%S"), identifier, identifier)
+            )
+            logging.info(f"OTP saved successfully for {identifier}.")
+        except sqlite3.Error as e:
+            logging.error(f"Error saving OTP for {identifier}: {e}")
 
 
 def verify_otp_for_user(identifier, otp_code):
@@ -81,33 +107,27 @@ def verify_otp_for_user(identifier, otp_code):
     Returns:
         True if OTP is valid, False otherwise.
     """
-    conn = get_db_connection()
-    if conn is None:
-        logging.error("Failed to verify OTP: Database connection could not be established.")
-        return False
-    try:
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            SELECT otp_code, otp_expiry 
-            FROM users 
-            WHERE (email = ? OR phone_number = ?)
-            """,
-            (identifier, identifier)
-        )
-        row = cursor.fetchone()
-        if row:
-            stored_otp, expiry_time = row
-            if otp_code == stored_otp and datetime.datetime.now() <= datetime.datetime.strptime(expiry_time, "%Y-%m-%d %H:%M:%S"):
-                logging.info(f"OTP verified successfully for {identifier}.")
-                return True
-        logging.warning(f"Invalid or expired OTP for {identifier}.")
-        return False
-    except sqlite3.Error as e:
-        logging.error(f"Error verifying OTP for {identifier}: {e}")
-        return False
-    finally:
-        conn.close()
+    with Database(DATABASE_FILE).get_cursor() as cursor:
+        try:
+            cursor.execute(
+                """
+                SELECT otp_code, otp_expiry 
+                FROM users 
+                WHERE (email = ? OR phone_number = ?)
+                """,
+                (identifier, identifier)
+            )
+            row = cursor.fetchone()
+            if row:
+                stored_otp, expiry_time = row
+                if otp_code == stored_otp and datetime.datetime.now() <= datetime.datetime.strptime(expiry_time, "%Y-%m-%d %H:%M:%S"):
+                    logging.info(f"OTP verified successfully for {identifier}.")
+                    return True
+            logging.warning(f"Invalid or expired OTP for {identifier}.")
+            return False
+        except sqlite3.Error as e:
+            logging.error(f"Error verifying OTP for {identifier}: {e}")
+            return False
 
 
 def clear_otp_for_user(identifier):
@@ -117,26 +137,19 @@ def clear_otp_for_user(identifier):
     Args:
         identifier (str): User's email or phone number.
     """
-    conn = get_db_connection()
-    if conn is None:
-        logging.error("Failed to clear OTP: Database connection could not be established.")
-        return
-    try:
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            UPDATE users 
-            SET otp_code = NULL, otp_expiry = NULL 
-            WHERE email = ? OR phone_number = ?
-            """,
-            (identifier, identifier)
-        )
-        conn.commit()
-        logging.info(f"OTP cleared successfully for {identifier}.")
-    except sqlite3.Error as e:
-        logging.error(f"Error clearing OTP for {identifier}: {e}")
-    finally:
-        conn.close()
+    with Database(DATABASE_FILE).get_cursor() as cursor:
+        try:
+            cursor.execute(
+                """
+                UPDATE users 
+                SET otp_code = NULL, otp_expiry = NULL 
+                WHERE email = ? OR phone_number = ?
+                """,
+                (identifier, identifier)
+            )
+            logging.info(f"OTP cleared successfully for {identifier}.")
+        except sqlite3.Error as e:
+            logging.error(f"Error clearing OTP for {identifier}: {e}")
 
 
 # --- Twilio SMS Integration ---

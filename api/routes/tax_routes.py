@@ -1,7 +1,9 @@
 from flask import Blueprint, request, jsonify
-from api.utils.config import TAX_RATE  # Import centralized tax rate
+from api.utils.config import TAX_RATE, QUARTERLY_TAX_DATES
 from api.utils.ai_utils import categorize_expense  # Import AI categorization
+from datetime import datetime, timedelta
 import logging
+from api.utils.db_utils import get_db_connection  # Import database connection utility
 
 # Configure Logging
 logging.basicConfig(
@@ -60,3 +62,60 @@ def ai_deduction_suggestions():
     except Exception as e:
         logging.error(f"Error fetching deduction suggestions: {str(e)}")
         return jsonify({"error": "Failed to fetch AI deduction suggestions."}), 500
+
+# Quarterly Tax Estimate Endpoint
+@tax_bp.route("/api/tax/quarterly-estimate", methods=["POST"])
+def quarterly_tax_estimate():
+    """
+    Calculate quarterly tax estimates based on income and expenses.
+    """
+    try:
+        data = request.json
+        user_id = data.get("user_id")
+        quarter = data.get("quarter")
+        year = data.get("year", datetime.now().year)
+
+        if not all([user_id, quarter]):
+            return jsonify({"error": "User ID and quarter are required."}), 400
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Calculate quarterly income
+        cursor.execute("""
+            SELECT SUM(amount) FROM income 
+            WHERE user_id = ? 
+            AND QUARTER(date) = ? 
+            AND YEAR(date) = ?
+        """, (user_id, quarter, year))
+        
+        income = cursor.fetchone()[0] or 0
+
+        # Calculate quarterly expenses
+        cursor.execute("""
+            SELECT SUM(amount) FROM expenses 
+            WHERE user_id = ? 
+            AND QUARTER(date) = ? 
+            AND YEAR(date) = ?
+        """, (user_id, quarter, year))
+        
+        expenses = cursor.fetchone()[0] or 0
+
+        # Calculate estimated tax
+        taxable_income = income - expenses
+        estimated_tax = taxable_income * TAX_RATE
+        
+        due_date = QUARTERLY_TAX_DATES.get(str(quarter), "Unknown")
+
+        return jsonify({
+            "quarter": quarter,
+            "year": year,
+            "income": income,
+            "expenses": expenses,
+            "taxable_income": taxable_income,
+            "estimated_tax": estimated_tax,
+            "due_date": due_date
+        }), 200
+    except Exception as e:
+        logging.error(f"Error calculating quarterly tax estimate: {str(e)}")
+        return jsonify({"error": "Failed to calculate quarterly tax estimate."}), 500

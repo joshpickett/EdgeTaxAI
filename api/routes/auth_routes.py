@@ -1,18 +1,20 @@
 from flask import Blueprint, request, jsonify
-import sqlite3
+from typing import Dict, Any, Optional
+import logging
 from datetime import datetime, timedelta
-from twilio.rest import Client
+from ..utils.validators import validate_email, validate_phone
+from ..middleware.auth_middleware import generate_token
+import sqlite3
 import random
 import os
 import re  # Added for validation
-import logging  # Added for logging
 
 # Blueprint Setup
-auth_bp = Blueprint("auth", __name__)
+auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
 
 # Utility Functions
 DATABASE_FILE = os.getenv("DB_PATH", "database.db")
-
+logging.basicConfig(level=logging.INFO)
 
 def get_db_connection():
     """Establish a connection to the database."""
@@ -48,6 +50,7 @@ def save_otp_for_user(identifier, otp_code):
     if conn is None:
         raise Exception("Database connection failed")
     cursor = conn.cursor()
+    cursor.execute("BEGIN TRANSACTION")
     cursor.execute(
         "UPDATE users SET otp_code = ?, otp_expiry = ? WHERE email = ? OR phone_number = ?",
         (otp_code, expiry_time, identifier, identifier),
@@ -87,11 +90,14 @@ def is_valid_phone(phone_number):
 
 # 1. OTP-Based Signup
 @auth_bp.route("/signup", methods=["POST"])
-def signup():
+def signup() -> tuple[Dict[str, Any], int]:
     """
     Handles user signup with email or phone number and verifies via OTP.
     """
     data = request.json
+    if not data:
+        return jsonify({"error": "No data provided"}), 400
+
     email = data.get("email")
     phone_number = data.get("phone_number")
 
@@ -121,7 +127,9 @@ def signup():
         if cursor.fetchone():
             return jsonify({"error": "User already exists with this email or phone number."}), 400
 
+        logging.info(f"Creating new user with identifier: {identifier}")
         # Insert new user
+        cursor.execute("BEGIN TRANSACTION")
         cursor.execute(
             "INSERT INTO users (email, phone_number, is_verified) VALUES (?, ?, 0)",
             (email, phone_number),
@@ -158,14 +166,15 @@ def verify_otp():
     if verify_otp_for_user(identifier, otp_code):
         conn = get_db_connection()
         cursor = conn.cursor()
+        cursor.execute("BEGIN TRANSACTION")
         cursor.execute(
             "UPDATE users SET is_verified = 1, otp_code = NULL, otp_expiry = NULL WHERE email = ? OR phone_number = ?",
             (identifier, identifier),
         )
         conn.commit()
-        conn.close()
+        logging.info(f"User verified successfully: {identifier}")
         return jsonify({"message": "OTP verified successfully! Account is active."}), 200
-    return jsonify({"error": "Invalid or expired OTP."}), 400
+    return jsonify({"error": "Invalid or expired OTP."}), 401
 
 
 # 3. OTP-Based Login

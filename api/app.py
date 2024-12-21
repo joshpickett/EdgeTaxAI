@@ -1,13 +1,14 @@
 from flask import Flask
 from flask_cors import CORS
+from utils.error_handler import APIError, handle_api_error
 from routes.auth_routes import auth_bp
-from routes.expense_routes import expense_bp
 from routes.reports_routes import reports_bp  # Import Reports API
 from routes.bank_routes import bank_bp
 from routes.tax_routes import tax_bp  # Import Tax API
 from routes.mileage_routes import mileage_bp  # Import Mileage API
 from routes.ocr_routes import ocr_bp #OCR Receipt upload
-
+from routes.expense_routes import expense_bp  # Import Expense API
+from routes.tax_optimization_routes import tax_optimization_bp
 
 import logging
 
@@ -25,14 +26,18 @@ def create_app():
     app = Flask(__name__)
     CORS(app)  # Enable Cross-Origin Resource Sharing for frontend requests
 
+    # Register error handlers
+    app.register_error_handler(APIError, handle_api_error)
+
     # Register Blueprints
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
-    app.register_blueprint(expense_bp, url_prefix="/api/expenses")
+    app.register_blueprint(expense_bp, url_prefix="/api/expenses")  # Expense API
     app.register_blueprint(reports_bp, url_prefix="/api/reports")  # Reports API
     app.register_blueprint(bank_bp, url_prefix="/api/banks")
     app.register_blueprint(tax_bp, url_prefix="/api/tax")  # Tax API
     app.register_blueprint(mileage_bp, url_prefix="/api/mileage")  # Mileage API
     app.register_blueprint(ocr_bp, url_prefix="/api") #OCR API
+    app.register_blueprint(tax_optimization_bp, url_prefix="/api/tax-optimization")
 
     # Log API Startup
     log_api_startup(app)
@@ -57,5 +62,3 @@ if __name__ == "__main__":
     port = 5000
     logging.info(f"Running API server on http://127.0.0.1:{port}")
     app.run(debug=True, port=port)
-
-

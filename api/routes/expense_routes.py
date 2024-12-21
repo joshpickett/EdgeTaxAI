@@ -1,12 +1,13 @@
 from flask import Blueprint, request, jsonify
 from api.utils.db_utils import get_db_connection
-from dotenv import load_dotenv
 import logging
+from typing import Dict, Any, Optional
 import os
 import sqlite3
 import json
 from datetime import datetime
 from openai import OpenAI
+from dotenv import load_dotenv  # Added import for load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
@@ -62,7 +63,7 @@ def row_to_dict(row):
 
 # Add Expense
 @expense_bp.route("/add", methods=["POST"])
-def add_expense():
+def add_expense() -> tuple[Dict[str, Any], int]:
     """
     Adds a new expense.
     If description is not provided or empty, it defaults to 'Unspecified'.
@@ -76,7 +77,7 @@ def add_expense():
         if field not in data:
             return jsonify({"error": f"Missing required field: {field}"}), 400
             
-    if not isinstance(data['amount'], (int, float)) or data['amount'] <= 0:
+    if not isinstance(data.get('amount'), (int, float)) or data.get('amount') <= 0:
         return jsonify({"error": "Amount must be a positive number"}), 400
 
     user_id = data.get("user_id")
