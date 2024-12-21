@@ -3,9 +3,15 @@ import logging
 from functools import wraps
 from typing import Callable, Any
 import redis
+from prometheus_client import Counter, Histogram, start_http_server
 
 # Configure Redis client for monitoring
 redis_client = redis.Redis(host='localhost', port=6379, db=1)
+
+# Add Prometheus metrics
+REQUEST_COUNT = Counter('api_requests_total', 'Total API requests', ['endpoint'])
+RESPONSE_TIME = Histogram('api_response_time_seconds', 'Response time in seconds', ['endpoint'])
+ERROR_COUNT = Counter('api_errors_total', 'Total API errors', ['endpoint', 'error_type'])
 
 def monitor_api_calls(endpoint: str) -> Callable:
     """
@@ -15,6 +21,9 @@ def monitor_api_calls(endpoint: str) -> Callable:
         @wraps(f)
         def wrapper(*args, **kwargs) -> Any:
             start_time = time.time()
+            
+            # Track request in Prometheus
+            REQUEST_COUNT.labels(endpoint=endpoint).inc()
             
             # Increment API call counter
             try:
@@ -27,15 +36,12 @@ def monitor_api_calls(endpoint: str) -> Callable:
                 result = f(*args, **kwargs)
                 
                 # Record response time
-                response_time = time.time() - start_time
-                try:
-                    redis_client.lpush(f"response_times:{endpoint}", response_time)
-                    redis_client.ltrim(f"response_times:{endpoint}", 0, 999)  # Keep last 1000 times
-                except Exception as e:
-                    logging.error(f"Redis timing error: {e}")
-
+                RESPONSE_TIME.labels(endpoint=endpoint).observe(time.time() - start_time)
                 return result
             except Exception as e:
+                # Track error in Prometheus
+                ERROR_COUNT.labels(endpoint=endpoint, error_type=type(e).__name__).inc()
+                
                 # Track errors
                 try:
                     redis_client.incr(f"errors:{endpoint}")

@@ -16,6 +16,8 @@ from ..routes.ocr_routes import process_receipt_data
 from ..routes.ocr_routes import extract_receipt_data, analyze_receipt_text
 from ..routes.reports_routes import update_expense_reports
 from ..utils.event_system import EventSystem
+from ..utils.ocr_processor import OCRProcessor
+from ..utils.irs_compliance import IRSCompliance
 
 # Load environment variables from .env file
 load_dotenv()
@@ -30,6 +32,8 @@ logging.basicConfig(
 # Initialize components
 logging.basicConfig(level=logging.INFO)
 event_system = EventSystem()
+ocr_processor = OCRProcessor()
+irs_compliance = IRSCompliance()
 
 # Input validation constants
 MAX_DESCRIPTION_LENGTH = 500
@@ -196,6 +200,47 @@ def add_expense() -> tuple[Dict[str, Any], int]:
              tax_context['deductible_amount'], irs_status['compliance_score'], tax_implications, irs_status)
         )
         conn.commit()
+
+        # Process receipt if provided
+        if 'receipt' in request.files:
+            receipt_file = request.files['receipt']
+            receipt_data = ocr_processor.process_receipt(receipt_file.read())
+            
+            # Update expense with OCR data
+            if receipt_data and not receipt_data.get('error'):
+                cursor.execute("""
+                    UPDATE expenses 
+                    SET vendor = ?, 
+                        receipt_date = ?,
+                        confidence_score = ?
+                    WHERE id = ?
+                """, (
+                    receipt_data['vendor'],
+                    receipt_data['date'],
+                    receipt_data['confidence_score'],
+                    cursor.lastrowid
+                ))
+                conn.commit()
+
+        # Verify IRS compliance
+        compliance_result = irs_compliance.verify_compliance({
+            **data,
+            'receipt': 'receipt' in request.files
+        })
+
+        # Update expense with compliance data
+        cursor.execute("""
+            UPDATE expenses 
+            SET compliance_score = ?,
+                deductible_amount = ?,
+                audit_trail = ?
+            WHERE id = ?
+        """, (
+            compliance_result['compliance_score'],
+            compliance_result['deductible_amount'],
+            json.dumps(compliance_result),
+            cursor.lastrowid
+        ))
 
         # Publish expense added event
         event_system.publish('expense_added', {

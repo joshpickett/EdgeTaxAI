@@ -6,6 +6,7 @@ from typing import Optional, Dict, Any, Tuple
 from ..utils.api_config import APIConfig
 from ..utils.error_handler import handle_api_error, handle_validation_error
 from ..utils.validators import validate_platform, validate_user_id
+from ..utils.gig_platform_processor import GigPlatformProcessor
 
 # Configure Logging
 logging.basicConfig(
@@ -41,6 +42,7 @@ OAUTH_CONFIG = {
 }
 
 gig_routes = Blueprint("gig_routes", __name__)
+gig_processor = GigPlatformProcessor()
 
 # Simulated in-memory storage for tokens and connections
 USER_TOKENS = {}
@@ -134,6 +136,18 @@ def oauth_callback():
         USER_TOKENS[user_id][platform] = access_token
 
         logger.info(f"Token successfully stored for user {user_id} on platform {platform}.")
+        
+        raw_data = fetch_platform_data(platform, access_token)
+        
+        # Process platform data
+        processed_data = gig_processor.process_platform_data(
+            platform,
+            raw_data
+        )
+        
+        # Store processed data
+        store_gig_data(user_id, platform, processed_data)
+        
         return jsonify({"message": "OAuth successful", "platform": platform}), 200
     except ValueError as e:
         return handle_validation_error(str(e))

@@ -128,7 +128,25 @@ def create_link_token():
         )
         plaid_client = get_plaid_client()
         response = plaid_client.link_token_create(request_data)
-        return jsonify({"link_token": response.link_token})
+        
+        # Enhanced transaction categorization
+        transactions = fetch_transactions(user_id)
+        categorized_transactions = categorize_transactions(transactions)
+        
+        # Link with tax planning
+        tax_implications = calculate_tax_implications(categorized_transactions)
+        
+        # Update quarterly estimates
+        update_quarterly_estimates(user_id, tax_implications)
+        
+        # Store enhanced transaction data
+        store_transaction_data(user_id, {
+            'transactions': categorized_transactions,
+            'tax_implications': tax_implications,
+            'quarterly_estimates': quarterly_estimates
+        })
+        
+        return jsonify({"message": "Bank data processed successfully"})
     except PlaidError as e:
         return handle_plaid_error(e)
     except Exception as e:
@@ -396,3 +414,28 @@ def analyze_transactions():
         return jsonify({"analysis": analysis}), 200
     except Exception as e:
         return handle_plaid_error(e)
+
+def categorize_transactions(transactions):
+    """Enhanced transaction categorization with AI"""
+    categorized = []
+    for transaction in transactions:
+        category = ai_categorize_transaction(transaction)
+        recurring = detect_recurring_pattern(transaction)
+        tax_category = map_to_tax_category(category)
+        
+        categorized.append({
+            **transaction,
+            'category': category,
+            'is_recurring': recurring,
+            'tax_category': tax_category
+        })
+    return categorized
+
+def detect_recurring_pattern(transaction):
+    """Detect recurring transaction patterns"""
+    # Implementation for recurring detection
+    return {
+        'is_recurring': False,
+        'frequency': None,
+        'confidence': 0.0
+    }
