@@ -2,6 +2,16 @@ from flask import Blueprint, request, jsonify
 from api.utils.config import TAX_RATE, QUARTERLY_TAX_DATES
 from datetime import datetime
 import logging
+from ..utils.analytics_helper import calculate_tax_savings, analyze_deductions
+from ..utils.ai_utils import analyze_tax_context
+
+"""
+Core Tax Calculation Module
+
+This module handles all core tax calculations and provides base functionality
+for tax optimization features. It serves as the central source for tax-related
+computations.
+"""
 
 # Tax Brackets (2023)
 TAX_BRACKETS = [
@@ -29,16 +39,29 @@ tax_bp = Blueprint("tax_routes", __name__)
 def real_time_tax_savings():
     """
     Calculate real-time tax savings based on the provided expense amount.
+    This is the primary endpoint for basic tax savings calculations.
+    
+    For optimization suggestions, see: /api/tax-optimization/tax-savings
     """
     try:
         data = request.json
         amount = data.get("amount")
+        user_id = data.get("user_id")
 
         if not amount or float(amount) <= 0:
             return jsonify({"error": "Invalid or missing 'amount' parameter."}), 400
 
-        savings = round(float(amount) * TAX_RATE, 2)
-        return jsonify({"savings": savings}), 200
+        # Use centralized calculation function
+        savings = calculate_tax_savings(float(amount), user_id)
+        
+        # Get tax context for enhanced analysis
+        tax_context = analyze_tax_context(data.get('description', ''), amount)
+
+        return jsonify({
+            "savings": savings,
+            "tax_context": tax_context,
+            "timestamp": datetime.now().isoformat()
+        }), 200
     except Exception as e:
         logging.error(f"Error calculating tax savings: {str(e)}")
         return jsonify({"error": "Failed to calculate tax savings."}), 500
@@ -47,7 +70,11 @@ def real_time_tax_savings():
 @tax_bp.route("/api/tax/deductions", methods=["POST"])
 def ai_deduction_suggestions():
     """
-    Use AI to suggest tax-deductible expenses based on user input.
+    Calculate standard deductions based on expense data.
+    Uses basic categorization for common deduction types.
+    
+    For advanced deduction analysis and optimization, 
+    see: /api/tax-optimization/deduction-analysis
     """
     try:
         data = request.json
@@ -56,18 +83,17 @@ def ai_deduction_suggestions():
         if not expenses or not isinstance(expenses, list):
             return jsonify({"error": "Invalid or missing 'expenses' parameter."}), 400
 
-        suggestions = []
-        for expense in expenses:
-            description = expense.get("description", "")
-            category = categorize_expense(description)  # AI categorization
-            if "business" in category.lower():  # Simple deduction flag
-                suggestions.append({
-                    "description": description,
-                    "amount": expense.get("amount", 0),
-                    "category": category
-                })
+        # Use centralized deduction analysis
+        deduction_analysis = analyze_deductions(expenses)
+        
+        # Add confidence scores and AI insights
+        enhanced_suggestions = [{
+            **suggestion,
+            "confidence_score": suggestion.get("confidence", 0),
+            "ai_insights": suggestion.get("reasoning", "")
+        } for suggestion in deduction_analysis]
 
-        return jsonify({"suggestions": suggestions}), 200
+        return jsonify({"suggestions": enhanced_suggestions}), 200
     except Exception as e:
         logging.error(f"Error fetching deduction suggestions: {str(e)}")
         return jsonify({"error": "Failed to fetch AI deduction suggestions."}), 500
