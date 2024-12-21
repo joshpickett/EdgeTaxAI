@@ -1,9 +1,18 @@
 from flask import Blueprint, request, jsonify
 from api.utils.config import TAX_RATE, QUARTERLY_TAX_DATES
-from api.utils.ai_utils import categorize_expense  # Import AI categorization
-from datetime import datetime, timedelta
+from datetime import datetime
 import logging
-from api.utils.db_utils import get_db_connection  # Import database connection utility
+
+# Tax Brackets (2023)
+TAX_BRACKETS = [
+    (0, 11000, 0.10),
+    (11001, 44725, 0.12),
+    (44726, 95375, 0.22),
+    (95376, 182100, 0.24),
+    (182101, 231250, 0.32),
+    (231251, 578125, 0.35),
+    (578126, float('inf'), 0.37)
+]
 
 # Configure Logging
 logging.basicConfig(
@@ -119,3 +128,31 @@ def quarterly_tax_estimate():
     except Exception as e:
         logging.error(f"Error calculating quarterly tax estimate: {str(e)}")
         return jsonify({"error": "Failed to calculate quarterly tax estimate."}), 500
+
+def calculate_tax_bracket(income: float) -> tuple:
+    """Calculate tax bracket and effective rate based on income"""
+    for min_income, max_income, rate in TAX_BRACKETS:
+        if min_income <= income <= max_income:
+            return rate, f"${min_income:,} - ${max_income:,}"
+    return TAX_BRACKETS[-1][2], f"Over ${TAX_BRACKETS[-1][0]:,}"
+
+@tax_bp.route("/calculate-effective-rate", methods=["POST"])
+def calculate_effective_rate():
+    """Calculate effective tax rate based on income and deductions"""
+    try:
+        data = request.json
+        gross_income = float(data.get("gross_income", 0))
+        deductions = float(data.get("deductions", 0))
+        
+        taxable_income = max(0, gross_income - deductions)
+        tax_rate, bracket = calculate_tax_bracket(taxable_income)
+        
+        return jsonify({
+            "taxable_income": taxable_income,
+            "tax_bracket": bracket,
+            "tax_rate": tax_rate,
+            "estimated_tax": taxable_income * tax_rate
+        })
+    except Exception as e:
+        logging.error(f"Error calculating effective tax rate: {str(e)}")
+        return jsonify({"error": "Failed to calculate effective tax rate"}), 500

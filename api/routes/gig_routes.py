@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify, redirect
 import logging
 import os
 import requests
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Tuple
 from ..utils.api_config import APIConfig
 from ..utils.error_handler import handle_api_error, handle_validation_error
 from ..utils.validators import validate_platform, validate_user_id
@@ -21,6 +21,25 @@ OAUTH_URLS = {
     "upwork": "https://www.upwork.com/ab/account-security/oauth2/authorize"
 }
 
+# OAuth Configuration
+OAUTH_CONFIG = {
+    "uber": {
+        "auth_url": "https://login.uber.com/oauth/v2/authorize",
+        "token_url": "https://login.uber.com/oauth/v2/token",
+        "scopes": ["history", "profile"]
+    },
+    "lyft": {
+        "auth_url": "https://api.lyft.com/oauth/authorize",
+        "token_url": "https://api.lyft.com/oauth/token",
+        "scopes": ["rides.read", "profile"]
+    },
+    "doordash": {
+        "auth_url": "https://identity.doordash.com/connect/authorize",
+        "token_url": "https://identity.doordash.com/connect/token",
+        "scopes": ["delivery_status", "business_status"]
+    }
+}
+
 gig_routes = Blueprint("gig_routes", __name__)
 
 # Simulated in-memory storage for tokens and connections
@@ -33,6 +52,27 @@ VALID_PLATFORMS = {"uber", "lyft", "doordash", "instacart", "upwork", "fiverr"}
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+class GigPlatformError(Exception):
+    """Custom exception for gig platform errors"""
+    def __init__(self, message: str, platform: str, error_code: Optional[str] = None):
+        self.message = message
+        self.platform = platform
+        self.error_code = error_code
+        super().__init__(self.message)
+
+def handle_platform_error(error: Exception) -> Tuple[Dict[str, Any], int]:
+    """Handle platform-specific errors"""
+    if isinstance(error, GigPlatformError):
+        return jsonify({
+            "error": error.message,
+            "platform": error.platform,
+            "error_code": error.error_code
+        }), 400
+    return jsonify({
+        "error": "Internal server error",
+        "details": str(error)
+    }), 500
 
 def get_oauth_url(platform: str) -> Optional[str]:
     """Get OAuth URL for platform with proper configuration."""
@@ -157,3 +197,52 @@ def exchange_token():
     except Exception as e:
         logging.error(f"Token exchange error: {str(e)}")
         return jsonify({"error": "Failed to exchange token"}), 500
+
+@gig_routes.route("/refresh-token", methods=["POST"])
+def refresh_token():
+    """Refresh OAuth token for platform"""
+    try:
+        data = request.json
+        user_id = data.get("user_id")
+        platform = data.get("platform")
+        
+        if not all([user_id, platform]):
+            return jsonify({"error": "Missing required parameters"}), 400
+            
+        # Get refresh token
+        refresh_token = USER_TOKENS.get(user_id, {}).get(f"{platform}_refresh")
+        if not refresh_token:
+            return jsonify({"error": "No refresh token found"}), 404
+            
+        # Get platform config
+        platform_config = OAUTH_CONFIG.get(platform)
+        if not platform_config:
+            return jsonify({"error": "Platform not supported"}), 400
+            
+        # Request new token
+        response = requests.post(
+            platform_config["token_url"],
+            data={
+                "grant_type": "refresh_token",
+                "refresh_token": refresh_token,
+                "client_id": os.getenv(f"{platform.upper()}_CLIENT_ID"),
+                "client_secret": os.getenv(f"{platform.upper()}_CLIENT_SECRET")
+            }
+        )
+        
+        if response.status_code == 200:
+            new_tokens = response.json()
+            # Update stored tokens
+            if user_id not in USER_TOKENS:
+                USER_TOKENS[user_id] = {}
+            USER_TOKENS[user_id][platform] = new_tokens["access_token"]
+            if "refresh_token" in new_tokens:
+                USER_TOKENS[user_id][f"{platform}_refresh"] = new_tokens["refresh_token"]
+                
+            return jsonify({"message": "Token refreshed successfully"}), 200
+        else:
+            return jsonify({"error": "Failed to refresh token"}), response.status_code
+            
+    except Exception as e:
+        logger.error(f"Error refreshing token: {str(e)}")
+        return jsonify({"error": "Failed to refresh token"}), 500

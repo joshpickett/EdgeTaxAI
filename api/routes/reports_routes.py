@@ -1,11 +1,163 @@
-import streamlit as st
-import requests
-import pandas as pd
-from datetime import datetime
-import json
-from config import API_BASE_URL
+from flask import Blueprint, request, jsonify, send_file
+from datetime import datetime, timedelta
+import logging
+from typing import Dict, Any, Optional
 from ..utils.db_utils import get_db_connection
-from ..utils.ai_utils import generate_tax_insights
+from ..utils.error_handler import handle_api_error
+from ..utils.report_generator import ReportGenerator
+import pandas as pd
+import io
+import os
+
+reports_bp = Blueprint('reports', __name__)
+report_generator = ReportGenerator()
+
+@reports_bp.route("/generate-report", methods=["POST"])
+def generate_report():
+    """Generate comprehensive expense report"""
+    try:
+        data = request.json
+        user_id = data.get('user_id')
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        report_type = data.get('report_type', 'summary')
+        
+        if not user_id:
+            return jsonify({"error": "User ID is required"}), 400
+            
+        report = report_generator.generate_expense_summary(
+            user_id, start_date, end_date
+        )
+        
+        return jsonify(report)
+    except Exception as e:
+        logging.error(f"Error generating report: {e}")
+        return handle_api_error(e)
+
+@reports_bp.route("/quarterly-summary", methods=["POST"])
+def generate_quarterly_summary():
+    """Generate quarterly expense and tax summary"""
+    try:
+        data = request.json
+        user_id = data.get('user_id')
+        year = data.get('year', datetime.now().year)
+        quarter = data.get('quarter')
+
+        if not user_id or not quarter:
+            return jsonify({"error": "User ID and quarter are required"}), 400
+
+        # Logic to generate quarterly summary
+        # ...
+
+    except Exception as e:
+        logging.error(f"Error generating quarterly summary: {e}")
+        return handle_api_error(e)
+
+@reports_bp.route("/tax-summary", methods=["POST"])
+def generate_tax_summary():
+    """Generate tax summary report"""
+    try:
+        data = request.json
+        user_id = data.get('user_id')
+        year = data.get('year', datetime.now().year)
+        
+        if not user_id:
+            return jsonify({"error": "User ID is required"}), 400
+            
+        summary = report_generator.generate_tax_summary(user_id, year)
+        return jsonify(summary)
+        
+    except Exception as e:
+        logging.error(f"Error generating tax summary: {e}")
+        return handle_api_error(e)
+
+@reports_bp.route("/irs/schedule-c", methods=["POST"])
+def generate_schedule_c():
+    """Generate IRS Schedule C report"""
+    try:
+        data = request.json
+        user_id = data.get('user_id')
+        year = data.get('year', datetime.now().year)
+        
+        if not user_id:
+            return jsonify({"error": "User ID is required"}), 400
+            
+        schedule_c = report_generator.generate_schedule_c(user_id, year)
+        return jsonify(schedule_c)
+    except Exception as e:
+        logging.error(f"Error generating Schedule C: {e}")
+        return handle_api_error(e)
+
+@reports_bp.route("/custom-report", methods=["POST"])
+def generate_custom_report():
+    """Generate custom report based on user specifications"""
+    try:
+        data = request.json
+        user_id = data.get('user_id')
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        categories = data.get('categories', [])
+        report_type = data.get('report_type', 'detailed')
+        format_type = data.get('format', 'json')
+        
+        if not user_id:
+            return jsonify({"error": "User ID is required"}), 400
+            
+        report = report_generator.generate_custom_report(
+            user_id, 
+            start_date, 
+            end_date,
+            categories,
+            report_type
+        )
+        
+        if format_type == 'csv':
+            csv_data = report_generator.export_to_csv(report)
+            return send_file(
+                io.StringIO(csv_data),
+                mimetype='text/csv',
+                as_attachment=True,
+                download_name=f'custom_report_{datetime.now().strftime("%Y%m%d")}.csv'
+            )
+        
+        return jsonify(report)
+    except Exception as e:
+        logging.error(f"Error generating custom report: {e}")
+        return handle_api_error(e)
+
+@reports_bp.route("/analytics", methods=["POST"])
+def generate_analytics():
+    """Generate expense pattern analytics"""
+    try:
+        data = request.json
+        user_id = data.get('user_id')
+        year = data.get('year', datetime.now().year)
+        
+        if not user_id:
+            return jsonify({"error": "User ID is required"}), 400
+            
+        analytics = report_generator.generate_analytics(user_id, year)
+        return jsonify(analytics)
+    except Exception as e:
+        logging.error(f"Error generating analytics: {e}")
+        return handle_api_error(e)
+
+@reports_bp.route("/tax-savings", methods=["POST"])
+def analyze_tax_savings():
+    """Analyze potential tax saving opportunities"""
+    try:
+        data = request.json
+        user_id = data.get('user_id')
+        year = data.get('year', datetime.now().year)
+        
+        if not user_id:
+            return jsonify({"error": "User ID is required"}), 400
+            
+        savings = report_generator.analyze_tax_savings(user_id, year)
+        return jsonify(savings)
+    except Exception as e:
+        logging.error(f"Error analyzing tax savings: {e}")
+        return handle_api_error(e)
 
 def reports_page():
     """

@@ -147,3 +147,135 @@ def fetch_trip_data(platform: str, access_token: str) -> Dict[str, Any]:
         raise Exception(
             f"Failed to fetch data from {platform}. Status: {response.status_code}, Response: {response.text}"
         )
+
+class PlatformAPI:
+    def __init__(self, platform: str, access_token: str):
+        self.platform = platform
+        self.access_token = access_token
+        self.headers = {"Authorization": f"Bearer {access_token}"}
+        self.base_url = PLATFORM_API_URLS.get(platform)
+        if not self.base_url:
+            raise ValueError(f"Unsupported platform: {platform}")
+
+    def fetch_earnings(self, start_date: str = None, end_date: str = None) -> Dict[str, Any]:
+        """Fetch earnings data from platform"""
+        if self.platform == "uber":
+            return self._fetch_uber_earnings(start_date, end_date)
+        elif self.platform == "lyft":
+            return self._fetch_lyft_earnings(start_date, end_date)
+        elif self.platform == "doordash":
+            return self._fetch_doordash_earnings(start_date, end_date)
+        raise ValueError(f"Earnings fetch not implemented for {self.platform}")
+
+    def fetch_trips(self, start_date: str = None, end_date: str = None) -> Dict[str, Any]:
+        """Fetch trips from platform"""
+        if self.platform == "uber":
+            return self._fetch_uber_trips(start_date, end_date)
+        elif self.platform == "lyft":
+            return self._fetch_lyft_trips(start_date, end_date)
+        elif self.platform == "doordash":
+            return self._fetch_doordash_trips(start_date, end_date)
+        else:
+            raise ValueError(f"Unsupported platform: {self.platform}")
+            
+    def _fetch_uber_trips(self, start_date: str, end_date: str) -> Dict[str, Any]:
+        """Fetch Uber trips"""
+        url = f"{PLATFORM_API_URLS['uber']}"
+        params = {}
+        if start_date:
+            params["start_date"] = start_date
+        if end_date:
+            params["end_date"] = end_date
+            
+        response = requests.get(url, headers=self.headers, params=params)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(f"Failed to fetch Uber trips: {response.text}")
+            
+    def _fetch_lyft_trips(self, start_date: str, end_date: str) -> Dict[str, Any]:
+        """Fetch Lyft trips"""
+        url = f"{PLATFORM_API_URLS['lyft']}"
+        params = {}
+        if start_date:
+            params["start_time"] = start_date
+        if end_date:
+            params["end_time"] = end_date
+            
+        response = requests.get(url, headers=self.headers, params=params)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(f"Failed to fetch Lyft trips: {response.text}")
+            
+    def _fetch_doordash_trips(self, start_date: str, end_date: str) -> Dict[str, Any]:
+        """Fetch DoorDash deliveries"""
+        url = f"{PLATFORM_API_URLS['doordash']}"
+        params = {}
+        if start_date:
+            params["created_after"] = start_date
+        if end_date:
+            params["created_before"] = end_date
+            
+        response = requests.get(url, headers=self.headers, params=params)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception(f"Failed to fetch DoorDash trips: {response.text}")
+
+    def _fetch_uber_earnings(self, start_date: str, end_date: str) -> Dict[str, Any]:
+        """Fetch Uber earnings"""
+        params = {
+            "start_date": start_date,
+            "end_date": end_date
+        }
+        response = self._make_request("GET", "/earnings", params)
+        return self._process_uber_earnings(response)
+
+    def _fetch_lyft_earnings(self, start_date: str, end_date: str) -> Dict[str, Any]:
+        """Fetch Lyft earnings"""
+        params = {
+            "start_time": start_date,
+            "end_time": end_date
+        }
+        response = self._make_request("GET", "/earnings", params)
+        return self._process_lyft_earnings(response)
+
+    def _make_request(self, method: str, endpoint: str, params: Dict[str, Any] = None) -> Dict[str, Any]:
+        """Make API request with error handling"""
+        url = f"{self.base_url}{endpoint}"
+        try:
+            response = requests.request(
+                method,
+                url,
+                headers=self.headers,
+                params=params
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            logging.error(f"API request failed: {str(e)}")
+            raise Exception(f"Failed to fetch data from {self.platform}: {str(e)}")
+
+def process_platform_data(platform: str, raw_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Process raw platform data into standardized format"""
+    try:
+        if platform == "uber":
+            return {
+                "trips": raw_data.get("trips", []),
+                "earnings": sum(trip.get("fare", 0) for trip in raw_data.get("trips", [])),
+                "platform": "uber",
+                "period": raw_data.get("period", "")
+            }
+        elif platform == "lyft":
+            return {
+                "trips": raw_data.get("ride_history", []),
+                "earnings": raw_data.get("earnings_total", 0),
+                "platform": "lyft",
+                "period": raw_data.get("time_period", "")
+            }
+        # Add more platform processors as needed
+        return raw_data
+    except Exception as e:
+        logging.error(f"Error processing {platform} data: {e}")
+        return {}

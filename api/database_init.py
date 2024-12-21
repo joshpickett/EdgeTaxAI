@@ -30,6 +30,9 @@ CREATE TABLE expenses (
     description TEXT NOT NULL,
     amount REAL NOT NULL,
     category TEXT DEFAULT 'Uncategorized',
+    confidence_score REAL DEFAULT 0.0,
+    tax_context TEXT DEFAULT 'personal',
+    learning_feedback TEXT,
     date TEXT NOT NULL,
     receipt TEXT,
     FOREIGN KEY (user_id) REFERENCES users (id)
@@ -81,6 +84,27 @@ CREATE TABLE IF NOT EXISTS bank_transactions (
     amount REAL NOT NULL,
     date TEXT NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users (id)
+)
+""")
+
+# Create 'category_learning' table
+c.execute("""
+CREATE TABLE IF NOT EXISTS category_learning (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    original_category TEXT NOT NULL,
+    corrected_category TEXT NOT NULL,
+    description TEXT NOT NULL,
+    timestamp TEXT NOT NULL
+)
+""")
+
+# Create 'category_patterns' table
+c.execute("""
+CREATE TABLE IF NOT EXISTS category_patterns (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pattern TEXT NOT NULL,
+    category TEXT NOT NULL,
+    confidence REAL DEFAULT 0.0
 )
 """)
 

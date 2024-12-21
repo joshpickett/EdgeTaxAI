@@ -1,6 +1,7 @@
 from typing import Dict, Any, Optional
 import re
 from datetime import datetime
+from geopy.geocoders import Nominatim
 
 class ValidationError(Exception):
     """Custom validation exception"""
@@ -41,4 +42,18 @@ def validate_date(date_str: str) -> bool:
         datetime.strptime(date_str, '%Y-%m-%d')
         return True
     except ValueError:
+        return False
+
+def validate_location(location: str) -> bool:
+    """
+    Validate if a location string is valid using geocoding.
+    """
+    if not location or len(location.strip()) < 3:
+        return False
+        
+    try:
+        geolocator = Nominatim(user_agent="tax_edge_ai")
+        location = geolocator.geocode(location)
+        return location is not None
+    except Exception:
         return False
