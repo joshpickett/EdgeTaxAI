@@ -3,7 +3,9 @@ from typing import Dict, Any, Optional
 import logging
 from datetime import datetime, timedelta
 from ..utils.validators import validate_email, validate_phone
-from ..middleware.auth_middleware import generate_token
+from ..utils.otp_manager import OTPManager
+from ..utils.token_storage import TokenStorage
+from ..utils.biometric_auth import BiometricAuth
 import sqlite3
 import random
 import os
@@ -11,6 +13,11 @@ import re  # Added for validation
 
 # Blueprint Setup
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
+
+# Initialize components
+otp_manager = OTPManager()
+token_storage = TokenStorage(os.getenv('SECRET_KEY'))
+biometric_auth = BiometricAuth()
 
 # Utility Functions
 DATABASE_FILE = os.getenv("DB_PATH", "database.db")
@@ -214,3 +221,24 @@ def login():
     send_sms(user["phone_number"], f"Your login verification code is: {otp_code}")
 
     return jsonify({"message": "OTP sent to your phone number for login verification."}), 200
+
+@auth_bp.route("/biometric/register", methods=["POST"])
+def register_biometric():
+    """Register biometric data for mobile authentication"""
+    try:
+        data = request.json
+        user_id = data.get('user_id')
+        biometric_data = data.get('biometric_data')
+        
+        if not all([user_id, biometric_data]):
+            return jsonify({"error": "Missing required data"}), 400
+            
+        success = biometric_auth.register_biometric(user_id, biometric_data)
+        if success:
+            return jsonify({
+                "message": "Biometric authentication registered successfully"
+            }), 200
+        return jsonify({"error": "Failed to register biometric data"}), 400
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

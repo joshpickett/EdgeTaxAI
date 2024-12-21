@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, TextInput, StyleSheet, Text } from 'react-native';
+import { colors, typography, spacing } from '../styles/tokens';
 
 const InputField = ({ label, placeholder, value, onChangeText, secureTextEntry, keyboardType, error }) => {
   return (
@@ -19,16 +20,16 @@ const InputField = ({ label, placeholder, value, onChangeText, secureTextEntry, 
 };
 
 const styles = StyleSheet.create({
-  container: { marginBottom: 15 },
-  label: { marginBottom: 5, fontSize: 14, fontWeight: 'bold' },
-  input: { borderWidth: 1, borderColor: '#ccc', padding: 10, borderRadius: 5 },
+  container: { marginBottom: spacing.md },
+  label: { marginBottom: spacing.xs, fontSize: typography.fontSize.sm, fontWeight: typography.fontWeight.bold },
+  input: { borderWidth: 1, borderColor: colors.grey[300], padding: spacing.sm, borderRadius: 5 },
   inputError: {
-    borderColor: '#ff0000',
+    borderColor: colors.error.main,
   },
   errorText: {
-    color: '#ff0000',
-    fontSize: 12,
-    marginTop: 5,
+    color: colors.error.main,
+    fontSize: typography.fontSize.xs,
+    marginTop: spacing.xs,
   }
 });
 
