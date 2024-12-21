@@ -5,6 +5,7 @@ import logging
 import pandas as pd
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import StandardScaler
+from .tax_calculator import TaxCalculator
 
 def calculate_expense_trends(expenses: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Calculate expense trends over time"""
@@ -233,39 +234,24 @@ def identify_categories_to_watch(predictions: Dict[str, Any]) -> List[str]:
     
     return to_watch
 
-def calculate_tax_savings(amount: float, user_id: int) -> float:
-    """Centralized tax savings calculation"""
-    try:
-        # Basic calculation
-        base_savings = amount * TAX_RATE
-        
-        # Get user's tax strategy
-        tax_strategy = get_user_tax_strategy(user_id)
-        
-        # Apply strategy-specific adjustments
-        if tax_strategy == 'itemized':
-            return calculate_itemized_savings(amount, user_id)
-        
-        return round(base_savings, 2)
-    except Exception as e:
-        logging.error(f"Error calculating tax savings: {e}")
-        return 0.0
-
 def analyze_optimization_opportunities(user_id: int, year: int = None) -> List[Dict[str, Any]]:
     """Analyze potential tax optimization opportunities"""
     try:
-        # Get user's expenses
         expenses = get_user_expenses(user_id, year)
+        calculator = TaxCalculator()
         
-        # Analyze patterns and find optimization opportunities
         opportunities = []
         for expense in expenses:
-            tax_context = analyze_tax_context(expense['description'], expense['amount'])
-            if tax_context['optimization_potential'] > 0.5:
-                opportunities.append({
-                    'expense': expense,
-                    'suggestion': tax_context['optimization_suggestion']
-                })
+            # Analyze each expense for optimization potential
+            optimization = {
+                'expense': expense,
+                'potential_savings': calculator.calculate_tax_savings(
+                    Decimal(str(expense['amount']))
+                ),
+                'suggestion': generate_optimization_suggestion(expense)
+            }
+            opportunities.append(optimization)
+            
         return opportunities
     except Exception as e:
         logging.error(f"Error analyzing optimization opportunities: {e}")

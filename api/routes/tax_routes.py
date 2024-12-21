@@ -1,29 +1,16 @@
 from flask import Blueprint, request, jsonify
-from api.utils.config import TAX_RATE, QUARTERLY_TAX_DATES
 from datetime import datetime
 from decimal import Decimal
 import logging
-from ..utils.analytics_helper import calculate_tax_savings, analyze_deductions
-from ..utils.ai_utils import analyze_tax_context
+from ..utils.analytics_helper import calculate_tax_savings
+from ..utils.tax_calculator import TaxCalculator
 
 """
 Core Tax Calculation Module
 
 This module handles all core tax calculations and provides base functionality
-for tax optimization features. It serves as the central source for tax-related
-computations.
+for other tax-related features.
 """
-
-# Enhanced tax brackets for more accurate calculations
-TAX_BRACKETS = [
-    (Decimal('0'), Decimal('11000'), Decimal('0.10')),
-    (Decimal('11000'), Decimal('44725'), Decimal('0.12')),
-    (Decimal('44725'), Decimal('95375'), Decimal('0.22')),
-    (Decimal('95375'), Decimal('182100'), Decimal('0.24')),
-    (Decimal('182100'), Decimal('231250'), Decimal('0.32')),
-    (Decimal('231250'), Decimal('578125'), Decimal('0.35')),
-    (Decimal('578125'), Decimal('inf'), Decimal('0.37'))
-]
 
 # Configure Logging
 logging.basicConfig(
@@ -50,17 +37,14 @@ def real_time_tax_savings():
         user_id = data.get("user_id")
 
         if not amount or float(amount) <= 0:
-            return jsonify({"error": "Invalid or missing 'amount' parameter."}), 400
+            return jsonify({"error": "Invalid amount"}), 400
 
-        # Use centralized calculation function
-        savings = calculate_tax_savings(float(amount), user_id)
-        
-        # Get tax context for enhanced analysis
-        tax_context = analyze_tax_context(data.get('description', ''), amount)
+        # Use centralized calculation
+        calculator = TaxCalculator()
+        savings = calculator.calculate_tax_savings(Decimal(str(amount)))
 
         return jsonify({
             "savings": savings,
-            "tax_context": tax_context,
             "timestamp": datetime.now().isoformat()
         }), 200
     except Exception as e:
@@ -114,43 +98,20 @@ def quarterly_tax_estimate():
         if not all([user_id, quarter]):
             return jsonify({"error": "User ID and quarter are required."}), 400
 
-        conn = get_db_connection()
-        cursor = conn.cursor()
+        income = Decimal(str(data.get("income", 0)))
+        expenses = Decimal(str(data.get("expenses", 0)))
 
-        # Calculate quarterly income
-        cursor.execute("""
-            SELECT SUM(amount) FROM income 
-            WHERE user_id = ? 
-            AND QUARTER(date) = ? 
-            AND YEAR(date) = ?
-        """, (user_id, quarter, year))
-        
-        income = cursor.fetchone()[0] or 0
-
-        # Calculate quarterly expenses
-        cursor.execute("""
-            SELECT SUM(amount) FROM expenses 
-            WHERE user_id = ? 
-            AND QUARTER(date) = ? 
-            AND YEAR(date) = ?
-        """, (user_id, quarter, year))
-        
-        expenses = cursor.fetchone()[0] or 0
-
-        # Calculate estimated tax
-        taxable_income = max(Decimal('0'), Decimal(income) - Decimal(expenses))
-        estimated_tax = calculate_progressive_tax(taxable_income)
-        
-        due_date = QUARTERLY_TAX_DATES.get(str(quarter), "Unknown")
+        calculator = TaxCalculator()
+        tax_result = calculator.calculate_quarterly_tax(income, expenses)
 
         return jsonify({
             "quarter": quarter,
             "year": year,
-            "income": income,
-            "expenses": expenses,
-            "taxable_income": float(taxable_income),
-            "estimated_tax": float(estimated_tax['total_tax']),
-            "due_date": due_date
+            "income": float(income),
+            "expenses": float(expenses),
+            "quarterly_tax": tax_result['quarterly_amount'],
+            "annual_tax": tax_result['annual_tax'],
+            "effective_rate": tax_result['effective_rate']
         }), 200
     except Exception as e:
         logging.error(f"Error calculating quarterly tax estimate: {str(e)}")
@@ -158,10 +119,10 @@ def quarterly_tax_estimate():
 
 def calculate_tax_bracket(income: float) -> tuple:
     """Calculate tax bracket and effective rate based on income"""
-    for min_income, max_income, rate in TAX_BRACKETS:
+    for min_income, max_income, rate in TaxCalculator.TAX_BRACKETS:
         if min_income <= income <= max_income:
             return rate, f"${min_income:,} - ${max_income:,}"
-    return TAX_BRACKETS[-1][2], f"Over ${TAX_BRACKETS[-1][0]:,}"
+    return TaxCalculator.TAX_BRACKETS[-1][2], f"Over ${TaxCalculator.TAX_BRACKETS[-1][0]:,}"
 
 @tax_bp.route("/calculate-effective-rate", methods=["POST"])
 def calculate_effective_rate():

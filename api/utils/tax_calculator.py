@@ -1,49 +1,58 @@
 from decimal import Decimal
-from typing import List, Tuple, Dict, Any
+from typing import Dict, Any
 import logging
 
 class TaxCalculator:
-    def __init__(self, tax_brackets: List[Tuple[Decimal, Decimal, Decimal]]):
-        self.tax_brackets = tax_brackets
-        
-    def calculate_progressive_tax(self, income: Decimal) -> Dict[str, Decimal]:
+    """Centralized tax calculation utility"""
+    
+    TAX_BRACKETS = [
+        (Decimal('0'), Decimal('11000'), Decimal('0.10')),
+        (Decimal('11000'), Decimal('44725'), Decimal('0.12')),
+        (Decimal('44725'), Decimal('95375'), Decimal('0.22')),
+        (Decimal('95375'), Decimal('182100'), Decimal('0.24')),
+        (Decimal('182100'), Decimal('231250'), Decimal('0.32')),
+        (Decimal('231250'), Decimal('578125'), Decimal('0.35')),
+        (Decimal('578125'), Decimal('inf'), Decimal('0.37'))
+    ]
+    
+    def calculate_tax_savings(self, amount: Decimal) -> Dict[str, Any]:
+        """Calculate potential tax savings"""
+        try:
+            tax_due = self._calculate_progressive_tax(amount)
+            return {
+                'tax_savings': float(tax_due),
+                'effective_rate': float(tax_due / amount) if amount > 0 else 0
+            }
+        except Exception as e:
+            logging.error(f"Error calculating tax savings: {e}")
+            return {'tax_savings': 0, 'effective_rate': 0}
+            
+    def calculate_quarterly_tax(self, income: Decimal, expenses: Decimal) -> Dict[str, Any]:
+        """Calculate quarterly estimated tax payments"""
+        try:
+            taxable_income = max(Decimal('0'), income - expenses)
+            annual_tax = self._calculate_progressive_tax(taxable_income)
+            quarterly_tax = annual_tax / Decimal('4')
+            
+            return {
+                'quarterly_amount': float(quarterly_tax),
+                'annual_tax': float(annual_tax),
+                'effective_rate': float(annual_tax / taxable_income) if taxable_income > 0 else 0
+            }
+        except Exception as e:
+            logging.error(f"Error calculating quarterly tax: {e}")
+            return {'quarterly_amount': 0, 'annual_tax': 0, 'effective_rate': 0}
+            
+    def _calculate_progressive_tax(self, income: Decimal) -> Decimal:
         """Calculate tax using progressive tax brackets"""
         total_tax = Decimal('0')
-        bracket_taxes = []
         
-        for i, (lower, upper, rate) in enumerate(self.tax_brackets):
+        for lower, upper, rate in self.TAX_BRACKETS:
             if income <= lower:
                 break
                 
             taxable_in_bracket = min(income - lower, upper - lower)
             if taxable_in_bracket > 0:
-                tax_in_bracket = taxable_in_bracket * rate
-                total_tax += tax_in_bracket
-                bracket_taxes.append({
-                    'bracket': i + 1,
-                    'amount': taxable_in_bracket,
-                    'rate': rate,
-                    'tax': tax_in_bracket
-                })
+                total_tax += taxable_in_bracket * rate
                 
-        return {
-            'total_tax': total_tax,
-            'effective_rate': total_tax / income if income > 0 else Decimal('0'),
-            'bracket_breakdown': bracket_taxes
-        }
-        
-    def calculate_quarterly_payment(self, annual_tax: Decimal) -> Decimal:
-        """Calculate quarterly estimated tax payment"""
-        return (annual_tax / Decimal('4')).quantize(Decimal('0.01'))
-        
-    def calculate_deduction_savings(self, income: Decimal, deduction: Decimal) -> Dict[str, Decimal]:
-        """Calculate tax savings from a deduction"""
-        tax_without = self.calculate_progressive_tax(income)
-        tax_with = self.calculate_progressive_tax(income - deduction)
-        
-        savings = tax_without['total_tax'] - tax_with['total_tax']
-        return {
-            'deduction_amount': deduction,
-            'tax_savings': savings,
-            'effective_savings_rate': (savings / deduction).quantize(Decimal('0.0001'))
-        }
+        return total_tax
