@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,6 +6,8 @@ import {
   StyleSheet,
   FlatList,
   ActivityIndicator,
+  RefreshControl,
+  ScrollView,
   Alert,
   Linking,
   TextInput,
@@ -13,8 +15,11 @@ import {
 import {
   fetchPlatformData,
   fetchConnectedPlatforms,
+  syncPlatformData,
+  getSyncStatus,
   connectApiKeyPlatform,
 } from "../services/gigPlatformService";
+import PlatformDataDisplay from "../components/PlatformDataDisplay";
 
 // List of gig platforms
 const platforms = [
@@ -32,6 +37,9 @@ const GigPlatformScreen = () => {
   const [selectedPlatform, setSelectedPlatform] = useState("");
   const [connectedPlatforms, setConnectedPlatforms] = useState([]);
   const [apiKey, setApiKey] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const MAX_RETRIES = 3;
 
   // Function to handle OAuth connection
   const handleConnectOAuth = async (platformKey) => {
@@ -72,6 +80,40 @@ const GigPlatformScreen = () => {
       setLoading(false);
     }
   };
+
+  // Function to handle platform sync with retry
+  const handleSync = async (platform) => {
+    setLoading(true);
+    try {
+      const userId = "123"; // Replace with actual user ID
+      await syncPlatformData(platform, userId);
+      setRetryCount(0);
+      Alert.alert("Success", `${platform} data synced successfully`);
+      loadConnectedPlatforms(); // Refresh the list after sync
+    } catch (error) {
+      if (retryCount < MAX_RETRIES) {
+        setRetryCount(prev => prev + 1);
+        setTimeout(() => handleSync(platform), 1000 * Math.pow(2, retryCount));
+      } else {
+        Alert.alert("Error", `Failed to sync ${platform} data after ${MAX_RETRIES} attempts`);
+        setRetryCount(0);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Function to handle pull-to-refresh
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await loadConnectedPlatforms();
+    } catch (error) {
+      Alert.alert("Error", "Failed to refresh platforms");
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
 
   // Fetch platform data
   const handleFetchData = async (platform) => {
@@ -130,11 +172,25 @@ const GigPlatformScreen = () => {
       {connectedPlatforms.length > 0 && (
         <View>
           <Text style={styles.subTitle}>Connected Platforms</Text>
-          {connectedPlatforms.map((platform, index) => (
-            <Text key={index} style={styles.connectedText}>
-              ✅ {platform.platform.toUpperCase()}
-            </Text>
-          ))}
+          <ScrollView
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={["#007BFF"]}
+              />
+            }
+          >
+            {connectedPlatforms.map((platform, index) => (
+              <Text key={index} style={styles.connectedText}>
+                â {platform.platform.toUpperCase()}
+                <Button
+                  title="Sync"
+                  onPress={() => handleSync(platform.platform)}
+                />
+              </Text>
+            ))}
+          </ScrollView>
         </View>
       )}
 
@@ -154,14 +210,9 @@ const GigPlatformScreen = () => {
       {!loading && data.length > 0 && (
         <View>
           <Text style={styles.subTitle}>Data for {selectedPlatform.toUpperCase()}</Text>
-          <FlatList
+          <PlatformDataDisplay
             data={data}
-            keyExtractor={(item, index) => index.toString()}
-            renderItem={({ item }) => (
-              <View style={styles.item}>
-                <Text>{JSON.stringify(item)}</Text>
-              </View>
-            )}
+            platform={selectedPlatform}
           />
         </View>
       )}

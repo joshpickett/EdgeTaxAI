@@ -1,11 +1,16 @@
 const BASE_URL = "https://your-backend-api.com/api";
+const SYNC_INTERVAL = 1800000; // 30 minutes
+import { secureTokenStorage } from '../utils/secureTokenStorage';
 
-const PLATFORM_CONFIG = {
+export const PLATFORM_CONFIG = {
   uber: {
     oauth_url: 'https://login.uber.com/oauth/v2/authorize',
     token_url: 'https://login.uber.com/oauth/v2/token',
-    data_url: 'https://api.uber.com/v1.2/partners/trips',
-    scopes: ['partner.trips', 'partner.payments']
+    refresh_url: 'https://login.uber.com/oauth/v2/refresh',
+    earnings_url: 'https://api.uber.com/v1.2/partners/payments',
+    processor: 'uber',
+    sync_enabled: true,
+    auto_sync: true
   },
   lyft: {
     oauth_url: 'https://api.lyft.com/oauth/authorize',
@@ -108,6 +113,85 @@ export const connectApiKeyPlatform = async (platform, apiKey) => {
     return data.message || `${platform} connected successfully.`;
   } catch (error) {
     console.error(`Error connecting ${platform} with API key:`, error.message);
+    throw error;
+  }
+};
+
+// Function to sync platform data
+export const syncPlatformData = async (platform, userId) => {
+  try {
+    const response = await fetch(`${BASE_URL}/gig/sync`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ platform, user_id: userId })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to sync ${platform} data`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error(`Sync Data Error for ${platform}:`, error.message);
+    throw error;
+  }
+};
+
+// Function to get sync status
+export const getSyncStatus = async (platform, userId) => {
+  try {
+    const response = await fetch(
+      `${BASE_URL}/gig/sync-status?platform=${platform}&user_id=${userId}`,
+      {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to get sync status for ${platform}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error(`Sync status error for ${platform}:`, error.message);
+    throw error;
+  }
+};
+
+// Token management functions
+export const storePlatformToken = async (platform, userId, tokenData) => {
+  const key = `token_${platform}_${userId}`;
+  return await secureTokenStorage.storeToken(key, JSON.stringify(tokenData));
+};
+
+export const getPlatformToken = async (platform, userId) => {
+  const key = `token_${platform}_${userId}`;
+  const tokenData = await secureTokenStorage.getToken(key);
+  if (!tokenData) return null;
+  
+  const parsed = JSON.parse(tokenData);
+  if (isTokenExpired(parsed)) {
+    return await refreshPlatformToken(platform, userId, parsed.refresh_token);
+  }
+  return parsed.access_token;
+};
+
+export const refreshPlatformToken = async (platform, userId, refreshToken) => {
+  try {
+    const response = await fetch(`${BASE_URL}/gig/refresh-token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ platform, refresh_token: refreshToken })
+    });
+    
+    if (!response.ok) throw new Error('Token refresh failed');
+    
+    const newTokenData = await response.json();
+    await storePlatformToken(platform, userId, newTokenData);
+    return newTokenData.access_token;
+  } catch (error) {
+    console.error(`Token refresh error for ${platform}:`, error);
     throw error;
   }
 };
