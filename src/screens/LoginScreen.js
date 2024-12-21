@@ -1,14 +1,20 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, StyleSheet, Alert } from "react-native";
+import { useDispatch, useSelector } from 'react-redux';
 import CustomButton from "../components/CustomButton";
-import { sendLoginOTP, verifyLoginOTP } from "../services/api"; // Updated API functions
+import { loginUser, verifyOTP } from '../store/slices/authSlice';
+import { RootState } from '../store';
 import { validateEmail, validatePhone } from "../utils/validation";
 
 const LoginScreen = ({ navigation }) => {
   const [identifier, setIdentifier] = useState(""); // Email or Phone
   const [otp, setOtp] = useState("");
-  const [isOtpSent, setIsOtpSent] = useState(false);
   const [errors, setErrors] = useState({});
+  
+  const dispatch = useDispatch();
+  const { loading, error, otpSent } = useSelector(
+    (state: RootState) => state.auth
+  );
 
   // Validate before sending OTP
   const handleSendOTP = async () => {
@@ -25,12 +31,11 @@ const LoginScreen = ({ navigation }) => {
     }
 
     try {
-      const result = await sendLoginOTP(identifier); // Call the API to send OTP
-      if (result && result.message) {
-        setIsOtpSent(true);
+      const result = await dispatch(loginUser({ identifier })).unwrap();
+      if (result) {
         Alert.alert("OTP Sent", "Please check your phone or email for the verification code.");
       } else {
-        Alert.alert("Error", result?.error || "Unable to send OTP. Please try again.");
+        Alert.alert("Error", "Unable to send OTP. Please try again.");
       }
     } catch (error) {
       console.error("Send OTP Error:", error);
@@ -46,12 +51,12 @@ const LoginScreen = ({ navigation }) => {
     }
 
     try {
-      const result = await verifyLoginOTP(identifier, otp); // Call the API to verify OTP
-      if (result && result.message) {
+      const result = await dispatch(verifyOTP({ identifier, otp })).unwrap();
+      if (result) {
         Alert.alert("Login Successful", "Welcome back!");
         navigation.navigate("Dashboard"); // Navigate to Dashboard
       } else {
-        Alert.alert("Error", result?.error || "Invalid or expired OTP.");
+        Alert.alert("Error", "Invalid or expired OTP.");
       }
     } catch (error) {
       console.error("Verify OTP Error:", error);
@@ -70,12 +75,12 @@ const LoginScreen = ({ navigation }) => {
         value={identifier}
         onChangeText={setIdentifier}
         keyboardType="email-address"
-        editable={!isOtpSent} // Prevent editing after OTP is sent
+        editable={!otpSent} // Prevent editing after OTP is sent
       />
       {errors.identifier && <Text style={styles.errorText}>{errors.identifier}</Text>}
 
       {/* Input for OTP */}
-      {isOtpSent && (
+      {otpSent && (
         <TextInput
           style={styles.input}
           placeholder="Enter OTP"
@@ -87,7 +92,7 @@ const LoginScreen = ({ navigation }) => {
       )}
 
       {/* Buttons */}
-      {!isOtpSent ? (
+      {!otpSent ? (
         <CustomButton title="Send OTP" onPress={handleSendOTP} />
       ) : (
         <CustomButton title="Verify OTP" onPress={handleVerifyOTP} />

@@ -1,4 +1,4 @@
-const BASE_URL = "https://your-backend-api.com/api";
+import { apiClient } from './apiClient';
 
 /**
  * Utility function to handle API requests.
@@ -55,10 +55,7 @@ export const validateFields = (fields) => {
  * @param {string} password - User password.
  */
 export const loginUser = async (identifier, password) => {
-  if (!validateFields({ identifier, password })) {
-    throw new Error("All fields are required.");
-  }
-  return await sendRequest("/auth/login", "POST", { identifier, password });
+  return apiClient.login({ identifier, password });
 };
 
 /**
@@ -72,7 +69,7 @@ export const signupUser = async (fullName, email, phoneNumber, password) => {
   if (!validateFields({ fullName, email, phoneNumber, password })) {
     throw new Error("All fields are required.");
   }
-  return await sendRequest("/auth/signup", "POST", {
+  return await apiClient.signup({
     full_name: fullName,
     email,
     phone_number: phoneNumber,
@@ -97,37 +94,12 @@ export const resetPassword = async (identifier) => {
  * @param {object} receiptFile - Optional receipt file (FormData).
  */
 export const addExpense = async (expenseData, receiptFile = null) => {
-  const formData = new FormData();
-  for (const key in expenseData) {
-    formData.append(key, expenseData[key]);
-  }
-  if (receiptFile) {
-    formData.append("receipt", receiptFile);
-  }
-
-  const options = {
-    method: "POST",
-    body: formData,
-  };
-
-  try {
-    const response = await fetch(`${BASE_URL}/expenses`, options);
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.error || "Failed to add expense.");
-    }
-    return data;
-  } catch (error) {
-    console.error("Add Expense Error:", error.message);
-    throw error;
-  }
+  return apiClient.addExpense(expenseData);
 };
 
 /**
  * Fetch Expenses: Retrieves all user expenses.
  */
 export const getExpenses = async () => {
-  return await sendRequest("/expenses", "GET");
+  return await apiClient.getExpenses();
 };
- 
