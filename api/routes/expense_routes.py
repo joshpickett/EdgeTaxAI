@@ -1,7 +1,15 @@
 from flask import Blueprint, request, jsonify
-from db_utils import get_db_connection
-from openai import OpenAI
+from api.utils.db_utils import get_db_connection
+from dotenv import load_dotenv
 import logging
+import os
+import sqlite3
+import json
+from datetime import datetime
+from openai import OpenAI
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Configure Logging
 logging.basicConfig(
@@ -13,8 +21,40 @@ logging.basicConfig(
 # Blueprint setup
 expense_bp = Blueprint("expenses", __name__)
 
-# Initialize AI (if needed for categorization)
-AI_CLIENT = OpenAI(api_key="YOUR_OPENAI_KEY")
+# OpenAI setup
+openai_api_key = os.getenv("OPENAI_API_KEY", "dummy_key")
+ai_client = OpenAI(api_key=openai_api_key)
+
+# Load categories.json
+CATEGORIES_FILE = os.path.join(os.path.dirname(__file__), "../utils/categories.json")
+try:
+    with open(CATEGORIES_FILE, "r") as f:
+        CATEGORIES = json.load(f)
+except FileNotFoundError:
+    CATEGORIES = {}
+    logging.warning("categories.json not found. Rule-based categorization will be skipped.")
+
+# Categorize Expense Function
+def categorize_expense(description):
+    """Categorize expense based on description using rule-based and AI-based logic."""
+    # Rule-based categorization
+    if description:
+        for keyword, category in CATEGORIES.items():
+            if keyword.lower() in description.lower():
+                return category
+
+    # Fallback to AI-based categorization
+    try:
+        response = ai_client.completions.create(
+            model="text-davinci-003",
+            prompt=f"Categorize this expense description: '{description}' into categories: Food, Travel, Entertainment, Bills, General.",
+            max_tokens=10
+        )
+        ai_category = response.choices[0].text.strip()
+        return ai_category if ai_category else "General"
+    except Exception as e:
+        logging.warning(f"AI categorization failed: {e}")
+        return "General"  # Always return "General" when categorization fails
 
 # Helper: Convert SQL row to dict
 def row_to_dict(row):
@@ -23,28 +63,45 @@ def row_to_dict(row):
 # Add Expense
 @expense_bp.route("/add", methods=["POST"])
 def add_expense():
+    """
+    Adds a new expense.
+    If description is not provided or empty, it defaults to 'Unspecified'.
+    If date is not provided, it defaults to the current date.
+    """
     data = request.json
     user_id = data.get("user_id")
-    description = data.get("description")
+    description = data.get("description", "").strip() or "General"
     amount = data.get("amount")
+    date = data.get("date", datetime.now().strftime("%Y-%m-%d"))
 
-    if not all([user_id, description, amount]):
-        return jsonify({"error": "Missing required fields"}), 400
+    # Input Validation
+    if not isinstance(user_id, int) or user_id <= 0:
+        return jsonify({"error": "Invalid user ID"}), 400
+    if not isinstance(amount, (int, float)) or amount <= 0:
+        return jsonify({"error": "Amount must be a positive number"}), 400
 
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # Optional AI categorization
-        category = AI_CLIENT.categorize(description) if description else "Uncategorized"
+        # Categorize expense
+        category = categorize_expense(description)
 
         cursor.execute(
-            "INSERT INTO expenses (user_id, description, amount, category) VALUES (?, ?, ?, ?)",
-            (user_id, description, amount, category)
+            """
+            INSERT INTO expenses (user_id, description, amount, category, date)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (user_id, description, amount, category, date)
         )
         conn.commit()
 
-        return jsonify({"message": "Expense added successfully", "category": category}), 201
+        return jsonify({
+            "message": "Expense added successfully",
+            "description": description,
+            "category": category,
+            "date": date
+        }), 201
     except Exception as e:
         logging.exception("Error adding expense")
         return jsonify({"error": "Internal Server Error"}), 500
@@ -54,6 +111,7 @@ def add_expense():
 # List Expenses
 @expense_bp.route("/list/<int:user_id>", methods=["GET"])
 def list_expenses(user_id):
+    """Lists all expenses for a specific user."""
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -72,6 +130,7 @@ def list_expenses(user_id):
 # Edit Expense
 @expense_bp.route("/edit/<int:expense_id>", methods=["PUT"])
 def edit_expense(expense_id):
+    """Edits an existing expense."""
     data = request.json
     description = data.get("description")
     amount = data.get("amount")
@@ -84,6 +143,13 @@ def edit_expense(expense_id):
         conn = get_db_connection()
         cursor = conn.cursor()
 
+        # Check if the expense exists
+        cursor.execute("SELECT * FROM expenses WHERE id = ?", (expense_id,))
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({"error": "Expense not found"}), 404
+
+        # Prepare update query
         updates = []
         params = []
 
@@ -103,9 +169,6 @@ def edit_expense(expense_id):
         cursor.execute(update_query, params)
         conn.commit()
 
-        if cursor.rowcount == 0:
-            return jsonify({"error": "Expense not found"}), 404
-
         return jsonify({"message": "Expense updated successfully"}), 200
     except Exception as e:
         logging.exception("Error updating expense")
@@ -116,15 +179,20 @@ def edit_expense(expense_id):
 # Delete Expense
 @expense_bp.route("/delete/<int:expense_id>", methods=["DELETE"])
 def delete_expense(expense_id):
+    """Deletes an expense by ID."""
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
 
+        # Check if the expense exists
+        cursor.execute("SELECT * FROM expenses WHERE id = ?", (expense_id,))
+        row = cursor.fetchone()
+        if not row:
+            return jsonify({"error": "Expense not found"}), 404
+
+        # Delete the expense
         cursor.execute("DELETE FROM expenses WHERE id = ?", (expense_id,))
         conn.commit()
-
-        if cursor.rowcount == 0:
-            return jsonify({"error": "Expense not found"}), 404
 
         return jsonify({"message": "Expense deleted successfully"}), 200
     except Exception as e:

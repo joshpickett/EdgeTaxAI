@@ -36,5 +36,30 @@ class Config:
     # ---- CORS (Cross-Origin Resource Sharing) ----
     ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*")  # Adjust for production to specific domains
 
+    # ---- Gig Platform API Credentials ----
+    # Uber
+    UBER_CLIENT_ID = os.getenv("UBER_CLIENT_ID", "")
+    UBER_CLIENT_SECRET = os.getenv("UBER_CLIENT_SECRET", "")
+    UBER_REDIRECT_URI = os.getenv("UBER_REDIRECT_URI", "")
+
+    # Lyft
+    LYFT_CLIENT_ID = os.getenv("LYFT_CLIENT_ID", "")
+    LYFT_CLIENT_SECRET = os.getenv("LYFT_CLIENT_SECRET", "")
+    LYFT_REDIRECT_URI = os.getenv("LYFT_REDIRECT_URI", "")
+
+    # DoorDash
+    DOORDASH_API_KEY = os.getenv("DOORDASH_API_KEY", "")
+
+    # Instacart
+    INSTACART_API_KEY = os.getenv("INSTACART_API_KEY", "")
+
+    # Upwork
+    UPWORK_CLIENT_ID = os.getenv("UPWORK_CLIENT_ID", "")
+    UPWORK_CLIENT_SECRET = os.getenv("UPWORK_CLIENT_SECRET", "")
+    UPWORK_REDIRECT_URI = os.getenv("UPWORK_REDIRECT_URI", "")
+
+    # Fiverr
+    FIVERR_API_KEY = os.getenv("FIVERR_API_KEY", "")
+
     # Centralized configuration file for shared settings
     TAX_RATE = 0.25  # 25% tax rate

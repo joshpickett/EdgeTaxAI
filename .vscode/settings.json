@@ -1,0 +1,36 @@
+{
+    "python.analysis.extraPaths": [
+        "./api/models",
+        "./api/routes",
+        "./api/utils",
+        "./tests",
+        "./src"
+    ],
+    "python.defaultInterpreterPath": "./venv/bin/python",  // Adjust for your environment
+    "python.testing.pytestEnabled": true,
+    "python.testing.unittestEnabled": false,
+    "python.testing.autoTestDiscoverOnSaveEnabled": true,
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+        "source.organizeImports": true
+    },
+    "python.formatting.provider": "black",
+    "python.linting.enabled": true,
+    "python.linting.pylintEnabled": true,
+    "python.linting.flake8Enabled": false,
+    "python.linting.mypyEnabled": true,
+    "files.exclude": {
+        "**/__pycache__": true,
+        "**/*.pyc": true,
+        "**/test_database.db": true
+    },
+    "files.watcherExclude": {
+        "**/__pycache__/**": true,
+        "**/*.pyc": true,
+        "**/node_modules/**": true,
+        "**/.venv/**": true
+    },
+    "python.envFile": "${workspaceFolder}/.env",
+    "python.analysis.autoSearchPaths": true,
+    "python.analysis.useLibraryCodeForTypes": true
+}

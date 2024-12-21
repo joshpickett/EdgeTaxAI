@@ -1,151 +1,152 @@
 import sqlite3
 import logging
+import datetime
+import random
+from twilio.rest import Client
+import os
 
 # Configure Logging
 logging.basicConfig(
-    filename="db_utils.log",  # Log file for database issues
+    filename="db_utils.log",
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
 DATABASE_FILE = "database.db"
 
+# --- Database Connection ---
 def get_db_connection():
-    """
-    Establishes a connection to the SQLite database with error handling.
-
-    Returns:
-        Connection object if successful, None otherwise.
-    """
-    try:
-        conn = sqlite3.connect(DATABASE_FILE)
-        conn.row_factory = sqlite3.Row
-        logging.info("Database connection established successfully.")
-        return conn
-    except sqlite3.Error as e:
-        logging.error(f"Database connection error: {e}")
-        return None
+    """Establish a database connection using the DATABASE environment variable."""
+    db_path = os.getenv("DATABASE", "default_database.db")  # Fallback if DATABASE not set
+    print(f"Connecting to database at: {db_path}")  # Debugging output
+    return sqlite3.connect(db_path)
 
 
-def save_user(full_name, email, phone_number, password):
+# --- OTP Management ---
+def generate_otp():
     """
-    Saves a new user to the database.
+    Generate a 6-digit OTP.
+    """
+    return str(random.randint(100000, 999999))
+
+
+def save_otp_for_user(identifier, otp_code):
+    """
+    Save OTP and its expiry time for a user identified by email or phone number.
 
     Args:
-        full_name (str): User's full name.
-        email (str): User's email address.
-        phone_number (str): User's phone number.
-        password (str): Hashed password.
-
-    Returns:
-        True if successful, False otherwise.
+        identifier (str): User's email or phone number.
+        otp_code (str): Generated OTP.
     """
     conn = get_db_connection()
     if conn is None:
-        logging.error("Failed to save user: Database connection could not be established.")
+        logging.error("Failed to save OTP: Database connection could not be established.")
+        return
+    try:
+        expiry_time = datetime.datetime.now() + datetime.timedelta(minutes=5)  # OTP valid for 5 minutes
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            UPDATE users 
+            SET otp_code = ?, otp_expiry = ? 
+            WHERE email = ? OR phone_number = ?
+            """,
+            (otp_code, expiry_time.strftime("%Y-%m-%d %H:%M:%S"), identifier, identifier)
+        )
+        conn.commit()
+        logging.info(f"OTP saved successfully for {identifier}.")
+    except sqlite3.Error as e:
+        logging.error(f"Error saving OTP for {identifier}: {e}")
+    finally:
+        conn.close()
+
+
+def verify_otp_for_user(identifier, otp_code):
+    """
+    Verify OTP for a user identified by email or phone number.
+
+    Args:
+        identifier (str): User's email or phone number.
+        otp_code (str): OTP entered by the user.
+
+    Returns:
+        True if OTP is valid, False otherwise.
+    """
+    conn = get_db_connection()
+    if conn is None:
+        logging.error("Failed to verify OTP: Database connection could not be established.")
         return False
     try:
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO users (full_name, email, phone_number, password) VALUES (?, ?, ?, ?)",
-            (full_name, email, phone_number, password)
+            """
+            SELECT otp_code, otp_expiry 
+            FROM users 
+            WHERE (email = ? OR phone_number = ?)
+            """,
+            (identifier, identifier)
         )
-        conn.commit()
-        logging.info(f"User {email} saved successfully.")
-        return True
+        row = cursor.fetchone()
+        if row:
+            stored_otp, expiry_time = row
+            if otp_code == stored_otp and datetime.datetime.now() <= datetime.datetime.strptime(expiry_time, "%Y-%m-%d %H:%M:%S"):
+                logging.info(f"OTP verified successfully for {identifier}.")
+                return True
+        logging.warning(f"Invalid or expired OTP for {identifier}.")
+        return False
     except sqlite3.Error as e:
-        logging.error(f"Error saving user {email}: {e}")
+        logging.error(f"Error verifying OTP for {identifier}: {e}")
         return False
     finally:
         conn.close()
 
 
-def fetch_user_by_email(email):
+def clear_otp_for_user(identifier):
     """
-    Fetches a user from the database using their email.
+    Clear the OTP fields after successful verification.
 
     Args:
-        email (str): User's email address.
-
-    Returns:
-        Dictionary containing user data if found, None otherwise.
+        identifier (str): User's email or phone number.
     """
     conn = get_db_connection()
     if conn is None:
-        logging.error("Failed to fetch user: Database connection could not be established.")
-        return None
-    try:
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM users WHERE email = ?", (email,))
-        user = cursor.fetchone()
-        if user:
-            logging.info(f"User {email} fetched successfully.")
-            return dict(user)
-        else:
-            logging.warning(f"No user found with email: {email}")
-            return None
-    except sqlite3.Error as e:
-        logging.error(f"Error fetching user {email}: {e}")
-        return None
-    finally:
-        conn.close()
-
-
-def save_expense(user_id, description, amount, category):
-    """
-    Saves an expense to the database.
-
-    Args:
-        user_id (int): ID of the user.
-        description (str): Expense description.
-        amount (float): Expense amount.
-        category (str): Expense category.
-
-    Returns:
-        True if successful, False otherwise.
-    """
-    conn = get_db_connection()
-    if conn is None:
-        logging.error("Failed to save expense: Database connection could not be established.")
-        return False
+        logging.error("Failed to clear OTP: Database connection could not be established.")
+        return
     try:
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO expenses (user_id, description, amount, category) VALUES (?, ?, ?, ?)",
-            (user_id, description, amount, category)
+            """
+            UPDATE users 
+            SET otp_code = NULL, otp_expiry = NULL 
+            WHERE email = ? OR phone_number = ?
+            """,
+            (identifier, identifier)
         )
         conn.commit()
-        logging.info(f"Expense '{description}' for user {user_id} saved successfully.")
-        return True
+        logging.info(f"OTP cleared successfully for {identifier}.")
     except sqlite3.Error as e:
-        logging.error(f"Error saving expense '{description}' for user {user_id}: {e}")
-        return False
+        logging.error(f"Error clearing OTP for {identifier}: {e}")
     finally:
         conn.close()
 
 
-def fetch_expenses_by_user(user_id):
+# --- Twilio SMS Integration ---
+def send_sms(phone_number, message):
     """
-    Fetches all expenses for a given user.
+    Send SMS using Twilio.
 
     Args:
-        user_id (int): ID of the user.
-
-    Returns:
-        List of expense records if successful, empty list otherwise.
+        phone_number (str): Receiver's phone number.
+        message (str): SMS content.
     """
-    conn = get_db_connection()
-    if conn is None:
-        logging.error("Failed to fetch expenses: Database connection could not be established.")
-        return []
+    account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+    auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+    from_number = os.getenv("TWILIO_PHONE_NUMBER")
     try:
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM expenses WHERE user_id = ?", (user_id,))
-        expenses = cursor.fetchall()
-        logging.info(f"Fetched {len(expenses)} expenses for user {user_id}.")
-        return [dict(row) for row in expenses]
-    except sqlite3.Error as e:
-        logging.error(f"Error fetching expenses for user {user_id}: {e}")
-        return []
-    finally:
-        conn.close()
+        client = Client(account_sid, auth_token)
+        client.messages.create(body=message, from_=from_number, to=phone_number)
+        logging.info(f"SMS sent successfully to {phone_number}.")
+    except Exception as e:
+        logging.error(f"Failed to send SMS to {phone_number}: {e}")
+        raise Exception(f"Failed to send SMS: {e}")
+

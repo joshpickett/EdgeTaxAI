@@ -1,6 +1,9 @@
 import sqlite3
 from db_utils import get_db_connection
 import logging
+import requests
+from werkzeug.utils import secure_filename
+import os
 
 # Configure Logging
 logging.basicConfig(
@@ -9,11 +12,52 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
+UPLOAD_FOLDER = "uploads"
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+OCR_API_URL = "https://your-backend-api.com/api/ocr/receipt"  # Replace with actual OCR endpoint
+
+def process_receipt_ocr(file_path):
+    """Send the receipt image to the OCR API for text extraction."""
+    try:
+        with open(file_path, "rb") as file:
+            files = {"receipt": file}
+            response = requests.post(OCR_API_URL, files=files)
+        if response.status_code == 200:
+            data = response.json()
+            return data.get("text", "")
+        else:
+            logging.error(f"OCR API Error: {response.json().get('error', 'Unknown error')}")
+            print("Error: Failed to process receipt.")
+            return ""
+    except Exception as e:
+        logging.exception(f"Error during OCR processing: {e}")
+        print("Error: Could not process receipt.")
+        return ""
+
 def add_expense():
     """Add a new expense to the database."""
     description = input("Enter expense description: ").strip()
     amount = input("Enter expense amount: ").strip()
     category = input("Enter expense category (e.g., Food, Transport): ").strip()
+    receipt_path = input("Enter receipt file path (optional): ").strip()
+
+    # OCR Processing for Receipts
+    if receipt_path:
+        try:
+            filename = secure_filename(os.path.basename(receipt_path))
+            saved_file_path = os.path.join(UPLOAD_FOLDER, filename)
+            os.rename(receipt_path, saved_file_path)
+            print("Processing receipt for text extraction...")
+            ocr_text = process_receipt_ocr(saved_file_path)
+            if ocr_text:
+                print("Extracted Text from Receipt:")
+                print(ocr_text)
+                # Suggest description based on OCR result
+                description = description or ocr_text.split("\n")[0]  # Use first line as suggestion
+        except Exception as e:
+            logging.exception(f"Error saving receipt file: {e}")
+            print("Error: Could not save or process the receipt.")
 
     if not description or not amount:
         print("Error: Description and amount are required fields.")

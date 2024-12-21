@@ -1,62 +1,89 @@
 import React, { useState } from "react";
 import { View, Text, TextInput, StyleSheet, Alert } from "react-native";
 import CustomButton from "../components/CustomButton";
-import { loginUser } from "../services/api";
+import { sendLoginOTP, verifyLoginOTP } from "../services/api"; // Updated API functions
 
 const LoginScreen = ({ navigation }) => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [identifier, setIdentifier] = useState(""); // Email or Phone
+  const [otp, setOtp] = useState("");
+  const [isOtpSent, setIsOtpSent] = useState(false);
 
-  const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert("Error", "Please enter both email/phone and password.");
+  // Step 1: Send OTP for Login
+  const handleSendOTP = async () => {
+    if (!identifier) {
+      Alert.alert("Error", "Please enter your email or phone number.");
       return;
     }
 
     try {
-      const result = await loginUser(email, password); // Call the API
-      if (result && result.user_id) {
-        Alert.alert("Login Successful!", "Welcome back.");
-        navigation.navigate("Dashboard");
+      const result = await sendLoginOTP(identifier); // Call the API to send OTP
+      if (result && result.message) {
+        setIsOtpSent(true);
+        Alert.alert("OTP Sent", "Please check your phone or email for the verification code.");
       } else {
-        Alert.alert("Error", result?.message || "Invalid credentials.");
+        Alert.alert("Error", result?.error || "Unable to send OTP. Please try again.");
       }
     } catch (error) {
-      console.error("Login Error:", error);
-      Alert.alert("Error", "Unable to log in. Please try again.");
+      console.error("Send OTP Error:", error);
+      Alert.alert("Error", "Unable to send OTP. Please try again.");
+    }
+  };
+
+  // Step 2: Verify OTP
+  const handleVerifyOTP = async () => {
+    if (!otp) {
+      Alert.alert("Error", "Please enter the OTP sent to your email or phone.");
+      return;
+    }
+
+    try {
+      const result = await verifyLoginOTP(identifier, otp); // Call the API to verify OTP
+      if (result && result.message) {
+        Alert.alert("Login Successful", "Welcome back!");
+        navigation.navigate("Dashboard"); // Navigate to Dashboard
+      } else {
+        Alert.alert("Error", result?.error || "Invalid or expired OTP.");
+      }
+    } catch (error) {
+      console.error("Verify OTP Error:", error);
+      Alert.alert("Error", "Unable to verify OTP. Please try again.");
     }
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Login</Text>
+      <Text style={styles.title}>Login with OTP</Text>
 
+      {/* Input for Email or Phone */}
       <TextInput
         style={styles.input}
         placeholder="Email or Phone"
-        value={email}
-        onChangeText={setEmail}
+        value={identifier}
+        onChangeText={setIdentifier}
         keyboardType="email-address"
+        editable={!isOtpSent} // Prevent editing after OTP is sent
       />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
+      {/* Input for OTP */}
+      {isOtpSent && (
+        <TextInput
+          style={styles.input}
+          placeholder="Enter OTP"
+          value={otp}
+          onChangeText={setOtp}
+          keyboardType="numeric"
+          maxLength={6}
+        />
+      )}
 
-      {/* Forgot Password Link */}
-      <Text
-        style={styles.forgotPassword}
-        onPress={() => navigation.navigate("PasswordReset")}
-      >
-        Forgot Password?
-      </Text>
+      {/* Buttons */}
+      {!isOtpSent ? (
+        <CustomButton title="Send OTP" onPress={handleSendOTP} />
+      ) : (
+        <CustomButton title="Verify OTP" onPress={handleVerifyOTP} />
+      )}
 
-      <CustomButton title="Login" onPress={handleLogin} />
-
+      {/* Navigation to Signup */}
       <Text
         style={styles.signupText}
         onPress={() => navigation.navigate("Signup")}
@@ -76,8 +103,8 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 5,
     marginBottom: 15,
+    backgroundColor: "#fff",
   },
-  forgotPassword: { color: "#007BFF", textAlign: "right", marginBottom: 20 },
   signupText: { textAlign: "center", color: "#007BFF", marginTop: 20 },
 });
 

@@ -1,140 +1,178 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
-  StyleSheet,
+  TextInput,
+  Button,
   FlatList,
+  StyleSheet,
   ActivityIndicator,
   Alert,
-  Button,
-  TextInput,
+  Linking,
 } from "react-native";
 import { fetchIRSReports, fetchCustomReports } from "../services/reportsService";
-import * as FileSystem from "expo-file-system";
-import * as Sharing from "expo-sharing";
 
-const ReportsScreen = ({ userId }) => {
-  const [irsReports, setIRSReports] = useState(null);
-  const [customReports, setCustomReports] = useState([]);
-  const [loading, setLoading] = useState(true);
+const BASE_URL = "https://your-backend-api.com/api/reports";
+
+const ReportsScreen = ({ navigation }) => {
   const [filters, setFilters] = useState({
     startDate: "",
     endDate: "",
     category: "",
   });
+  const [loading, setLoading] = useState(false);
+  const [customReports, setCustomReports] = useState([]);
+  const [irsReports, setIRSReports] = useState(null);
 
-  // Fetch IRS-Ready Reports on Component Mount
-  useEffect(() => {
-    const loadIRSReports = async () => {
-      try {
-        const data = await fetchIRSReports(userId);
-        setIRSReports(data);
-      } catch (error) {
-        Alert.alert("Error", "Failed to load IRS-ready reports.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadIRSReports();
-  }, [userId]);
-
-  // Function to Download Reports
-  const handleDownload = async (url, fileName) => {
+  // Fetch IRS Reports
+  const handleFetchIRSReports = async () => {
+    setLoading(true);
     try {
-      const fileUri = `${FileSystem.documentDirectory}${fileName}`;
-      const result = await FileSystem.downloadAsync(url, fileUri);
-
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(result.uri);
-      } else {
-        Alert.alert("Error", "Sharing is not supported on this device.");
-      }
+      const data = await fetchIRSReports();
+      setIRSReports(data);
+      Alert.alert("Success", "IRS Reports loaded successfully.");
     } catch (error) {
-      console.error("Error downloading file:", error);
-      Alert.alert("Error", "Failed to download the report.");
-    }
-  };
-
-  // Fetch Custom Reports
-  const handleFetchCustomReports = async () => {
-    try {
-      setLoading(true);
-      const data = await fetchCustomReports(userId, filters);
-      setCustomReports(data);
-    } catch (error) {
-      Alert.alert("Error", "Failed to fetch custom reports.");
+      console.error("Error fetching IRS Reports:", error.message);
+      Alert.alert("Error", error.message || "Failed to fetch IRS Reports.");
     } finally {
       setLoading(false);
     }
   };
 
+  // Fetch Custom Reports
+  const handleFetchCustomReports = async () => {
+    if (!filters.startDate || !filters.endDate) {
+      Alert.alert("Error", "Start Date and End Date are required.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const data = await fetchCustomReports(filters);
+      if (data.length === 0) {
+        Alert.alert("No Data", "No reports found for the selected filters.");
+      }
+      setCustomReports(data);
+    } catch (error) {
+      console.error("Error fetching Custom Reports:", error.message);
+      Alert.alert("Error", error.message || "Failed to fetch custom reports.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Navigate to Gig Platform Screen
+  const handleNavigateToGigPlatforms = () => {
+    navigation.navigate("GigPlatforms");
+  };
+
+  // Render Custom Reports Item
+  const renderReportItem = ({ item }) => (
+    <View style={styles.reportItem}>
+      <Text style={styles.reportText}>
+        {item.date} - {item.description}: ${item.amount}
+      </Text>
+    </View>
+  );
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>IRS-Ready Reports</Text>
+      <Text style={styles.title}>Reports Dashboard</Text>
 
-      {loading ? (
-        <ActivityIndicator size="large" color="#007BFF" />
-      ) : (
-        <>
-          {/* Download Buttons */}
-          <Button
-            title="Download PDF Report"
-            onPress={() => handleDownload(irsReports.pdf, "irs_report.pdf")}
-          />
-          <Button
-            title="Download CSV Report"
-            onPress={() => handleDownload(irsReports.csv, "irs_report.csv")}
-          />
+      {/* IRS Reports Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>IRS-Ready Reports</Text>
+        <Button title="Fetch IRS Reports" onPress={handleFetchIRSReports} color="#007BFF" />
+        {loading && <ActivityIndicator size="small" color="#007BFF" />}
+        {irsReports && (
+          <Text style={styles.reportText}>
+            IRS Report: {JSON.stringify(irsReports, null, 2)}
+          </Text>
+        )}
+      </View>
 
-          <Text style={styles.subtitle}>Generate Custom Reports</Text>
+      {/* Gig Platform Integration Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Connect Gig Platforms</Text>
+        <Text style={styles.description}>
+          Manage your gig platform accounts to import trip and expense data (e.g., Uber, Lyft,
+          DoorDash, Instacart, Upwork, Fiverr).
+        </Text>
+        <Button
+          title="Manage Gig Platforms"
+          onPress={handleNavigateToGigPlatforms}
+          color="#28A745"
+        />
+      </View>
 
-          {/* Filters */}
-          <TextInput
-            placeholder="Start Date (YYYY-MM-DD)"
-            style={styles.input}
-            value={filters.startDate}
-            onChangeText={(value) => setFilters({ ...filters, startDate: value })}
-          />
-          <TextInput
-            placeholder="End Date (YYYY-MM-DD)"
-            style={styles.input}
-            value={filters.endDate}
-            onChangeText={(value) => setFilters({ ...filters, endDate: value })}
-          />
-          <TextInput
-            placeholder="Category"
-            style={styles.input}
-            value={filters.category}
-            onChangeText={(value) => setFilters({ ...filters, category: value })}
-          />
+      {/* Custom Reports Section */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Custom Reports</Text>
 
-          <Button title="Fetch Custom Reports" onPress={handleFetchCustomReports} />
+        {/* Input Filters */}
+        <TextInput
+          style={styles.input}
+          placeholder="Start Date (YYYY-MM-DD)"
+          value={filters.startDate}
+          onChangeText={(value) => setFilters({ ...filters, startDate: value })}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="End Date (YYYY-MM-DD)"
+          value={filters.endDate}
+          onChangeText={(value) => setFilters({ ...filters, endDate: value })}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Category (Optional)"
+          value={filters.category}
+          onChangeText={(value) => setFilters({ ...filters, category: value })}
+        />
 
-          {/* Custom Reports Display */}
-          {customReports.length > 0 && (
-            <FlatList
-              data={customReports}
-              keyExtractor={(item, index) => index.toString()}
-              renderItem={({ item }) => (
-                <Text style={styles.item}>
-                  {item.description}: ${item.amount} ({item.category})
-                </Text>
-              )}
-            />
-          )}
-        </>
-      )}
+        <Button title="Fetch Custom Reports" onPress={handleFetchCustomReports} color="#17A2B8" />
+
+        {/* Loading State */}
+        {loading && <ActivityIndicator size="small" color="#17A2B8" />}
+
+        {/* Custom Reports List */}
+        {customReports.length > 0 ? (
+          <FlatList
+            data={customReports}
+            keyExtractor={(item, index) => index.toString()}
+            renderItem={renderReportItem}
+          />
+        ) : (
+          !loading && <Text style={styles.noDataText}>No custom reports found.</Text>
+        )}
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: "#f9f9f9" },
-  title: { fontSize: 22, fontWeight: "bold", marginBottom: 20, textAlign: "center" },
-  subtitle: { fontSize: 18, marginTop: 20, marginBottom: 10, fontWeight: "bold" },
-  input: { borderWidth: 1, borderColor: "#ccc", padding: 10, marginBottom: 10, borderRadius: 5 },
-  item: { padding: 10, borderBottomWidth: 1, borderColor: "#ddd" },
+  title: { fontSize: 22, fontWeight: "bold", textAlign: "center", marginBottom: 20 },
+  section: { marginBottom: 30 },
+  sectionTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 10 },
+  description: { fontSize: 14, color: "#555", marginBottom: 10 },
+  input: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    padding: 10,
+    marginBottom: 10,
+    borderRadius: 5,
+    backgroundColor: "#fff",
+  },
+  reportItem: {
+    padding: 10,
+    marginBottom: 10,
+    backgroundColor: "#e7f3ff",
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: "#007BFF",
+  },
+  reportText: { fontSize: 16, color: "#333" },
+  noDataText: { textAlign: "center", color: "#777" },
 });
 
 export default ReportsScreen;

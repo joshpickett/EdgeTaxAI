@@ -11,23 +11,31 @@ CREATE TABLE IF NOT EXISTS users (
     full_name TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
     phone_number TEXT UNIQUE,
-    password TEXT NOT NULL
+    password TEXT NOT NULL,
+    otp_code TEXT,
+    otp_expiry TIMESTAMP,
+    is_verified BOOLEAN DEFAULT 0,  -- 0 = Not verified, 1 = Verified
+    tax_strategy TEXT DEFAULT 'Mileage'  -- Options: 'Mileage' or 'Actual'
 )
 """)
 
-# Create 'expenses' table
+# Create 'expenses' table (Recreate if needed)
+c.execute("PRAGMA foreign_keys=off;")  # Disable foreign keys temporarily
+c.execute("DROP TABLE IF EXISTS expenses;")  # Drop the old table
+
 c.execute("""
-CREATE TABLE IF NOT EXISTS expenses (
+CREATE TABLE expenses (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
     description TEXT NOT NULL,
     amount REAL NOT NULL,
-    category TEXT NOT NULL,
+    category TEXT DEFAULT 'Uncategorized',
     date TEXT NOT NULL,
     receipt TEXT,
     FOREIGN KEY (user_id) REFERENCES users (id)
 )
 """)
+c.execute("PRAGMA foreign_keys=on;")  # Re-enable foreign keys
 
 # Create 'mileage' table
 c.execute("""
@@ -64,6 +72,7 @@ CREATE TABLE IF NOT EXISTS bank_accounts (
 )
 """)
 
+# Create 'bank_transactions' table
 c.execute("""
 CREATE TABLE IF NOT EXISTS bank_transactions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -74,14 +83,9 @@ CREATE TABLE IF NOT EXISTS bank_transactions (
     FOREIGN KEY (user_id) REFERENCES users (id)
 )
 """)
-c.execute("""
-ALTER TABLE users ADD COLUMN tax_strategy TEXT DEFAULT 'Mileage';  -- Options: 'Mileage' or 'Actual'
-""")
 
-
-
-# Commit and close
+# Commit changes and close the connection
 conn.commit()
 conn.close()
 
-print("Database initialized successfully!")
+print("Database schema updated successfully!")

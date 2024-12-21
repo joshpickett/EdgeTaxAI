@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox, simpledialog
 import requests
+import matplotlib.pyplot as plt
 
 API_BASE_URL = "http://localhost:5000"  # Replace with your backend URL
 
@@ -25,6 +26,16 @@ class ExpenseDashboard(tk.Tk):
         self.delete_button = tk.Button(self, text="Delete Selected Expense", command=self.delete_expense)
         self.delete_button.pack()
 
+        self.bar_chart_button = tk.Button(self, text="Show Bar Chart", command=self.show_bar_chart)
+        self.bar_chart_button.pack()
+
+        self.pie_chart_button = tk.Button(self, text="Show Pie Chart", command=self.show_pie_chart)
+        self.pie_chart_button.pack()
+
+        self.logout_button = tk.Button(self, text="Logout", command=self.logout, bg="#FF5733", fg="white")
+        self.logout_button.pack(pady=10)
+
+        self.expenses = []  # Initialize the expenses list
         self.fetch_expenses()  # Load expenses on startup
 
     def fetch_expenses(self):
@@ -34,7 +45,10 @@ class ExpenseDashboard(tk.Tk):
                 self.expense_listbox.delete(0, tk.END)
                 self.expenses = response.json()["expenses"]
                 for expense in self.expenses:
-                    self.expense_listbox.insert(tk.END, f"{expense['id']} - {expense['description']} - ${expense['amount']} - {expense['category']}")
+                    self.expense_listbox.insert(
+                        tk.END,
+                        f"{expense['id']} - {expense['description']} - ${expense['amount']} - {expense['category']}",
+                    )
             else:
                 messagebox.showerror("Error", "Failed to fetch expenses.")
         except Exception as e:
@@ -59,7 +73,7 @@ class ExpenseDashboard(tk.Tk):
                 updated_data = {
                     "description": new_description,
                     "amount": new_amount,
-                    "category": new_category
+                    "category": new_category,
                 }
                 response = requests.put(f"{API_BASE_URL}/expenses/edit/{expense['id']}", json=updated_data)
                 if response.status_code == 200:
@@ -90,6 +104,56 @@ class ExpenseDashboard(tk.Tk):
                     messagebox.showerror("Error", "Failed to delete expense.")
         except Exception as e:
             messagebox.showerror("Error", f"Error deleting expense: {e}")
+
+    def show_bar_chart(self):
+        try:
+            categories = [expense["category"] for expense in self.expenses]
+            amounts = [expense["amount"] for expense in self.expenses]
+
+            if not categories or not amounts:
+                messagebox.showwarning("No Data", "No expenses available to display.")
+                return
+
+            plt.figure(figsize=(8, 6))
+            plt.bar(categories, amounts, color="skyblue")
+            plt.title("Expense Summary")
+            plt.xlabel("Category")
+            plt.ylabel("Amount")
+            plt.xticks(rotation=45)
+            plt.tight_layout()
+            plt.show()
+        except Exception as e:
+            messagebox.showerror("Error", f"Error generating bar chart: {e}")
+
+    def show_pie_chart(self):
+        try:
+            categories = [expense["category"] for expense in self.expenses]
+            amounts = [expense["amount"] for expense in self.expenses]
+
+            if not categories or not amounts:
+                messagebox.showwarning("No Data", "No expenses available to display.")
+                return
+
+            plt.figure(figsize=(8, 6))
+            plt.pie(amounts, labels=categories, autopct="%1.1f%%", startangle=140, colors=plt.cm.Paired.colors)
+            plt.title("Expense Breakdown")
+            plt.tight_layout()
+            plt.show()
+        except Exception as e:
+            messagebox.showerror("Error", f"Error generating pie chart: {e}")
+
+    def logout(self):
+        try:
+            response = requests.post(f"{API_BASE_URL}/logout")
+            if response.status_code == 200:
+                messagebox.showinfo("Logout", "You have been logged out successfully.")
+            else:
+                messagebox.showwarning("Logout", "Failed to notify server of logout.")
+        except Exception as e:
+            print(f"Error during logout: {e}")
+
+        self.destroy()
+        messagebox.showinfo("Logout", "Session ended. Please log in again.")
 
 if __name__ == "__main__":
     app = ExpenseDashboard()

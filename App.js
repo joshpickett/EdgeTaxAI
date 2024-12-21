@@ -1,67 +1,89 @@
-import React, { useEffect } from "react";
-import { View, Text, StyleSheet, Alert } from "react-native";
-import firebase from "firebase/app";
-import "firebase/messaging";
-import * as Notifications from "expo-notifications";
-import Constants from "expo-constants";
-import AppNavigator from "./src/navigation/AppNavigator";
-import { registerForPushNotifications } from "./src/services/notificationService"; // Push Notification Logic
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// Load environment variables
-import {
-  FIREBASE_API_KEY,
-  FIREBASE_AUTH_DOMAIN,
-  FIREBASE_PROJECT_ID,
-  FIREBASE_STORAGE_BUCKET,
-  FIREBASE_MESSAGING_SENDER_ID,
-  FIREBASE_APP_ID,
-} from "react-native-dotenv";
+const BASE_URL = "https://your-backend-api.com/api/auth"; // Replace with your backend URL
 
-// Firebase Configuration
-const firebaseConfig = {
-  apiKey: FIREBASE_API_KEY,
-  authDomain: FIREBASE_AUTH_DOMAIN,
-  projectId: FIREBASE_PROJECT_ID,
-  storageBucket: FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: FIREBASE_MESSAGING_SENDER_ID,
-  appId: FIREBASE_APP_ID,
-};
+// User Signup
+export const signupUser = async (fullName, email, phoneNumber, password) => {
+  try {
+    const response = await fetch(`${BASE_URL}/signup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        full_name: fullName,
+        email: email,
+        phone_number: phoneNumber,
+        password: password,
+      }),
+    });
 
-try {
-  if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
-    console.log("Firebase initialized successfully!");
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || "Failed to sign up.");
+    }
+    return data; // Returns success message
+  } catch (error) {
+    console.error("Signup Error:", error.message);
+    throw error;
   }
-} catch (error) {
-  console.error("Firebase initialization error:", error.message);
-}
-
-const App = () => {
-  useEffect(() => {
-    const setupNotifications = async () => {
-      try {
-        const { expoPushToken, fcmToken } = await registerForPushNotifications();
-        console.log("Expo Push Token:", expoPushToken);
-        console.log("FCM Token:", fcmToken);
-      } catch (error) {
-        console.error("Notification Setup Error:", error.message);
-      }
-    };
-
-    setupNotifications();
-  }, []);
-
-  return (
-    <View style={styles.container}>
-      <AppNavigator />
-      <Text style={styles.text}>Welcome to EdgeTaxAI!</Text>
-    </View>
-  );
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", alignItems: "center" },
-  text: { fontSize: 18, fontWeight: "bold", color: "#333" },
-});
+// User Login
+export const loginUser = async (emailOrPhone, password) => {
+  try {
+    const response = await fetch(`${BASE_URL}/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: emailOrPhone,
+        phone_number: emailOrPhone, // Accept either email or phone
+        password: password,
+      }),
+    });
 
-export default App;
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || "Failed to log in.");
+    }
+
+    // Save the user token/session to AsyncStorage
+    await AsyncStorage.setItem("userToken", data.user_id.toString());
+    return data;
+  } catch (error) {
+    console.error("Login Error:", error.message);
+    throw error;
+  }
+};
+
+// User Logout
+export const logoutUser = async () => {
+  try {
+    // Call backend logout endpoint
+    const response = await fetch(`${BASE_URL}/logout`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || "Failed to log out.");
+    }
+
+    // Clear user session/token from AsyncStorage
+    await AsyncStorage.removeItem("userToken");
+    return data; // Return success message
+  } catch (error) {
+    console.error("Logout Error:", error.message);
+    throw error;
+  }
+};
+
+// Get User Token (Session Check)
+export const getUserToken = async () => {
+  try {
+    const token = await AsyncStorage.getItem("userToken");
+    return token;
+  } catch (error) {
+    console.error("Error fetching user token:", error.message);
+    throw error;
+  }
+};

@@ -1,0 +1,18 @@
+{
+    "default_category": "Uncategorized",
+    "rules": [
+      {
+        "category": "Food",
+        "keywords": ["lunch", "dinner", "breakfast", "meal", "restaurant"]
+      },
+      {
+        "category": "Transport",
+        "keywords": ["uber", "taxi", "bus", "train", "flight", "fuel"]
+      },
+      {
+        "category": "General",
+        "keywords": ["misc", "general", "others"]
+      }
+    ]
+  }
+  

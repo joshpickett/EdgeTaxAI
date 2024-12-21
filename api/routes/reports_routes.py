@@ -1,80 +1,170 @@
-from flask import Blueprint, request, jsonify, send_file
-from io import BytesIO
-import csv
+import streamlit as st
+import requests
 import pandas as pd
-from utils.db_utils import get_user_expenses  # Utility to fetch expenses from DB
-from config import REPORTS_DIRECTORY  # Directory to save reports
-import logging
+from config import API_BASE_URL
 
-# Configure Logging
-logging.basicConfig(
-    filename="reports_routes.log",
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
-)
-
-# Blueprint Setup
-reports_bp = Blueprint("reports_routes", __name__)
-
-# 1. Generate Reports for a User
-@reports_bp.route("/api/reports/<int:user_id>", methods=["GET"])
-def generate_reports(user_id):
+def reports_page():
     """
-    Generates IRS-ready PDF and CSV reports for a user's expenses.
+    Streamlit Reports Page:
+    - Generate IRS-ready reports.
+    - Generate custom reports.
+    - Manage gig platform connections and fetch trip/expense data.
     """
+    st.title("Reports Dashboard")
+    st.markdown("#### View, Generate, and Manage Reports")
+
+    # Validate User Session
+    if "user_id" not in st.session_state:
+        st.error("Please log in to view reports.")
+        return
+
+    user_id = st.session_state["user_id"]
+
+    # Section 1: IRS-Ready Reports
+    st.subheader("IRS-Ready Reports")
+    st.write("Generate and download IRS-ready reports as PDF or CSV.")
+
+    if st.button("Generate IRS Report"):
+        with st.spinner("Generating IRS Report..."):
+            try:
+                response = requests.get(f"{API_BASE_URL}/reports/{user_id}")
+                if response.status_code == 200:
+                    report_data = response.json()
+                    st.success("IRS Report generated successfully!")
+                    st.download_button(
+                        label="Download PDF Report",
+                        data=report_data["pdf"],
+                        file_name="irs_report.pdf",
+                        mime="application/pdf",
+                    )
+                    st.download_button(
+                        label="Download CSV Report",
+                        data=report_data["csv"],
+                        file_name="irs_report.csv",
+                        mime="text/csv",
+                    )
+                else:
+                    st.error("Failed to generate IRS Report.")
+            except Exception as e:
+                st.error("An error occurred while generating IRS Report.")
+                st.exception(e)
+
+    # Section 2: IRS Schedule C Report
+    st.subheader("IRS Schedule C Report")
+    st.write("Download a pre-filled IRS Schedule C form based on categorized expenses.")
+    if st.button("Generate Schedule C Report"):
+        with st.spinner("Generating IRS Schedule C..."):
+            try:
+                url = f"{API_BASE_URL}/reports/generate-schedule-c?user_id={user_id}"
+                st.markdown(
+                    f"[Click here to download IRS Schedule C Report]({url})",
+                    unsafe_allow_html=True,
+                )
+                st.success("IRS Schedule C Report generated successfully!")
+            except Exception as e:
+                st.error("Failed to generate IRS Schedule C Report.")
+                st.exception(e)
+
+    # Section 3: Custom Reports
+    st.subheader("Custom Reports")
+    st.write("Generate custom reports using filters like date range and category.")
+
+    start_date = st.date_input("Start Date")
+    end_date = st.date_input("End Date")
+    category = st.text_input("Category (Optional)")
+
+    if st.button("Generate Custom Report"):
+        filters = {
+            "start_date": start_date.strftime("%Y-%m-%d") if start_date else None,
+            "end_date": end_date.strftime("%Y-%m-%d") if end_date else None,
+            "category": category,
+        }
+        with st.spinner("Generating Custom Report..."):
+            try:
+                response = requests.post(
+                    f"{API_BASE_URL}/reports/custom/{user_id}",
+                    json=filters,
+                )
+                if response.status_code == 200:
+                    st.success("Custom Report generated successfully!")
+                    st.download_button(
+                        label="Download Custom Report",
+                        data=response.content,
+                        file_name="custom_report.csv",
+                        mime="text/csv",
+                    )
+                else:
+                    st.error("Failed to generate custom report.")
+            except Exception as e:
+                st.error("An error occurred while generating custom report.")
+                st.exception(e)
+
+    # Section 4: Gig Platform Integration
+    st.subheader("Connect Gig Platforms")
+    st.write(
+        "Connect your gig platform accounts (e.g., Uber, Lyft, DoorDash, Instacart, Upwork, Fiverr) "
+        "to import trip and expense data."
+    )
+
+    platforms = [
+        {"name": "Uber", "endpoint": "uber"},
+        {"name": "Lyft", "endpoint": "lyft"},
+        {"name": "DoorDash", "endpoint": "doordash"},
+        {"name": "Instacart", "endpoint": "instacart"},
+        {"name": "Upwork", "endpoint": "upwork"},
+        {"name": "Fiverr", "endpoint": "fiverr"},
+    ]
+
+    for platform in platforms:
+        st.markdown(
+            f"[Connect {platform['name']}]({API_BASE_URL}/gig/connect/{platform['endpoint']})",
+            unsafe_allow_html=True,
+        )
+
+    # Display Connected Platforms
+    st.subheader("Connected Platforms")
     try:
-        # Fetch expense data
-        expenses = get_user_expenses(user_id)
-        if not expenses:
-            return jsonify({"error": "No expenses found for the user."}), 404
-
-        # Convert expenses to DataFrame
-        df = pd.DataFrame(expenses)
-
-        # Generate CSV report
-        csv_buffer = BytesIO()
-        df.to_csv(csv_buffer, index=False)
-        csv_buffer.seek(0)
-
-        # Generate PDF (simple conversion)
-        pdf_buffer = BytesIO()
-        df.to_string(pdf_buffer)
-        pdf_buffer.seek(0)
-
-        # Return the reports
-        return jsonify({
-            "pdf": pdf_buffer.getvalue().decode("utf-8"),
-            "csv": csv_buffer.getvalue().decode("utf-8")
-        })
+        response = requests.get(f"{API_BASE_URL}/gig/connections", params={"user_id": user_id})
+        if response.status_code == 200:
+            connected_accounts = response.json().get("connected_accounts", [])
+            if connected_accounts:
+                for account in connected_accounts:
+                    st.write(f"✅ Connected: {account['platform'].capitalize()}")
+            else:
+                st.write("No connected platforms yet.")
+        else:
+            st.error("Failed to load connected platforms.")
     except Exception as e:
-        logging.error(f"Error generating reports: {str(e)}")
-        return jsonify({"error": "Failed to generate reports."}), 500
+        st.error("An error occurred while fetching connected platforms.")
+        st.exception(e)
+
+    # Section 5: Fetch Gig Platform Data
+    st.subheader("Fetch Trip and Expense Data")
+    platform_choice = st.selectbox(
+        "Select a Platform", ["Uber", "Lyft", "DoorDash", "Instacart", "Upwork", "Fiverr"]
+    )
+
+    if st.button("Fetch Data"):
+        with st.spinner(f"Fetching data from {platform_choice}..."):
+            try:
+                response = requests.get(
+                    f"{API_BASE_URL}/gig/fetch-data",
+                    params={"user_id": user_id, "platform": platform_choice.lower()},
+                )
+                if response.status_code == 200:
+                    data = response.json().get("data", [])
+                    if data:
+                        st.success(f"Fetched data from {platform_choice} successfully!")
+                        df = pd.DataFrame(data)
+                        st.dataframe(df)
+                    else:
+                        st.write(f"No data available for {platform_choice}.")
+                else:
+                    st.error(f"Failed to fetch data from {platform_choice}.")
+            except Exception as e:
+                st.error(f"An error occurred while fetching data from {platform_choice}.")
+                st.exception(e)
 
 
-# 2. Generate Custom Reports
-@reports_bp.route("/api/reports/custom/<int:user_id>", methods=["POST"])
-def generate_custom_reports(user_id):
-    """
-    Generates custom reports based on filters like date range or category.
-    """
-    try:
-        filters = request.json
-        start_date = filters.get("start_date")
-        end_date = filters.get("end_date")
-        category = filters.get("category")
-
-        # Fetch filtered expenses
-        expenses = get_user_expenses(user_id, start_date, end_date, category)
-        if not expenses:
-            return jsonify({"error": "No expenses match the given filters."}), 404
-
-        # Convert expenses to CSV
-        df = pd.DataFrame(expenses)
-        csv_buffer = BytesIO()
-        df.to_csv(csv_buffer, index=False)
-        csv_buffer.seek(0)
-
-        return send_file(csv_buffer, mimetype="text/csv", as_attachment=True, download_name="custom_report.csv")
-    except Exception as e:
-        logging.error(f"Error generating custom report: {str(e)}")
-        return jsonify({"error": "Failed to generate custom report."}), 500
+if __name__ == "__main__":
+    reports_page()

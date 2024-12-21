@@ -6,6 +6,9 @@ from routes.reports_routes import reports_bp  # Import Reports API
 from routes.bank_routes import bank_bp
 from routes.tax_routes import tax_bp  # Import Tax API
 from routes.mileage_routes import mileage_bp  # Import Mileage API
+from routes.ocr_routes import ocr_bp #OCR Receipt upload
+
+
 import logging
 
 # Configure Logging
@@ -29,6 +32,7 @@ def create_app():
     app.register_blueprint(bank_bp, url_prefix="/api/banks")
     app.register_blueprint(tax_bp, url_prefix="/api/tax")  # Tax API
     app.register_blueprint(mileage_bp, url_prefix="/api/mileage")  # Mileage API
+    app.register_blueprint(ocr_bp, url_prefix="/api") #OCR API
 
     # Log API Startup
     log_api_startup(app)
@@ -53,3 +57,5 @@ if __name__ == "__main__":
     port = 5000
     logging.info(f"Running API server on http://127.0.0.1:{port}")
     app.run(debug=True, port=port)
+
+
