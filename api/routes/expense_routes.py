@@ -8,7 +8,13 @@ import json
 from datetime import datetime
 from openai import OpenAI
 from dotenv import load_dotenv
-from ..utils.ai_utils import categorize_expense, analyze_expense_pattern, get_irs_category, analyze_tax_context, verify_irs_compliance
+from ..utils.ai_utils import categorize_expense, analyze_expense_pattern
+from ..utils.tax_calculator import TaxCalculator
+from ..routes.tax_routes import calculate_tax_implications
+from ..routes.irs_routes import verify_irs_compliance
+from ..routes.ocr_routes import process_receipt_data
+from ..routes.ocr_routes import extract_receipt_data, analyze_receipt_text
+from ..routes.reports_routes import update_expense_reports
 
 # Load environment variables from .env file
 load_dotenv()
@@ -150,12 +156,10 @@ def add_expense() -> tuple[Dict[str, Any], int]:
         
         # Enhanced tax context analysis
         tax_context = analyze_tax_context(description, amount)
-        irs_compliance = verify_irs_compliance({
-            'description': description,
-            'amount': amount,
-            'category': category,
-            'tax_context': tax_context
-        })
+        
+        # Get tax implications
+        tax_implications = calculate_tax_implications(amount, category)
+        irs_status = verify_irs_compliance(description, amount, category)
         
         # Get recent expenses for pattern analysis
         cursor.execute(
@@ -180,14 +184,17 @@ def add_expense() -> tuple[Dict[str, Any], int]:
             """INSERT INTO expenses 
                (user_id, description, amount, category,
                 tax_context, irs_category, deductible_amount,
-                compliance_score)
+                compliance_score, tax_implications, irs_status)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             (user_id, description, amount, final_category['category'],
              tax_context['context'], tax_context['suggested_category'],
-             tax_context['deductible_amount'], irs_compliance['compliance_score'])
+             tax_context['deductible_amount'], irs_status['compliance_score'], tax_implications, irs_status)
         )
         conn.commit()
 
+        # Update reports
+        update_expense_reports(user_id)
+        
         return jsonify({
             "message": "Expense added successfully",
             "description": description,
