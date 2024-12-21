@@ -4,12 +4,11 @@ from decimal import Decimal
 import logging
 from ..utils.analytics_helper import calculate_tax_savings
 from ..utils.tax_calculator import TaxCalculator
+from ..utils.db_utils import get_db_connection
 
 """
-Core Tax Calculation Module
-
-This module handles all core tax calculations and provides base functionality
-for other tax-related features.
+Core Tax Calculation Module - Centralized tax calculation functionality
+Handles all basic tax calculations and estimates
 """
 
 # Configure Logging
@@ -21,6 +20,35 @@ logging.basicConfig(
 
 # Blueprint Setup
 tax_bp = Blueprint("tax_routes", __name__)
+
+@tax_bp.route("/api/tax/estimate-quarterly", methods=["POST"])
+def estimate_quarterly_tax():
+    """Calculate quarterly estimated tax payments"""
+    try:
+        data = request.json
+        user_id = data.get('user_id')
+        year = data.get('year', datetime.now().year)
+        quarter = data.get('quarter')
+
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        # Get income and expenses for the quarter
+        cursor.execute("""
+            SELECT SUM(amount) as total_income
+            FROM income
+            WHERE user_id = ? AND strftime('%Y-%m', date) BETWEEN ? AND ?
+        """, (user_id, f"{year}-{(quarter-1)*3+1:02d}", f"{year}-{quarter*3:02d}"))
+        
+        income = cursor.fetchone()[0] or 0
+        
+        calculator = TaxCalculator()
+        estimate = calculator.calculate_quarterly_tax(Decimal(str(income)), Decimal('0'))
+        
+        return jsonify(estimate), 200
+    except Exception as e:
+        logging.error(f"Error calculating quarterly estimate: {e}")
+        return jsonify({"error": "Failed to calculate quarterly estimate"}), 500
 
 # Real-Time Tax Savings Endpoint
 @tax_bp.route("/api/tax/savings", methods=["POST"])

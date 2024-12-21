@@ -2,6 +2,8 @@ from flask import Blueprint, request, jsonify
 import logging
 from datetime import datetime
 from ..utils.analytics_helper import analyze_optimization_opportunities
+from ..utils.tax_calculator import TaxCalculator
+from decimal import Decimal
 
 tax_optimization_bp = Blueprint('tax_optimization', __name__)
 
@@ -23,6 +25,31 @@ def optimize_tax_strategy():
 
         return jsonify({
             "optimization_suggestions": optimization_results
+        }), 200
+    except Exception as e:
+        logging.error(f"Error analyzing deductions: {str(e)}")
+        return jsonify({"error": "Failed to analyze deductions"}), 500
+
+@tax_optimization_bp.route("/analyze-deductions", methods=["POST"])
+def analyze_deductions():
+    """Analyze potential deductions and optimization opportunities"""
+    try:
+        data = request.json
+        user_id = data.get('user_id')
+        year = data.get('year', datetime.now().year)
+
+        # Get expenses and analyze deduction opportunities
+        optimization_results = analyze_optimization_opportunities(user_id, year)
+        
+        calculator = TaxCalculator()
+        potential_savings = calculator.calculate_tax_savings(
+            Decimal(str(optimization_results.get('potential_deductions', 0)))
+        )
+
+        return jsonify({
+            "optimization_suggestions": optimization_results.get('suggestions', []),
+            "potential_savings": potential_savings,
+            "recommended_actions": optimization_results.get('recommendations', [])
         }), 200
     except Exception as e:
         logging.error(f"Error analyzing deductions: {str(e)}")
