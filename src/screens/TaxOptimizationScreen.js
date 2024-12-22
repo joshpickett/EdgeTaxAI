@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TextInput, Button, FlatList, StyleSheet, Alert } from "react-native";
-import { getTaxSavings, getDeductionSuggestions, getTaxRate } from "../services/taxService";
+import { View, Text, TextInput, Button, FlatList, StyleSheet, Alert, ScrollView } from "react-native";
+import { getTaxSavings, getDeductionSuggestions } from "../services/taxService";
 
 const TaxOptimizationScreen = () => {
   const [amount, setAmount] = useState("");
   const [taxRate, setTaxRate] = useState(null);
   const [taxSavings, setTaxSavings] = useState(null);
   const [deductions, setDeductions] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
+  const [savings, setSavings] = useState(null);
 
   // Fetch the tax rate when the screen loads
   useEffect(() => {
@@ -31,8 +34,15 @@ const TaxOptimizationScreen = () => {
     try {
       const result = await getTaxSavings(amount);
       setTaxSavings(result);
+      
+      // Get AI-powered suggestions
+      const deductionSuggestions = await getDeductionSuggestions({
+        amount,
+        category: selectedCategory
+      });
+      setSuggestions(deductionSuggestions);
     } catch (error) {
-      Alert.alert("Error", "Failed to calculate tax savings.");
+      console.error("Error:", error);
     }
   };
 

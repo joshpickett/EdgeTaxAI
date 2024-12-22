@@ -198,3 +198,36 @@ def calculate_effective_rate():
     except Exception as e:
         logging.error(f"Error calculating effective tax rate: {str(e)}")
         return jsonify({"error": "Failed to calculate effective tax rate"}), 500
+
+@tax_bp.route("/api/tax/document", methods=["POST"])
+def generate_tax_document():
+    """Generate tax documents based on user input"""
+    try:
+        data = request.json
+        user_id = data.get('user_id')
+        year = data.get('year', datetime.now().year)
+        document_type = data.get('document_type', 'schedule_c')
+
+        # Generate appropriate tax document
+        if document_type == 'schedule_c':
+            document = generate_schedule_c(user_id, year)
+        elif document_type == 'quarterly_estimate':
+            document = generate_quarterly_estimate(user_id, year)
+        else:
+            return jsonify({"error": "Invalid document type"}), 400
+
+        # Store generated document
+        doc_id = document_manager.store_document({
+            'user_id': user_id,
+            'type': document_type,
+            'content': document,
+            'year': year
+        })
+
+        return jsonify({
+            'document_id': doc_id,
+            'content': document
+        }), 200
+    except Exception as e:
+        logging.error(f"Error generating tax document: {str(e)}")
+        return jsonify({"error": "Failed to generate tax document."}), 500

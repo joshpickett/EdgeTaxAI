@@ -72,6 +72,8 @@ def calculate_mileage() -> Tuple[Dict[str, Any], int]:
         start = data.get("start", "").strip()
         end = data.get("end", "").strip()
         purpose = data.get("purpose", "").strip()
+        recurring = data.get('recurring', False)
+        frequency = data.get('frequency')
         
         # Validate locations
         if not validate_location(start):
@@ -96,6 +98,19 @@ def calculate_mileage() -> Tuple[Dict[str, Any], int]:
             distance_miles = distance_meters * METERS_TO_MILES
             tax_deduction = distance_miles * IRS_MILEAGE_RATE
             
+            if recurring:
+                # Handle recurring trip pattern
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT INTO recurring_trips 
+                    (user_id, start_location, end_location, frequency, purpose)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (data.get("user_id"), start, end, frequency, purpose))
+                
+                # Schedule next occurrences
+                schedule_recurring_trips(data.get("user_id"), start, end, frequency)
+
             return jsonify({
                 "distance": distance,
                 "tax_deduction": round(tax_deduction, 2)

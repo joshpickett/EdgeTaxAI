@@ -1,17 +1,26 @@
 const BASE_URL = "https://your-backend-api.com/api";
 
 // Call backend to calculate mileage
-export const calculateMileage = async (start, end) => {
+export const calculateMileage = async (tripData) => {
   try {
     const response = await fetch(`${BASE_URL}/mileage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ start, end }),
+      body: JSON.stringify(tripData),
     });
     const data = await response.json();
 
     if (response.ok) {
-      return data.distance; // Example: "12.3 km"
+      // Create expense entry automatically
+      await fetch(`${BASE_URL}/expenses`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "mileage",
+          ...data
+        }),
+      });
+      return data;
     } else {
       throw new Error(data.error || "Failed to calculate mileage.");
     }

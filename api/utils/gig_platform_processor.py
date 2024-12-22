@@ -2,6 +2,7 @@ import logging
 from typing import Dict, Any, List
 from datetime import datetime, timedelta
 import asyncio
+import sqlite3
 from .cache_utils import CacheManager
 from .error_handler import handle_api_error
 from .retry_handler import with_retry
@@ -21,6 +22,7 @@ class GigPlatformProcessor:
         self.retry_attempts = 3
         self.sync_queue = asyncio.Queue()
         self.processing = False
+        self.conn = sqlite3.connect("database.db")
 
     async def start_sync_worker(self):
         """Start background sync worker"""
@@ -64,13 +66,44 @@ class GigPlatformProcessor:
     async def process_platform_data(self, platform: str, raw_data: Dict[str, Any]) -> Dict[str, Any]:
         """Process raw platform data into standardized format"""
         try:
-            processor = PROCESSORS.get(platform)
+            # Get platform processor
+            processor = self._get_processor(platform)
             if not processor:
                 raise ValueError(f"No processor found for {platform}")
 
-            trips = await processor.process_trips(raw_data)
-            earnings = await processor.process_earnings(raw_data)
-             
+            # Process data with retries
+            trips = await self._process_with_retry(
+                processor.process_trips,
+                raw_data
+            )
+            
+            earnings = await self._process_with_retry(
+                processor.process_earnings,
+                raw_data
+            )
+            
+            # Create expense entries for trips
+            await self._create_expense_entries(trips, platform)
+            
+            # Store income data
+            await self._store_income_data(earnings, platform)
+
+            # Validate processed data
+            self._validate_processed_data(trips, earnings)
+            
+            # Store sync status
+            await self._update_sync_status(
+                platform,
+                'success',
+                datetime.now().isoformat()
+            )
+            
+            # Cache processed data
+            await self.cache.set_platform_data(
+                platform,
+                {'trips': trips, 'earnings': earnings}
+            )
+
             processed_data = {
                 'trips': trips,
                 'earnings': earnings,
@@ -141,8 +174,7 @@ class GigPlatformProcessor:
     async def auto_sync_platforms(self):
         """Auto-sync platform data based on configured intervals"""
         try:
-            conn = sqlite3.connect("database.db")
-            cursor = conn.cursor()
+            cursor = self.conn.cursor()
             
             # Get platforms due for sync
             cursor.execute("""
@@ -198,3 +230,69 @@ class GigPlatformProcessor:
         sync_interval = timedelta(hours=24)  # Default 24 hour interval
         
         return datetime.now() - last_sync_time > sync_interval
+
+    async def _process_with_retry(self, processor_function, data):
+        """Process data with retry logic"""
+        retries = 3
+        for attempt in range(retries):
+            try:
+                return await processor_function(data)
+            except Exception as e:
+                if attempt == retries - 1:
+                    raise
+                await asyncio.sleep(2 ** attempt)
+
+    async def _create_expense_entries(self, trips: List[Dict[str, Any]], platform: str) -> None:
+        """Create expense entries for trips"""
+        try:
+            cursor = self.conn.cursor()
+            for trip in trips:
+                cursor.execute("""
+                    INSERT INTO expenses (
+                        description, amount, category, platform_source, 
+                        platform_trip_id, tax_deductible
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                """, (
+                    trip.get('description'),
+                    trip.get('expenses', 0),
+                    self.platforms[platform]['expense_categories'].get(trip.get('type', 'rides'), 'other'),
+                    platform,
+                    trip.get('id'),
+                    True
+                ))
+            self.conn.commit()
+        except Exception as e:
+            logging.error(f"Error creating expense entries: {e}")
+            raise
+
+    async def _store_income_data(self, earnings: Dict[str, Any], platform: str) -> None:
+        """Store income data in the database"""
+        try:
+            cursor = self.conn.cursor()
+            cursor.execute("""
+                INSERT INTO income (
+                    user_id, platform, amount, period_start, period_end, type
+                ) VALUES (?, ?, ?, ?, ?, ?)
+            """, (
+                earnings['user_id'],
+                platform,
+                earnings['gross_earnings'],
+                earnings['period_start'],
+                earnings['period_end'],
+                'gig_platform'
+            ))
+            self.conn.commit()
+        except Exception as e:
+            logging.error(f"Error storing income data: {e}")
+            raise
+
+    def _validate_processed_data(self, trips, earnings):
+        """Validate processed platform data"""
+        if not isinstance(trips, list):
+            raise ValueError("Trips must be a list")
+        if not isinstance(earnings, dict):
+            raise ValueError("Earnings must be a dictionary")
+        if not all(isinstance(t, dict) for t in trips):
+            raise ValueError("All trips must be dictionaries")
+        if not all(k in earnings for k in ['gross_earnings', 'net_earnings']):
+            raise ValueError("Missing required earnings fields")

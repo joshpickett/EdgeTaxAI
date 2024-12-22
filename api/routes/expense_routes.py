@@ -12,13 +12,35 @@ def create_expense():
     data = request.json
     description = data.get('description', '')
     
+    # Handle gig platform expenses
+    if data.get('platform_source'):
+        data['category'] = 'gig_platform'
+        data['tax_deductible'] = True
+        
     # Categorize expense
     categorization = categorize_expense(description)
-    data['category'] = categorization['category']
-    data['confidence_score'] = categorization['confidence']
-    data['tax_deductible'] = categorization['tax_deductible']
-    data['reasoning'] = categorization['reasoning']
-    data['source'] = categorization['source']
+    
+    # Store expense with platform data if available
+    if data.get('platform_source'):
+        connection = get_db_connection()
+        cursor = connection.cursor()
+        cursor.execute("""
+            INSERT INTO expenses (
+                description, amount, category, platform_source, 
+                platform_trip_id, tax_deductible
+            ) VALUES (?, ?, ?, ?, ?, ?)
+        """, (
+            data['description'],
+            data['amount'],
+            data['category'],
+            data['platform_source'],
+            data.get('platform_trip_id'),
+            data['tax_deductible']
+        ))
+        connection.commit()
+        cursor.close()
+        connection.close()
+        return jsonify(data), 201
 
     # Validate expense data
     validation_errors = validate_expense(data)
