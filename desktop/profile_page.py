@@ -1,8 +1,13 @@
-import streamlit as st
+import streamlit as streamlit
 import requests
 import re
 from datetime import datetime
 from config import API_BASE_URL
+from pathlib import Path
+
+# Asset paths
+ASSETS_DIR = Path(__file__).parent.parent / 'assets'
+PROFILE_ICON = ASSETS_DIR / 'logo' / 'icon' / 'edgetaxai-icon-color.svg'
 
 class ProfilePage:
     """
@@ -10,7 +15,8 @@ class ProfilePage:
     and improved gig platform management
     """
     def __init__(self):
-        self.user_id = st.session_state.get("user_id")
+        self.user_id = streamlit.session_state.get("user_id")
+        streamlit.image(str(PROFILE_ICON), width=50)
 
     def profile_page(self):
         """
@@ -18,11 +24,11 @@ class ProfilePage:
         - View and edit user profile.
         - Manage Gig Platform connections.
         """
-        st.title("User Profile")
+        streamlit.title("User Profile")
 
         # Check User Authentication
         if self.user_id is None:
-            st.error("Please log in to view your profile.")
+            streamlit.error("Please log in to view your profile.")
             return
 
         profile_data = None
@@ -33,21 +39,21 @@ class ProfilePage:
             if response.status_code == 200:
                 profile_data = response.json()
             else:
-                st.error("Failed to load profile data.")
+                streamlit.error("Failed to load profile data.")
                 return
         except Exception as e:
-            st.error("An error occurred while fetching profile data.")
-            st.exception(e)
+            streamlit.error("An error occurred while fetching profile data.")
+            streamlit.exception(e)
             return
 
         self.render_profile_section()
 
     def render_profile_section(self):
         """Render profile information section with validation"""
-        st.subheader("Profile Information")
+        streamlit.subheader("Profile Information")
         
         # Profile tabs
-        tabs = st.tabs([
+        tabs = streamlit.tabs([
             "Basic Info",
             "Tax Settings",
             "Gig Platforms",
@@ -86,16 +92,16 @@ class ProfilePage:
 
     def render_basic_info(self):
         """Render basic information input fields"""
-        full_name = st.text_input("Full Name", value="")
-        email = st.text_input("Email", value="")
-        phone_number = st.text_input("Phone Number", value="")
+        full_name = streamlit.text_input("Full Name", value="")
+        email = streamlit.text_input("Email", value="")
+        phone_number = streamlit.text_input("Phone Number", value="")
 
         # Update Profile
-        if st.button("Update Profile"):
+        if streamlit.button("Update Profile"):
             if not self.validate_email(email):
-                st.error("Invalid email format.")
+                streamlit.error("Invalid email format.")
             elif not self.validate_phone(phone_number):
-                st.error("Invalid phone number format.")
+                streamlit.error("Invalid phone number format.")
             else:
                 try:
                     payload = {
@@ -105,19 +111,19 @@ class ProfilePage:
                     }
                     update_response = requests.put(f"{API_BASE_URL}/auth/profile", json=payload)
                     if update_response.status_code == 200:
-                        st.success("Profile updated successfully!")
+                        streamlit.success("Profile updated successfully!")
                     else:
-                        st.error("Failed to update profile.")
+                        streamlit.error("Failed to update profile.")
                 except Exception as e:
-                    st.error("An error occurred while updating profile.")
-                    st.exception(e)
+                    streamlit.error("An error occurred while updating profile.")
+                    streamlit.exception(e)
 
     def render_tax_documents(self):
         """Render tax documents section"""
-        st.subheader("Tax Documents")
+        streamlit.subheader("Tax Documents")
         
         # Document categories
-        doc_tabs = st.tabs(["Generated Documents", "Upload Documents", "Archive"])
+        doc_tabs = streamlit.tabs(["Generated Documents", "Upload Documents", "Archive"])
         
         with doc_tabs[0]:
             self.show_generated_documents()
@@ -130,10 +136,10 @@ class ProfilePage:
     
     def show_generated_documents(self):
         """Display auto-generated tax documents"""
-        st.subheader("Generated Tax Documents")
+        streamlit.subheader("Generated Tax Documents")
         
         # Year selector
-        selected_year = st.selectbox(
+        selected_year = streamlit.selectbox(
             "Select Year",
             range(datetime.now().year, 2020, -1)
         )
@@ -146,129 +152,129 @@ class ProfilePage:
         }
         
         for doc_type, doc_list in documents.items():
-            st.write(f"### {doc_type}")
+            streamlit.write(f"### {doc_type}")
             for doc in doc_list:
-                col1, col2 = st.columns([3, 1])
+                col1, col2 = streamlit.columns([3, 1])
                 with col1:
-                    st.write(doc)
+                    streamlit.write(doc)
                 with col2:
-                    if st.button(f"Download {doc}"):
+                    if streamlit.button(f"Download {doc}"):
                         self.download_document(doc_type, doc, selected_year)
 
     def upload_tax_documents(self):
         """Upload tax documents section"""
-        st.subheader("Upload Tax Documents")
+        streamlit.subheader("Upload Tax Documents")
         
         # Document type selector
-        doc_type = st.selectbox(
+        doc_type = streamlit.selectbox(
             "Document Type",
             ["W-9", "1099-NEC", "Receipts", "Other"]
         )
         
         # File uploader
-        uploaded_file = st.file_uploader(
+        uploaded_file = streamlit.file_uploader(
             "Choose a file",
             type=["pdf", "jpg", "png"],
             key="tax_doc_upload"
         )
         
         if uploaded_file:
-            if st.button("Upload Document"):
+            if streamlit.button("Upload Document"):
                 self.process_document_upload(uploaded_file, doc_type)
 
     def show_archived_documents(self):
         """Display archived tax documents"""
-        st.subheader("Document Archive")
+        streamlit.subheader("Document Archive")
         
         # Year filter
-        year_filter = st.multiselect(
+        year_filter = streamlit.multiselect(
             "Filter by Year",
             range(datetime.now().year, 2020, -1)
         )
         
         # Document type filter
-        doc_type_filter = st.multiselect(
+        doc_type_filter = streamlit.multiselect(
             "Filter by Type",
             ["W-9", "1099-NEC", "Receipts", "Quarterly Reports", "Annual Reports"]
         )
         
-        if st.button("Apply Filters"):
+        if streamlit.button("Apply Filters"):
             filtered_docs = self.get_filtered_documents(year_filter, doc_type_filter)
             for doc in filtered_docs:
-                col1, col2, col3 = st.columns([3, 1, 1])
+                col1, col2, col3 = streamlit.columns([3, 1, 1])
                 with col1:
-                    st.write(doc['name'])
+                    streamlit.write(doc['name'])
                 with col2:
-                    st.write(doc['date'])
+                    streamlit.write(doc['date'])
                 with col3:
-                    if st.button(f"Download {doc['name']}"):
+                    if streamlit.button(f"Download {doc['name']}"):
                         self.download_archived_document(doc)
 
     def render_security_settings(self):
         """Render security settings section"""
-        st.subheader("Security Settings")
+        streamlit.subheader("Security Settings")
         
         # Two-factor authentication
-        enable_two_factor_authentication = st.toggle(
+        enable_two_factor_authentication = streamlit.toggle(
             "Enable Two-Factor Authentication",
             value=False
         )
         
         if enable_two_factor_authentication:
-            st.info("Two-factor authentication is enabled")
-            if st.button("Disable Two-Factor Authentication"):
+            streamlit.info("Two-factor authentication is enabled")
+            if streamlit.button("Disable Two-Factor Authentication"):
                 self.update_two_factor_authentication(False)
         else:
-            if st.button("Enable Two-Factor Authentication"):
+            if streamlit.button("Enable Two-Factor Authentication"):
                 self.update_two_factor_authentication(True)
         
         # Password change section
-        st.subheader("Change Password")
-        current_password = st.text_input("Current Password", type="password")
-        new_password = st.text_input("New Password", type="password")
-        confirm_password = st.text_input("Confirm New Password", type="password")
+        streamlit.subheader("Change Password")
+        current_password = streamlit.text_input("Current Password", type="password")
+        new_password = streamlit.text_input("New Password", type="password")
+        confirm_password = streamlit.text_input("Confirm New Password", type="password")
         
-        if st.button("Update Password"):
+        if streamlit.button("Update Password"):
             if new_password != confirm_password:
-                st.error("New passwords do not match")
+                streamlit.error("New passwords do not match")
             else:
                 self.update_password(current_password, new_password)
 
     def render_gig_platforms(self):
         """Render gig platform management section"""
-        st.subheader("Gig Platform Management")
+        streamlit.subheader("Gig Platform Management")
         
         try:
             # Fetch connected platforms
             connected_platforms = fetch_connected_platforms(self.user_id)
             
             if connected_platforms:
-                st.write("Connected Platforms:")
+                streamlit.write("Connected Platforms:")
                 for platform in connected_platforms:
-                    with st.expander(f"{platform['platform'].title()} Settings"):
+                    with streamlit.expander(f"{platform['platform'].title()} Settings"):
                         # Platform status
                         status = validate_platform_connection(self.user_id, platform['platform'])
                         if status.connected:
-                            st.success("Connected")
+                            streamlit.success("Connected")
                             if status.last_sync:
-                                st.write(f"Last synced: {status.last_sync.strftime('%Y-%m-%d %H:%M:%S')}")
+                                streamlit.write(f"Last synced: {status.last_sync.strftime('%Y-%m-%d %H:%M:%S')}")
                         else:
-                            st.error("Connection error")
+                            streamlit.error("Connection error")
                             if status.error:
-                                st.write(f"Error: {status.error}")
+                                streamlit.write(f"Error: {status.error}")
                         
                         # Sync settings
-                        auto_sync = st.checkbox("Enable auto-sync", key=f"auto_sync_{platform['platform']}")
-                        sync_frequency = st.select_slider(
+                        auto_sync = streamlit.checkbox("Enable auto-sync", key=f"auto_sync_{platform['platform']}")
+                        sync_frequency = streamlit.select_slider(
                             "Sync frequency",
                             options=["Daily", "Weekly", "Monthly"],
                             key=f"sync_freq_{platform['platform']}"
                         )
             else:
-                st.info("No platforms connected yet.")
+                streamlit.info("No platforms connected yet.")
                 
         except Exception as e:
-            st.error(f"Error loading gig platforms: {str(e)}")
+            streamlit.error(f"Error loading gig platforms: {str(e)}")
 
 if __name__ == "__main__":
     profile_page_instance = ProfilePage()

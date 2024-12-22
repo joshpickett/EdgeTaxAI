@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TextInput, Button, FlatList, StyleSheet, Alert, ScrollView } from "react-native";
+import { View, Text, TextInput, Button, FlatList, StyleSheet, Alert, ScrollView, Image } from "react-native";
 import { getTaxSavings, getDeductionSuggestions } from "../services/taxService";
+import { colors, typography, spacing } from '../styles/tokens';
+
+// Asset paths
+const ASSETS_DIR = '../assets';
+const TAX_ICON = `${ASSETS_DIR}/logo/icon/edgetaxai-icon-color.svg`;
 
 const TaxOptimizationScreen = () => {
   const [amount, setAmount] = useState("");
@@ -59,6 +64,7 @@ const TaxOptimizationScreen = () => {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Tax Optimization</Text>
+      <Image source={TAX_ICON} style={styles.icon} />
 
       {taxRate !== null ? (
         <Text style={styles.taxRate}>Current Tax Rate: {taxRate * 100}%</Text>
@@ -92,12 +98,13 @@ const TaxOptimizationScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: "#f9f9f9" },
-  title: { fontSize: 22, fontWeight: "bold", marginBottom: 20, textAlign: "center" },
+  container: { flex: 1, padding: spacing.lg, backgroundColor: colors.background.default },
+  title: { fontSize: typography.fontSize.lg, fontWeight: typography.fontWeight.bold, color: colors.text.primary, marginBottom: 20, textAlign: "center" },
   taxRate: { fontSize: 16, marginBottom: 10, textAlign: "center" },
   input: { borderWidth: 1, borderColor: "#ccc", padding: 10, borderRadius: 5, marginBottom: 20 },
   result: { marginTop: 20, fontSize: 18, color: "green", textAlign: "center" },
   item: { padding: 10, borderBottomWidth: 1, borderColor: "#ddd" },
+  icon: { width: 50, height: 50, marginBottom: spacing.md },
 });
 
 export default TaxOptimizationScreen;

@@ -1,13 +1,19 @@
 import streamlit as streamlit
 import requests
 import platform
+from pathlib import Path
 import logging
 import keyring
 from utils import validate_input_fields, send_post_request
 from datetime import datetime, timedelta
 
+# Asset paths
+ASSETS_DIR = Path(__file__).parent.parent / 'assets'
+LOGO = ASSETS_DIR / 'logo' / 'primary' / 'edgetaxai-horizontal-color.svg'
+
 def login_page(api_base_url: str):
     streamlit.title("Login")
+    streamlit.image(str(LOGO), width=200)
 
     # State management
     if 'otp_sent' not in streamlit.session_state:

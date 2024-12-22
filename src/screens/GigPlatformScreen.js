@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Alert,
   Linking,
   TextInput,
+  Image,
 } from "react-native";
 import {
   fetchPlatformData,
@@ -20,6 +21,11 @@ import {
   connectApiKeyPlatform,
 } from "../services/gigPlatformService";
 import PlatformDataDisplay from "../components/PlatformDataDisplay";
+import { colors, typography, spacing } from '../styles/tokens';
+
+// Asset paths
+const ASSETS_DIR = '../assets';
+const PLATFORM_ICON = `${ASSETS_DIR}/logo/icon/edgetaxai-icon-color.svg`;
 
 // List of gig platforms
 const platforms = [
@@ -133,6 +139,7 @@ const GigPlatformScreen = () => {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Manage Gig Platforms</Text>
+      <Image source={PLATFORM_ICON} style={styles.icon} />
 
       {/* Platform Connection Section */}
       {platforms.map((platform) => (
@@ -183,7 +190,7 @@ const GigPlatformScreen = () => {
           >
             {connectedPlatforms.map((platform, index) => (
               <Text key={index} style={styles.connectedText}>
-                â {platform.platform.toUpperCase()}
+                Ã¢ {platform.platform.toUpperCase()}
                 <Button
                   title="Sync"
                   onPress={() => handleSync(platform.platform)}
@@ -225,8 +232,8 @@ const GigPlatformScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: "#F9F9F9" },
-  title: { fontSize: 24, fontWeight: "bold", textAlign: "center", marginBottom: 10 },
+  container: { flex: 1, padding: spacing.lg, backgroundColor: colors.background.default },
+  title: { fontSize: typography.fontSize.lg, fontWeight: typography.fontWeight.bold, color: colors.text.primary, textAlign: "center", marginBottom: 10 },
   subTitle: { fontSize: 18, fontWeight: "bold", marginTop: 10, marginBottom: 5 },
   buttonContainer: { marginBottom: 15 },
   input: {
@@ -245,6 +252,11 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   footer: { fontSize: 12, color: "#888", textAlign: "center", marginTop: 20 },
+  icon: {
+    width: 50,
+    height: 50,
+    marginBottom: spacing.md,
+  },
 });
 
 export default GigPlatformScreen;

@@ -6,6 +6,12 @@ from bank_integration import bank_integration_page
 from gig_platform_service import get_oauth_link, fetch_connected_platforms, fetch_platform_data, handle_oauth_callback
 from login_page import show_login_page  # Import the login page logic
 from datetime import datetime
+from pathlib import Path
+
+# Asset paths
+ASSETS_DIR = Path(__file__).parent.parent / 'assets'
+APP_ICON = ASSETS_DIR / 'logo' / 'app-icon' / 'app-icon-android.png'
+FAVICON = ASSETS_DIR / 'logo' / 'favicon' / 'favicon.ico'
 
 # Check if user is logged in
 def check_auth():
@@ -17,6 +23,7 @@ def check_auth():
 # Main Application Function
 def main():
     streamlit.title("Welcome to EdgeTaxAI")
+    streamlit.set_page_config(page_title="EdgeTaxAI", page_icon=str(FAVICON))
     
     # Authentication Check
     check_auth()

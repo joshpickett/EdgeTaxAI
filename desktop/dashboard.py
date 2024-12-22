@@ -1,7 +1,12 @@
 import tkinter as tk
 from tkinter import messagebox, simpledialog
+from pathlib import Path
 import requests
 import matplotlib.pyplot as plt
+
+# Asset paths
+ASSETS_DIR = Path(__file__).parent.parent / 'assets'
+DASHBOARD_LOGO = ASSETS_DIR / 'logo' / 'primary' / 'edgetaxai-horizontal-color.svg'
 
 API_BASE_URL = "http://localhost:5000"  # Replace with your backend URL
 
@@ -11,6 +16,7 @@ class ExpenseDashboard(tk.Tk):
         super().__init__()
         self.title("Expense Dashboard")
         self.geometry("600x400")
+        self.iconphoto(True, tk.PhotoImage(file=str(DASHBOARD_LOGO)))
 
         # UI Elements
         self.expense_listbox = tk.Listbox(self, width=80, height=15)

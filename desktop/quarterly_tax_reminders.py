@@ -1,6 +1,12 @@
 import streamlit as st
 import requests
 import logging
+from pathlib import Path
+
+# Asset paths
+ASSETS_DIR = Path(__file__).parent.parent / 'assets'
+TAX_REMINDER_ICON = ASSETS_DIR / 'logo' / 'icon' / 'edgetaxai-icon-color.svg'
+
 from config import API_BASE_URL
 
 # Configure Logging
@@ -15,6 +21,7 @@ def quarterly_tax_reminders_page():
     Quarterly Tax Reminders Page: Schedule SMS reminders for tax payments via API.
     """
     st.title("Quarterly Tax Reminders")
+    st.image(str(TAX_REMINDER_ICON), width=50)
     st.markdown("#### Schedule SMS reminders for your quarterly tax payments.")
 
     # Validate User Session

@@ -9,8 +9,14 @@ import {
   ActivityIndicator,
   Alert,
   Linking,
+  Image,
 } from "react-native";
 import { sharedReportingService } from "../services/sharedReportingService";
+import { colors, typography, spacing } from '../styles/tokens';
+
+// Asset paths
+const ASSETS_DIR = '../assets';
+const REPORTS_ICON = `${ASSETS_DIR}/logo/icon/edgetaxai-icon-color.svg`;
 
 const BASE_URL = "https://your-backend-api.com/api/reports";
 
@@ -78,6 +84,7 @@ const ReportsScreen = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Reports Dashboard</Text>
+      <Image source={REPORTS_ICON} style={styles.icon} />
 
       {/* IRS Reports Section */}
       <View style={styles.section}>
@@ -150,8 +157,8 @@ const ReportsScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: "#f9f9f9" },
-  title: { fontSize: 22, fontWeight: "bold", textAlign: "center", marginBottom: 20 },
+  container: { flex: 1, padding: spacing.lg, backgroundColor: colors.background.default },
+  title: { fontSize: typography.fontSize.lg, fontWeight: typography.fontWeight.bold, color: colors.text.primary, textAlign: "center", marginBottom: 20 },
   section: { marginBottom: 30 },
   sectionTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 10 },
   description: { fontSize: 14, color: "#555", marginBottom: 10 },
@@ -173,6 +180,11 @@ const styles = StyleSheet.create({
   },
   reportText: { fontSize: 16, color: "#333" },
   noDataText: { textAlign: "center", color: "#777" },
+  icon: {
+    width: 50,
+    height: 50,
+    marginBottom: spacing.md,
+  },
 });
 
 export default ReportsScreen;

@@ -2,12 +2,18 @@ import streamlit as st
 import requests
 from datetime import datetime
 from typing import Dict, Any
+from pathlib import Path
+
+# Asset paths
+ASSETS_DIR = Path(__file__).parent.parent / 'assets'
+MILEAGE_ICON = ASSETS_DIR / 'logo' / 'icon' / 'edgetaxai-icon-color.svg'
 
 def mileage_tracker_page(api_base_url):
     """
     Mileage Tracker Page: Calculate mileage between two locations via API.
     """
     st.title("Mileage Tracker")
+    st.image(str(MILEAGE_ICON), width=50)
     st.markdown("#### Track your business mileage for tax deductions")
 
     # Add tabs for different mileage tracking options

@@ -1,6 +1,12 @@
 import streamlit as st
 import requests
 import pandas as pd
+from pathlib import Path
+
+# Asset paths
+ASSETS_DIR = Path(__file__).parent.parent / 'assets'
+DEDUCTION_ICON = ASSETS_DIR / 'logo' / 'icon' / 'edgetaxai-icon-color.svg'
+
 from config import API_BASE_URL
 
 def tax_deductions_page():
@@ -9,6 +15,7 @@ def tax_deductions_page():
     Users can upload or input custom expenses for AI deduction suggestions.
     """
     st.title("AI-Flagged Tax Deductions")
+    st.image(str(DEDUCTION_ICON), width=50)
     st.markdown("#### Optimize your expenses with AI-detected deductions.")
 
     # Validate User Session
