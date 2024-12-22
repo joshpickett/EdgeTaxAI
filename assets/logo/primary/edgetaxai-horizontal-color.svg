@@ -1,0 +1,15 @@
+<svg width="300" height="80" viewBox="0 0 300 80" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="300" height="80" fill="transparent"/>
+  
+  <!-- EdgeTaxAI Text -->
+  <text x="80" y="50" font-family="Inter, sans-serif" font-size="36" font-weight="700" fill="#007AFF">
+    Edge<tspan fill="#424242">Tax</tspan><tspan fill="#007AFF">AI</tspan>
+  </text>
+  
+  <!-- AI Icon -->
+  <g transform="translate(20, 20)">
+    <path d="M30 0C13.4315 0 0 13.4315 0 30C0 46.5685 13.4315 60 30 60C46.5685 60 60 46.5685 60 30C60 13.4315 46.5685 0 30 0Z" fill="#007AFF"/>
+    <path d="M30 15L45 45H15L30 15Z" fill="white"/>
+  </g>
+</svg>

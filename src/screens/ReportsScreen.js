@@ -10,7 +10,7 @@ import {
   Alert,
   Linking,
 } from "react-native";
-import { fetchIRSReports, fetchCustomReports } from "../services/reportsService";
+import { sharedReportingService } from "../services/sharedReportingService";
 
 const BASE_URL = "https://your-backend-api.com/api/reports";
 
@@ -24,16 +24,16 @@ const ReportsScreen = ({ navigation }) => {
   const [customReports, setCustomReports] = useState([]);
   const [irsReports, setIRSReports] = useState(null);
 
-  // Fetch IRS Reports
-  const handleFetchIRSReports = async () => {
+  // Generate Report
+  const handleGenerateReport = async (type, params = {}) => {
     setLoading(true);
     try {
-      const data = await fetchIRSReports();
+      const data = await sharedReportingService.generateReport(type, params);
       setIRSReports(data);
-      Alert.alert("Success", "IRS Reports loaded successfully.");
+      Alert.alert("Success", "Reports loaded successfully.");
     } catch (error) {
-      console.error("Error fetching IRS Reports:", error.message);
-      Alert.alert("Error", error.message || "Failed to fetch IRS Reports.");
+      console.error("Error fetching reports:", error);
+      Alert.alert("Error", error.message);
     } finally {
       setLoading(false);
     }
@@ -48,7 +48,7 @@ const ReportsScreen = ({ navigation }) => {
 
     setLoading(true);
     try {
-      const data = await fetchCustomReports(filters);
+      const data = await sharedReportingService.generateReport('custom', filters);
       if (data.length === 0) {
         Alert.alert("No Data", "No reports found for the selected filters.");
       }
@@ -82,7 +82,7 @@ const ReportsScreen = ({ navigation }) => {
       {/* IRS Reports Section */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>IRS-Ready Reports</Text>
-        <Button title="Fetch IRS Reports" onPress={handleFetchIRSReports} color="#007BFF" />
+        <Button title="Fetch IRS Reports" onPress={() => handleGenerateReport('tax_summary')} color="#007BFF" />
         {loading && <ActivityIndicator size="small" color="#007BFF" />}
         {irsReports && (
           <Text style={styles.reportText}>

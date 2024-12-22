@@ -1,4 +1,7 @@
 import { apiClient } from './apiClient';
+import { offlineManager } from './offlineManager';
+import { Platform } from 'react-native';
+import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 
 export const processReceipt = async (imageUri) => {
   try {
@@ -9,28 +12,68 @@ export const processReceipt = async (imageUri) => {
       name: 'receipt.jpg',
     });
 
-    const response = await fetch('http://localhost:5000/api/process-receipt', {
-      method: 'POST',
-      body: formData,
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to process receipt');
+    // Try online processing first
+    if (navigator.onLine) {
+      const response = await apiClient.post('/process-receipt', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to process receipt');
+      }
+      
+      return formatReceiptData(response.data);
+    } else {
+      // Queue for offline processing
+      await offlineManager.queueOperation({
+        type: 'PROCESS_RECEIPT',
+        data: formData
+      });
+      return null;
     }
-
-    const data = await response.json();
-    return {
-      description: data.text,
-      amount: data.amount,
-      category: data.category,
-      expense_id: data.expense_id,
-      document_id: data.document_id
-    };
   } catch (error) {
     console.error('Receipt processing error:', error);
     throw error;
   }
 };
+
+export const captureReceipt = async (options = {}) => {
+  const defaultOptions = {
+    mediaType: 'photo',
+    includeBase64: true,
+    quality: 0.8,
+  };
+
+  try {
+    if (options.useCamera) {
+      return await launchCamera({ ...defaultOptions, ...options });
+    } else {
+      return await launchImageLibrary({ ...defaultOptions, ...options });
+    }
+  } catch (error) {
+    console.error('Error capturing image:', error);
+    throw error;
+  }
+};
+
+export const saveReceipt = async (receiptData) => {
+  try {
+    const operation = {
+      type: 'SAVE_RECEIPT',
+      data: receiptData,
+      execute: async () => {
+        await apiClient.post('/receipts', receiptData);
+      },
+    };
+
+    await offlineManager.queueOperation(operation);
+    return true;
+  } catch (error) {
+    console.error('Error saving receipt:', error);
+    throw error;
+  }
+};
+
+// ...rest of the code...

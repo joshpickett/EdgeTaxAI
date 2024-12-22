@@ -73,6 +73,16 @@ class APIClient {
   async getTaxSavings(data) {
     return this.client.post('/tax-optimization/analyze', data);
   }
+
+  async processReceipt(formData) {
+    return this.client.post('/process-receipt', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  }
+
+  async saveReceipt(receiptData) {
+    return this.client.post('/receipts', receiptData);
+  }
 }
 
 export const apiClient = new APIClient();

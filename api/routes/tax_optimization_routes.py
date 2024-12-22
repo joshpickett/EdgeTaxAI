@@ -1,14 +1,15 @@
 from flask import Blueprint, request, jsonify
 import logging
 from datetime import datetime
-from ..utils.ai_utils import analyze_tax_context
+from ..utils.ai_utils import analyze_tax_context, analyze_expense_patterns
 from ..utils.analytics_helper import analyze_optimization_opportunities
 from ..utils.tax_calculator import TaxCalculator
 from decimal import Decimal
 
 tax_optimization_bp = Blueprint('tax_optimization', __name__)
+calculator = TaxCalculator()
 
-@tax_optimization_bp.route("/optimize", methods=["POST"])
+@tax_optimization_bp.route("/tax/optimize", methods=["POST"])
 def optimize_tax_strategy():
     """
     Analyze expenses and suggest optimization strategies.
@@ -17,12 +18,15 @@ def optimize_tax_strategy():
     try:
         data = request.json
         user_id = data.get("user_id")
+        year = data.get('year', datetime.now().year)
         
-        if not user_id:
-            return jsonify({"error": "User ID is required"}), 400
-
-        # Use analytics helper for optimization analysis
-        optimization_results = analyze_optimization_opportunities(user_id)
+        # Get comprehensive analysis
+        optimization_results = analyze_optimization_opportunities(user_id, year)
+        
+        # Calculate potential savings
+        potential_savings = calculator.calculate_tax_savings(
+            Decimal(str(optimization_results.get('potential_deductions', 0)))
+        )
 
         return jsonify({
             "optimization_suggestions": optimization_results

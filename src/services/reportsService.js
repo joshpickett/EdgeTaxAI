@@ -17,6 +17,28 @@ const fetchWithErrorHandling = async (url, options = {}) => {
   }
 };
 
+// Fetch Dashboard Data
+export const fetchDashboardData = async () => {
+  try {
+    const [taxData, incomeData, expenseData, planningData] = await Promise.all([
+      fetchTaxSummary(),
+      fetchIncomeData(),
+      fetchExpenseData(),
+      fetchPlanningData()
+    ]);
+
+    return {
+      taxData,
+      incomeData,
+      expenseData,
+      planningData
+    };
+  } catch (error) {
+    console.error("Error fetching dashboard data:", error);
+    throw error;
+  }
+};
+
 // Fetch IRS-ready reports
 export const fetchIRSReports = async (userId) => {
   try {
@@ -28,12 +50,12 @@ export const fetchIRSReports = async (userId) => {
 };
 
 // Fetch expense breakdown reports
-export const fetchExpenseReports = async (userId) => {
+export const fetchExpenseData = async () => {
   try {
-    const url = `${BASE_URL}/expenses/${userId}`;
+    const url = `${BASE_URL}/expenses/summary`;
     return await fetchWithErrorHandling(url);
   } catch (error) {
-    throw new Error("Failed to fetch expense breakdown reports. Please try again.");
+    throw new Error("Failed to fetch expense reports");
   }
 };
 
@@ -63,4 +85,3 @@ export const fetchCustomReports = async (userId, filters) => {
     throw new Error("Failed to fetch custom reports. Please check your filters.");
   }
 };
-

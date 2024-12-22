@@ -25,6 +25,16 @@ const LoginScreen = ({ navigation }) => {
     checkBiometricSupport();
   }, []);
 
+  const checkBiometricSupport = async () => {
+    try {
+      const compatible = await LocalAuthentication.hasHardwareAsync();
+      const enrolled = await LocalAuthentication.isEnrolledAsync();
+      setIsBiometricSupported(compatible && enrolled);
+    } catch (error) {
+      console.error('Biometric support check failed:', error);
+    }
+  };
+
   // Validate before sending OTP
   const handleSendOTP = async () => {
     // Clear previous errors
@@ -73,18 +83,14 @@ const LoginScreen = ({ navigation }) => {
     }
   };
 
-  // Check if device supports biometric authentication
-  const checkBiometricSupport = async () => {
-    const compatible = await LocalAuthentication.hasHardwareAsync();
-    setIsBiometricSupported(compatible);
-  };
-
   // Handle biometric authentication
   const handleBiometricAuth = async () => {
     try {
       const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: 'Login with biometrics',
-        fallbackLabel: 'Use OTP instead'
+        promptMessage: 'Verify identity',
+        fallbackLabel: 'Use OTP instead',
+        disableDeviceFallback: false,
+        cancelLabel: 'Cancel'
       });
 
       if (result.success) {

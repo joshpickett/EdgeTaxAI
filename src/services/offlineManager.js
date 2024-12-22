@@ -1,10 +1,15 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
+import { apiClient } from './apiClient';
 
 class OfflineManager {
   constructor() {
     this.syncQueue = [];
     this.isOnline = true;
+    this.operationHandlers = {
+      'PROCESS_RECEIPT': this.handleReceiptProcessing,
+      'SAVE_RECEIPT': this.handleReceiptSaving
+    };
     this.setupNetworkListener();
   }
 
@@ -32,11 +37,21 @@ class OfflineManager {
     }
   }
 
+  async handleReceiptProcessing(operation) {
+    const response = await apiClient.post('/process-receipt', operation.data);
+    return response.data;
+  }
+
+  async handleReceiptSaving(operation) {
+    await apiClient.post('/receipts', operation.data);
+    return true;
+  }
+
   async processSyncQueue() {
     while (this.syncQueue.length > 0 && this.isOnline) {
       const operation = this.syncQueue[0];
       try {
-        await operation.execute();
+        await this.operationHandlers[operation.type].call(this, operation);
         this.syncQueue.shift();
         await AsyncStorage.setItem('syncQueue', JSON.stringify(this.syncQueue));
       } catch (error) {

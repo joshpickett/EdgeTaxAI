@@ -1,0 +1,14 @@
+<svg width="120" height="120" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background Circle -->
+  <circle cx="60" cy="60" r="60" fill="#007AFF"/>
+  
+  <!-- AI Triangle Icon -->
+  <path d="M60 30L90 90H30L60 30Z" fill="white"/>
+  
+  <!-- Circuit Board Pattern -->
+  <g stroke="rgba(255,255,255,0.2)" stroke-width="2">
+    <line x1="30" y1="90" x2="20" y2="100"/>
+    <line x1="90" y1="90" x2="100" y2="100"/>
+    <line x1="60" y1="30" x2="60" y2="20"/>
+  </g>
+</svg>

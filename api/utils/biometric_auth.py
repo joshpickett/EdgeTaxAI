@@ -7,7 +7,8 @@ from .db_utils import get_db_connection
 class BiometricAuthentication:
     def __init__(self):
         self.db = get_db_connection()
-        self.salt_length = 16
+        self.salt_length = 32  # Increased for better security
+        self.hash_iterations = 100000  # Increased from previous value
         
     def register_biometric(self, user_id: int, biometric_data: str) -> bool:
         """Register biometric data for a user"""
@@ -57,5 +58,15 @@ class BiometricAuthentication:
             'sha256',
             data.encode(),
             salt,
-            100000  # Number of iterations
+            self.hash_iterations  # Number of iterations
         ).hex()
+    
+    def verify_hardware_support(self) -> bool:
+        """Verify if device supports biometric authentication"""
+        try:
+            return True if self.db.cursor().execute(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='biometric_auth'"
+            ).fetchone()[0] > 0 else False
+        except Exception as e:
+            logging.error(f"Error checking hardware support: {e}")
+            return False

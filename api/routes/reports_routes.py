@@ -5,39 +5,34 @@ from typing import Dict, Any, Optional, Union
 from ..utils.db_utils import get_db_connection
 from ..utils.error_handler import handle_api_error
 from ..utils.report_generator import ReportGenerator
+from ..utils.tax_calculator import TaxCalculator
 import pandas as pd
 import io
-import os
-import json
-from openpyxl import Workbook
-from reportlab.pdfgen import canvas
 
 reports_bp = Blueprint('reports', __name__)
 report_generator = ReportGenerator()
+tax_calculator = TaxCalculator()
 
-@reports_bp.route("/generate-report", methods=["POST"])
-def generate_report():
-    """Generate comprehensive expense report"""
+@reports_bp.route("/reports/tax-summary", methods=["POST"])
+def generate_tax_summary():
+    """Generate comprehensive tax summary with expense analysis"""
     try:
         data = request.json
         user_id = data.get('user_id')
         start_date = data.get('start_date')
         end_date = data.get('end_date')
-        report_type = data.get('report_type', 'summary')
-        
+        include_projections = data.get('include_projections', False)
+
         if not user_id:
             return jsonify({"error": "User ID is required"}), 400
             
-        report = report_generator.generate_expense_summary(
-            user_id, start_date, end_date
-        )
-        
-        return jsonify(report)
+        summary = report_generator.generate_tax_summary(user_id, start_date, end_date, include_projections)
+        return jsonify(summary)
     except Exception as e:
-        logging.error(f"Error generating report: {e}")
+        logging.error(f"Error generating tax summary: {e}")
         return handle_api_error(e)
 
-@reports_bp.route("/quarterly-summary", methods=["POST"])
+@reports_bp.route("/reports/quarterly-tax", methods=["POST"])
 def generate_quarterly_summary():
     """Generate quarterly expense and tax summary"""
     try:
@@ -46,11 +41,21 @@ def generate_quarterly_summary():
         year = data.get('year', datetime.now().year)
         quarter = data.get('quarter')
 
-        if not user_id or not quarter:
-            return jsonify({"error": "User ID and quarter are required"}), 400
-
-        # Logic to generate quarterly summary
-        # ...
+        # Calculate quarterly tax estimates
+        quarterly_summary = report_generator.generate_quarterly_report(
+            user_id, year, quarter
+        )
+        
+        # Add tax calculations
+        tax_estimates = tax_calculator.calculate_quarterly_tax(
+            quarterly_summary['income'],
+            quarterly_summary['expenses']
+        )
+        
+        return jsonify({
+            **quarterly_summary,
+            'tax_estimates': tax_estimates
+        }), 200
 
     except Exception as e:
         logging.error(f"Error generating quarterly summary: {e}")
