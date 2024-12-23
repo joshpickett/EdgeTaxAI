@@ -1,7 +1,6 @@
 import pytest
 from api.app import create_app
-from api.utils.db_utils import get_db_connection
-import sqlite3
+from api.utils.db_utils import Database
 import os
 
 @pytest.fixture
@@ -10,7 +9,8 @@ def app():
     app = create_app()
     app.config.update({
         'TESTING': True,
-        'DATABASE': ':memory:'
+        'DATABASE': ':memory:',
+        'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:'
     })
     
     yield app
@@ -28,6 +28,6 @@ def runner(app):
 @pytest.fixture
 def db():
     """Create a new database for each test."""
-    db = get_db_connection()
+    db = Database()
     yield db
     db.close()

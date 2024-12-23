@@ -1,165 +1,161 @@
+from typing import Dict, Optional
 import logging
-from typing import Dict, Any, List
-from datetime import datetime
-import pandas as pd
-from .db_utils import get_db_connection
-from .ai_utils import analyze_patterns
-from .tax_calculator import TaxCalculator
+from datetime import datetime, timedelta
+from .db_utils import Database
+from .analytics_helper import AnalyticsHelper
+from .cache_utils import CacheManager
 
 class AnalyticsIntegration:
-    def __init__(self):
-        self.conn = get_db_connection()
-        self.tax_calculator = TaxCalculator()
+    def __init__(self, db: Database):
+        self.db = db
+        self.analytics = AnalyticsHelper(db)
+        self.cache = CacheManager()
+        self.logger = logging.getLogger(__name__)
+
+    def get_user_analytics(self, user_id: int, 
+                         period: Optional[tuple] = None) -> Dict[str, any]:
+        """Get cached or fresh analytics for a user."""
+        cache_key = f"user_analytics:{user_id}:{period}"
         
-    def generate_unified_report(self, user_id: int) -> Dict[str, Any]:
-        """Generate comprehensive analytics report"""
+        # Try to get from cache first
+        cached_data = self.cache.get(cache_key)
+        if cached_data:
+            return cached_data
+
         try:
-            # Gather data from all sources
-            expenses = self._fetch_expenses(user_id)
-            bank_data = self._fetch_bank_data(user_id)
-            gig_data = self._fetch_gig_data(user_id)
-            tax_data = self._fetch_tax_data(user_id)
+            # Generate fresh analytics
+            analytics_data = self.analytics.get_comprehensive_report(user_id, period)
             
-            # Analyze patterns
-            patterns = analyze_patterns({
-                'expenses': expenses,
-                'bank_data': bank_data,
-                'gig_data': gig_data,
-                'tax_data': tax_data
-            })
+            # Cache the results
+            self.cache.set(cache_key, analytics_data, timeout=3600)  # Cache for 1 hour
             
-            # Generate insights
-            insights = self._generate_insights(patterns)
-            
-            return {
-                'patterns': patterns,
-                'insights': insights,
-                'recommendations': self._generate_recommendations(insights),
-                'timestamp': datetime.now().isoformat()
-            }
+            return analytics_data
+
         except Exception as e:
-            logging.error(f"Error generating unified report: {e}")
-            return {}
+            self.logger.error(f"Error getting user analytics: {str(e)}")
+            raise
+
+    def refresh_analytics(self, user_id: int) -> None:
+        """Force refresh analytics data for a user."""
+        try:
+            # Clear all cached analytics for this user
+            cache_patterns = [
+                f"user_analytics:{user_id}:*",
+                f"earnings_summary:{user_id}:*",
+                f"expense_analysis:{user_id}:*",
+                f"trip_patterns:{user_id}:*"
+            ]
             
-    def _fetch_expenses(self, user_id: int) -> List[Dict[str, Any]]:
-        """Fetch expense data"""
-        cursor = self.conn.cursor()
-        cursor.execute("""
-            SELECT * FROM expenses 
-            WHERE user_id = ? 
-            ORDER BY date DESC
-        """, (user_id,))
-        return cursor.fetchall()
-        
-    def _fetch_bank_data(self, user_id: int) -> List[Dict[str, Any]]:
-        """Fetch bank transaction data"""
-        cursor = self.conn.cursor()
-        cursor.execute("""
-            SELECT * FROM bank_transactions 
-            WHERE user_id = ? 
-            ORDER BY date DESC
-        """, (user_id,))
-        return cursor.fetchall()
-        
-    def _fetch_gig_data(self, user_id: int) -> List[Dict[str, Any]]:
-        """Fetch gig platform data"""
-        cursor = self.conn.cursor()
-        cursor.execute("""
-            SELECT * FROM gig_earnings 
-            WHERE user_id = ? 
-            ORDER BY date DESC
-        """, (user_id,))
-        return cursor.fetchall()
-        
-    def _fetch_tax_data(self, user_id: int) -> Dict[str, Any]:
-        """Fetch tax-related data"""
-        cursor = self.conn.cursor()
-        cursor.execute("""
-            SELECT * FROM tax_estimates 
-            WHERE user_id = ? 
-            ORDER BY date DESC
-        """, (user_id,))
-        return cursor.fetchall()
-        
-    def _generate_insights(self, patterns: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Generate insights from patterns"""
-        insights = []
-        
-        # Analyze expense patterns
-        if 'expense_patterns' in patterns:
-            insights.extend(self._analyze_expense_patterns(patterns['expense_patterns']))
+            for pattern in cache_patterns:
+                self.cache.delete(pattern)
+
+            # Generate fresh analytics for different time periods
+            periods = [
+                ('daily', (datetime.now() - timedelta(days=1), datetime.now())),
+                ('weekly', (datetime.now() - timedelta(weeks=1), datetime.now())),
+                ('monthly', (datetime.now() - timedelta(days=30), datetime.now())),
+                ('yearly', (datetime.now() - timedelta(days=365), datetime.now()))
+            ]
+
+            for period_name, period_range in periods:
+                analytics_data = self.analytics.get_comprehensive_report(
+                    user_id, period_range
+                )
+                cache_key = f"user_analytics:{user_id}:{period_name}"
+                self.cache.set(cache_key, analytics_data, timeout=3600)
+
+        except Exception as e:
+            self.logger.error(f"Error refreshing analytics: {str(e)}")
+            raise
+
+    def get_platform_comparison(self, user_id: int, 
+                              platforms: list) -> Dict[str, any]:
+        """Compare earnings and metrics across different platforms."""
+        try:
+            platform_metrics = {}
             
-        # Analyze income patterns
-        if 'income_patterns' in patterns:
-            insights.extend(self._analyze_income_patterns(patterns['income_patterns']))
-            
-        # Analyze tax implications
-        if 'tax_patterns' in patterns:
-            insights.extend(self._analyze_tax_patterns(patterns['tax_patterns']))
-            
-        return insights
-        
-    def _generate_recommendations(self, insights: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """Generate actionable recommendations"""
-        recommendations = []
-        
-        for insight in insights:
-            if insight['type'] == 'expense_pattern':
-                recommendations.extend(self._get_expense_recommendations(insight))
-            elif insight['type'] == 'tax_opportunity':
-                recommendations.extend(self._get_tax_recommendations(insight))
-            elif insight['type'] == 'income_pattern':
-                recommendations.extend(self._get_income_recommendations(insight))
+            for platform in platforms:
+                query = """
+                    SELECT 
+                        SUM(amount) as total_earnings,
+                        COUNT(*) as trip_count,
+                        AVG(amount) as avg_earnings
+                    FROM earnings
+                    WHERE user_id = ? AND platform = ?
+                    AND date >= date('now', '-30 days')
+                """
                 
-        return recommendations
-        
-    def _analyze_expense_patterns(self, patterns: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Analyze expense patterns for insights"""
-        insights = []
-        
-        # Analyze category distribution
-        category_dist = pd.DataFrame(patterns['by_category'])
-        top_categories = category_dist.nlargest(3, 'amount')
-        
-        for _, category in top_categories.iterrows():
-            insights.append({
-                'type': 'expense_pattern',
-                'category': category.name,
-                'amount': category['amount'],
-                'percentage': category['percentage'],
-                'trend': category['trend']
-            })
+                with self.db.get_cursor() as cursor:
+                    cursor.execute(query, (user_id, platform))
+                    metrics = cursor.fetchone()
+                    
+                    platform_metrics[platform] = {
+                        'total_earnings': round(metrics['total_earnings'] or 0, 2),
+                        'trip_count': metrics['trip_count'] or 0,
+                        'average_earnings': round(metrics['avg_earnings'] or 0, 2)
+                    }
+
+            return {
+                'platform_metrics': platform_metrics,
+                'top_platform': max(
+                    platform_metrics.items(),
+                    key=lambda x: x[1]['total_earnings']
+                )[0] if platform_metrics else None,
+                'comparison_period': '30 days'
+            }
+
+        except Exception as e:
+            self.logger.error(f"Error comparing platforms: {str(e)}")
+            raise
+
+    def get_earnings_trends(self, user_id: int, 
+                          period: str = 'weekly') -> Dict[str, any]:
+        """Analyze earnings trends over time."""
+        try:
+            period_formats = {
+                'daily': '%Y-%m-%d',
+                'weekly': '%Y-%W',
+                'monthly': '%Y-%m'
+            }
             
-        return insights
-        
-    def _analyze_income_patterns(self, patterns: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Analyze income patterns for insights"""
-        insights = []
-        
-        # Analyze income sources
-        for source, data in patterns['by_source'].items():
-            insights.append({
-                'type': 'income_pattern',
-                'source': source,
-                'amount': data['amount'],
-                'frequency': data['frequency'],
-                'stability': data['stability']
-            })
+            if period not in period_formats:
+                raise ValueError(f"Invalid period: {period}")
+
+            query = f"""
+                SELECT 
+                    strftime(?, date) as period,
+                    SUM(amount) as total_earnings,
+                    COUNT(*) as transaction_count
+                FROM earnings
+                WHERE user_id = ?
+                GROUP BY period
+                ORDER BY period DESC
+                LIMIT 12
+            """
             
-        return insights
-        
-    def _analyze_tax_patterns(self, patterns: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Analyze tax patterns for insights"""
-        insights = []
-        
-        # Analyze deduction opportunities
-        for category, data in patterns['deductions'].items():
-            if data['potential_savings'] > 0:
-                insights.append({
-                    'type': 'tax_opportunity',
-                    'category': category,
-                    'potential_savings': data['potential_savings'],
-                    'confidence': data['confidence']
-                })
-                
-        return insights
+            with self.db.get_cursor() as cursor:
+                cursor.execute(query, (period_formats[period], user_id))
+                trends = cursor.fetchall()
+
+            return {
+                'period_type': period,
+                'trends': [
+                    {
+                        'period': trend['period'],
+                        'earnings': round(trend['total_earnings'], 2),
+                        'transaction_count': trend['transaction_count'],
+                        'average_per_transaction': round(
+                            trend['total_earnings'] / trend['transaction_count'], 2
+                        )
+                    }
+                    for trend in trends
+                ],
+                'total_periods': len(trends),
+                'average_per_period': round(
+                    sum(t['total_earnings'] for t in trends) / len(trends), 2
+                ) if trends else 0
+            }
+
+        except Exception as e:
+            self.logger.error(f"Error analyzing earnings trends: {str(e)}")
+            raise

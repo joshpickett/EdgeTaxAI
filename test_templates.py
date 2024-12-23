@@ -1,7 +1,6 @@
 class TestTemplates:
     PYTEST_TEMPLATE = """
-    from api.app import app
-    from api.utils.db_utils import get_db_connection
+    from api.app import create_app
     import pytest
     # Test Summary:
     # {test_summary}
@@ -14,8 +13,7 @@ class TestTemplates:
     
     UNITTEST_TEMPLATE = """
     import unittest
-    from api.app import app
-    from api.utils.db_utils import get_db_connection
+    from api.app import create_app
     # Test Summary:
     # {test_summary}
     
@@ -33,6 +31,9 @@ class TestTemplates:
         app.config['TESTING'] = True
         return app
         
+    @pytest.fixture
+    def client(app):
+        return app.test_client()
     """
      
     @classmethod

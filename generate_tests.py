@@ -1,12 +1,11 @@
 import os
 import logging
 from openai import OpenAI
-from openai.types import CompletionCreateParams
+from api.config import Config
 import time
 import argparse
 from typing import Optional, Dict, Any
 from dataclasses import dataclass
-from api.config import Config
 from concurrent.futures import ThreadPoolExecutor
 from utils.test_statistics import TestGenerationStats
 from utils.test_cache import TestCache
