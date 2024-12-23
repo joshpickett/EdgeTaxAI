@@ -26,10 +26,10 @@ class Config:
     
     # Default test directory structure
     TEST_BASE_DIR = "tests"
-    DEFAULT_TEST_TYPE = "unit"  # Options: unit, integration, e2e
+    DEFAULT_TEST_TYPE = "unit"  # Options: unit, integration, end-to-end
     TEST_FRAMEWORK = "pytest"
     CACHE_ENABLED = True
-    CACHE_DURATION_DAYS = 7
+    CACHE_DURATION_DAYS = 0  # Set to 0 to disable caching
     MAX_RETRIES = 3
     TIMEOUT = 30
     MODEL_NAME = "gpt-4"

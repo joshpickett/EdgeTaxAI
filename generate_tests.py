@@ -1,11 +1,20 @@
 import os
 import argparse
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional, Dict, Any
 from api.config import Config
 from utils.test_statistics import TestGenerationStats
 from utils.test_cache import TestCache
 from utils.openai_handler import OpenAIHandler
+
+def setup_logging():
+    """Configure logging for test generation."""
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
 
 def create_test_directory(source_path: str, test_base_dir: str) -> str:
     """Create test directory structure mirroring source structure."""
@@ -24,6 +33,32 @@ def get_test_file_path(source_file: str, test_dir: str) -> str:
         return None
     test_file_name = f"test_{base_name}"
     return os.path.join(test_dir, test_file_name)
+
+def process_file(source_path: str, test_path: str) -> None:
+    """Process a single source file and generate its test file."""
+    try:
+        with open(source_path, 'r') as f:
+            source_content = f.read()
+
+        # Check cache first
+        test_cache = TestCache()
+        cached_content = test_cache.get(source_content)
+        if cached_content:
+            logging.info(f"Using cached tests for {source_path}")
+            return cached_content
+
+        # Generate new tests using OpenAI
+        openai_handler = OpenAIHandler(Config.OPENAI_API_KEY)
+        test_content = openai_handler.generate_completion(...)  # Implementation details here
+
+        # Cache the results
+        test_cache.set(source_content, test_content)
+        
+        TestGenerationStats.get_instance().record_success()
+        logging.info(f"Successfully generated tests for {source_path}")
+    except Exception as e:
+        TestGenerationStats.get_instance().record_failure(source_path, str(e))
+        logging.error(f"Failed to generate tests for {source_path}: {str(e)}")
 
 def process_source_directories() -> None:
     """Process all configured source directories."""
@@ -49,6 +84,7 @@ def process_source_directories() -> None:
         executor.map(lambda x: process_file(x[0], x[1]), files_to_process)
 
 def main():
+    setup_logging()
     parser = argparse.ArgumentParser(description='Generate tests for Python files')
     parser.add_argument('--framework', type=str, choices=['pytest', 'unittest'], 
                        default=Config.TEST_FRAMEWORK, help='Test framework to use')
