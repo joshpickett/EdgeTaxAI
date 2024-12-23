@@ -31,6 +31,10 @@ class Config:
     CACHE_ENABLED = True
     CACHE_DURATION_DAYS = 0  # Set to 0 to disable caching
     MAX_RETRIES = 3
+    TOKENS_PER_MINUTE = 10000
+    BATCH_SIZE = 5  # Process 5 files at a time
+    MAX_WORKERS = 3  # Maximum concurrent workers
+    RATE_LIMIT_DELAY = 2.0  # Delay between batches in seconds
     MODEL_NAME = "gpt-4"  # Specify the OpenAI model to use
     TIMEOUT = 30
     MAX_WORKERS = 4

@@ -4,6 +4,7 @@ import logging
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional, Dict, Any
 from api.config import Config
+from itertools import islice
 from utils.test_statistics import TestGenerationStats
 from utils.test_cache import TestCache
 from utils.openai_handler import OpenAIHandler
@@ -53,6 +54,12 @@ def process_file(source_path: str, test_path: str) -> None:
             {"role": "system", "content": "You are a test generation assistant. Generate comprehensive tests for the given code."},
             {"role": "user", "content": f"Generate tests for:\n\n{source_content}"}
         ]
+        estimated_tokens = sum(len(m['content'].split()) * 1.3 for m in messages)
+        if not openai_handler.token_bucket.consume(int(estimated_tokens)):
+            delay = openai_handler._calculate_wait_time(estimated_tokens)
+            logging.info(f"Rate limit approaching. Waiting {delay:.2f} seconds...")
+            time.sleep(delay)
+
         response = openai_handler.generate_completion(
             messages=messages,
             model=Config.MODEL_NAME,
@@ -70,8 +77,19 @@ def process_file(source_path: str, test_path: str) -> None:
         TestGenerationStats.get_instance().record_failure(source_path, str(e))
         logging.error(f"Failed to generate tests for {source_path}: {str(e)}")
 
+def batch_files(files, batch_size):
+    """Process files in batches."""
+    it = iter(files)
+    while batch := list(islice(it, batch_size)):
+        yield batch
+
 def process_source_directories() -> None:
     """Process all configured source directories."""
+    batch_size = Config.BATCH_SIZE
+    max_workers = min(Config.MAX_WORKERS, batch_size)
+    
+    logging.info(f"Processing files in batches of {batch_size} with {max_workers} workers")
+
     source_dirs = Config.TEST_MAPPING['source_dirs']
     test_base_dir = Config.TEST_MAPPING['test_base_dir']
      
@@ -90,8 +108,11 @@ def process_source_directories() -> None:
                     if test_path:
                         files_to_process.append((source_path, test_path))
 
-    with ThreadPoolExecutor() as executor:
-        executor.map(lambda x: process_file(x[0], x[1]), files_to_process)
+    # Process files in batches
+    for batch in batch_files(files_to_process, batch_size):
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            executor.map(lambda x: process_file(x[0], x[1]), batch)
+        time.sleep(Config.RATE_LIMIT_DELAY)  # Add delay between batches
 
 def main():
     setup_logging()
