@@ -1,26 +1,27 @@
 import os
 import openai
 import logging
+import time
+import argparse
+from config import Config
+from concurrent.futures import ThreadPoolExecutor
+from typing import Optional
+from utils.test_statistics import TestGenerationStats
+from utils.test_cache import TestCache
+
+stats = TestGenerationStats()
+cache = TestCache()
 
 # Set up logging
 logging.basicConfig(
-    filename="test_generation_debug.log", 
+    filename=Config.LOG_FILE,
     level=logging.DEBUG, 
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-# Set your OpenAI API key
-openai.api_key = "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"
-
-# Define the root folder to iterate through and the destination tests folder
-source_root = "api/Routes"  # Specify the folder to iterate through
-tests_root = "tests/API/Routes"       # Matching folder structure in tests
-
-# Create the root tests folder if it doesn't exist
-os.makedirs(tests_root, exist_ok=True)
-
-# File to store the summary
-summary_file_path = os.path.join(tests_root, "test_summary.log")
+# Validate config and set API key
+Config.validate()
+openai.api_key = Config.OPENAI_API_KEY
 
 
 def log_progress(message):
@@ -29,22 +30,39 @@ def log_progress(message):
     logging.info(message)
 
 
-def generate_tests(source_file_path, test_file_path, code_content):
+def generate_tests(source_file_path: str, test_file_path: str, code_content: str) -> Optional[str]:
     """Generates unit tests using OpenAI and writes them to the test file."""
+    retries = 0
     try:
-        log_progress(f"Generating tests for: {source_file_path}")
-        
-        # Generate tests using OpenAI API
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "You are a professional software engineer."},
-                {"role": "user", "content": f"Write unit tests for the following code. Include edge cases, a test summary, and a description of the feature being tested:\n\n{code_content}"}
-            ]
-        )
+        while retries < Config.MAX_RETRIES:
+            # Check cache first
+            cached_content = cache.get(code_content)
+            if cached_content:
+                return cached_content
+
+            try:
+                log_progress(f"Generating tests for: {source_file_path}")
+                
+                response = openai.ChatCompletion.create(
+                    model=Config.MODEL_NAME,
+                    messages=[
+                        {"role": "system", "content": "You are a professional software engineer."},
+                        {"role": "user", "content": f"Write {Config.TEST_FRAMEWORK} tests for the following code. Include edge cases, a test summary, and a description of the feature being tested:\n\n{code_content}"}
+                    ],
+                    timeout=Config.TIMEOUT
+                )
+                break
+            except (openai.error.RateLimitError, openai.error.APIError) as e:
+                retries += 1
+                if retries == Config.MAX_RETRIES:
+                    raise
+                time.sleep(2 ** retries)  # Exponential backoff
 
         # Extract the response content
         test_content = response.choices[0].message["content"]
+
+        # Cache the result
+        cache.set(code_content, test_content)
 
         if not test_content.strip():
             raise ValueError("Received an empty response from the OpenAI API.")
@@ -73,56 +91,95 @@ def generate_tests(source_file_path, test_file_path, code_content):
         log_progress(f"Test file created: {test_file_path}")
 
         # Append the summary to the summary file
+        summary_file_path = os.path.join(Config.TESTS_ROOT, Config.SUMMARY_FILE)
         with open(summary_file_path, "a") as summary_file:
             summary_file.write(f"Test Summary for {source_file_path}:\n")
             summary_file.write(test_summary.strip() + "\n\n")
+
+        stats.record_success()
+        return test_content
 
     except Exception as e:
         error_message = f"Error generating test for {source_file_path}: {e}"
         log_progress(error_message)
         logging.error(error_message)
+        stats.record_failure(source_file_path, str(e))
 
 
-def process_directory(source_dir, target_dir):
+def process_file(root: str, file_name: str, target_subdir: str) -> None:
+    """Process a single file to generate tests."""
+    source_file_path = os.path.join(root, file_name)
+    test_file_name = f"test_{file_name}"
+    test_file_path = os.path.join(target_subdir, test_file_name)
+
+    try:
+        # Read the source file content
+        with open(source_file_path, "r") as source_file:
+            code_content = source_file.read()
+
+        if not code_content.strip():
+            log_progress(f"Skipping empty file: {source_file_path}")
+            return
+
+        # Generate tests for the source file
+        generate_tests(source_file_path, test_file_path, code_content)
+    except Exception as e:
+        log_progress(f"Error processing file {source_file_path}: {e}")
+        logging.error(f"Error processing file {source_file_path}: {e}")
+
+
+def process_directory(source_dir: str, target_dir: str) -> None:
     """Recursively process a directory to create corresponding test files."""
+    files_to_process = []
     for root, dirs, files in os.walk(source_dir):
         # Get the relative path of the current directory
         relative_path = os.path.relpath(root, source_dir)
         # Create the corresponding directory in the tests folder
         target_subdir = os.path.join(target_dir, relative_path)
         os.makedirs(target_subdir, exist_ok=True)
+        
+        files_to_process.extend([
+            (root, file_name, target_subdir)
+            for file_name in files
+            if file_name.endswith(".py")
+        ])
+    
+    # Process files concurrently
+    with ThreadPoolExecutor() as executor:
+        executor.map(lambda x: process_file(*x), files_to_process)
 
-        # Process each file in the directory
-        for file_name in files:
-            if file_name.endswith(".py"):  # Only process Python files
-                source_file_path = os.path.join(root, file_name)
-                test_file_name = f"test_{file_name}"
-                test_file_path = os.path.join(target_subdir, test_file_name)
+def main():
+    parser = argparse.ArgumentParser(description='Generate tests for Python files')
+    parser.add_argument('--source', type=str, help='Source directory', default=Config.SOURCE_ROOT)
+    parser.add_argument('--target', type=str, help='Target directory', default=Config.TESTS_ROOT)
+    parser.add_argument('--framework', type=str, choices=['pytest', 'unittest'], 
+                        default=Config.TEST_FRAMEWORK, help='Test framework to use')
+    args = parser.parse_args()
 
-                try:
-                    # Read the source file content
-                    with open(source_file_path, "r") as source_file:
-                        code_content = source_file.read()
+    # Update config based on arguments
+    Config.SOURCE_ROOT = args.source
+    Config.TESTS_ROOT = args.target
+    Config.TEST_FRAMEWORK = args.framework
 
-                    if not code_content.strip():
-                        log_progress(f"Skipping empty file: {source_file_path}")
-                        continue
+    # Start processing
+    process_directory(Config.SOURCE_ROOT, Config.TESTS_ROOT)
+    
+    # Generate final statistics
+    stats.finish()
+    with open('test_generation_stats.json', 'w') as f:
+        f.write(stats.generate_report())
 
-                    # Generate tests for the source file
-                    generate_tests(source_file_path, test_file_path, code_content)
-                except Exception as e:
-                    log_progress(f"Error processing file {source_file_path}: {e}")
-                    logging.error(f"Error processing file {source_file_path}: {e}")
-
+if __name__ == "__main__":
+    main()
 
 # Clear the summary file at the start
+summary_file_path = os.path.join(Config.TESTS_ROOT, Config.SUMMARY_FILE)
 if os.path.exists(summary_file_path):
     os.remove(summary_file_path)
 
 log_progress("Starting test generation process...")
 
 # Start processing the designated folder
-process_directory(source_root, tests_root)
+process_directory(Config.SOURCE_ROOT, Config.TESTS_ROOT)
 
 log_progress("Test generation process completed.")
-
