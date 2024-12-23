@@ -1,9 +1,10 @@
 class TestTemplates:
     PYTEST_TEMPLATE = """
+    from api.app import app
+    from api.utils.db_utils import get_db_connection
+    import pytest
     # Test Summary:
     # {test_summary}
-    
-    import pytest{imports}
     
     {test_content}
     
@@ -12,10 +13,11 @@ class TestTemplates:
     """
     
     UNITTEST_TEMPLATE = """
+    import unittest
+    from api.app import app
+    from api.utils.db_utils import get_db_connection
     # Test Summary:
     # {test_summary}
-    
-    import unittest{imports}
     
     {test_content}
     
@@ -23,6 +25,16 @@ class TestTemplates:
     {test_summary}
     """
     
+    # Add fixtures template
+    PYTEST_FIXTURES = """
+    @pytest.fixture
+    def app():
+        app = create_app()
+        app.config['TESTING'] = True
+        return app
+        
+    """
+     
     @classmethod
     def get_template(cls, framework: str) -> str:
         return cls.PYTEST_TEMPLATE if framework == "pytest" else cls.UNITTEST_TEMPLATE

@@ -6,7 +6,7 @@ from routes.reports_routes import reports_bp  # Import Reports API
 from routes.bank_routes import bank_bp
 from routes.tax_routes import tax_bp  # Import Tax API
 from routes.mileage_routes import mileage_bp  # Import Mileage API
-from routes.ocr_routes import ocr_bp #OCR Receipt upload
+from routes.ocr_routes import ocr_bp  # OCR Receipt upload
 from routes.expense_routes import expense_bp  # Import Expense API
 from routes.tax_optimization_routes import tax_optimization_bp
 
@@ -24,6 +24,7 @@ def create_app():
     Factory function to create the Flask app.
     """
     app = Flask(__name__)
+    app.config.from_object('api.config.Config')
     CORS(app)  # Enable Cross-Origin Resource Sharing for frontend requests
 
     # Register error handlers
@@ -36,7 +37,7 @@ def create_app():
     app.register_blueprint(bank_bp, url_prefix="/api/banks")
     app.register_blueprint(tax_bp, url_prefix="/api/tax")  # Tax API
     app.register_blueprint(mileage_bp, url_prefix="/api/mileage")  # Mileage API
-    app.register_blueprint(ocr_bp, url_prefix="/api") #OCR API
+    app.register_blueprint(ocr_bp, url_prefix="/api")  # OCR API
     app.register_blueprint(tax_optimization_bp, url_prefix="/api/tax-optimization")
 
     # Log API Startup
@@ -53,7 +54,7 @@ def log_api_startup(app):
     for rule in app.url_map.iter_rules():
         if rule.endpoint != "static":  # Exclude static files
             methods = ','.join(rule.methods - {"HEAD", "OPTIONS"})
-            logging.info(f"{rule.endpoint} → {rule.rule} [{methods}]")
+            logging.info(f"{rule.endpoint} â {rule.rule} [{methods}]")
 
     logging.info("Flask API Server started successfully.")
 
