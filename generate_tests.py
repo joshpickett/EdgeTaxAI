@@ -1,6 +1,7 @@
 import os
 import openai
 import logging
+from openai import OpenAI
 import time
 import argparse
 from typing import Optional, Dict, Any
@@ -13,7 +14,7 @@ from utils.test_cache import TestCache
 stats = TestGenerationStats()
 cache = TestCache()
 
-# Set up logging
+# Initialize OpenAI client
 logging.basicConfig(
     filename=Config.LOG_FILE,
     level=logging.DEBUG, 
@@ -22,7 +23,7 @@ logging.basicConfig(
 
 # Validate config and set API key
 Config.validate()
-openai.api_key = Config.OPENAI_API_KEY
+client = OpenAI(api_key=Config.OPENAI_API_KEY)
 
 @dataclass
 class TestGenerationResult:
@@ -63,7 +64,7 @@ def generate_tests(source_file_path: str, test_file_path: str, code_content: str
             try:
                 log_progress(f"Generating tests for: {source_file_path}")
                 
-                response = openai.ChatCompletion.create(
+                response = client.chat.completions.create(
                     model=Config.MODEL_NAME,
                     messages=[
                         {"role": "system", "content": "You are a professional software engineer."},
@@ -82,7 +83,7 @@ def generate_tests(source_file_path: str, test_file_path: str, code_content: str
                     timeout=Config.TIMEOUT
                 )
                 break
-            except (openai.error.RateLimitError, openai.error.APIError) as e:
+            except openai.RateLimitError as e:
                 retries += 1
                 if retries == Config.MAX_RETRIES:
                     raise
@@ -209,15 +210,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-# Clear the summary file at the start
-summary_file_path = os.path.join(Config.TESTS_ROOT, Config.SUMMARY_FILE)
-if os.path.exists(summary_file_path):
-    os.remove(summary_file_path)
-
-log_progress("Starting test generation process...")
-
-# Start processing the designated folder
-process_directory(Config.SOURCE_ROOT, Config.TESTS_ROOT)
-
-log_progress("Test generation process completed.")

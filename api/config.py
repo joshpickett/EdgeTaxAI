@@ -24,6 +24,7 @@ class Config:
     MAX_WORKERS = 4
     BATCH_SIZE = 10
     RATE_LIMIT_DELAY = 1.0
+    SUMMARY_FILE = "test_summary.txt"
 
     # ---- Logging Configuration ----
     LOG_FILE = os.getenv("LOG_FILE", "api.log")  # Log file location
