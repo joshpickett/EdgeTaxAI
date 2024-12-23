@@ -1,7 +1,6 @@
 from typing import Optional, Callable
 import time
 import logging
-from openai import APIError, RateLimitError, APITimeoutError
 from functools import wraps
 
 def handle_openai_errors(max_retries: int = 3, base_delay: float = 1.0) -> Callable:
@@ -19,23 +18,11 @@ def handle_openai_errors(max_retries: int = 3, base_delay: float = 1.0) -> Calla
             while retries < max_retries:
                 try:
                     return func(*args, **kwargs)
-                except RateLimitError as e:
+                except Exception as e:
                     if retries == max_retries - 1:
                         raise
                     delay = base_delay * (2 ** retries)
-                    logging.warning(f"Rate limit hit, retrying in {delay} seconds...")
-                    time.sleep(delay)
-                except APITimeoutError as e:
-                    if retries == max_retries - 1:
-                        raise
-                    delay = base_delay * (2 ** retries)
-                    logging.warning(f"Timeout error, retrying in {delay} seconds...")
-                    time.sleep(delay)
-                except APIError as e:
-                    if retries == max_retries - 1:
-                        raise
-                    delay = base_delay * (2 ** retries)
-                    logging.warning(f"API error occurred, retrying in {delay} seconds...")
+                    logging.warning(f"OpenAI API error: {str(e)}. Retrying in {delay} seconds...")
                     time.sleep(delay)
                 retries += 1
             return None

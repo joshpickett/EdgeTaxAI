@@ -66,7 +66,7 @@ def generate_tests(source_file_path: str, test_file_path: str, code_content: str
                 log_progress(f"Generating tests for: {source_file_path}")
                 
                 response = openai_handler.generate_completion(
-                    messages=[
+                    messages=[  # Updated message format
                         {"role": "system", "content": "You are a professional software engineer specialized in writing tests."},
                         {
                             "role": "user", 
@@ -91,7 +91,7 @@ def generate_tests(source_file_path: str, test_file_path: str, code_content: str
                 time.sleep(2 ** retries)  # Exponential backoff
 
         # Extract the response content
-        test_content = response.choices[0].message["content"]
+        test_content = response.choices[0].message.content  # Updated response access
 
         # Cache the result
         cache.set(code_content, test_content)

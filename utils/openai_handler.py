@@ -1,9 +1,9 @@
-from typing import Optional, Callable
-import time
+from typing import Optional
 import logging
-from functools import wraps
 from openai import OpenAI
+from functools import wraps
 from contextlib import contextmanager
+import time
 
 class OpenAIHandler:
     def __init__(self, api_key: str, max_retries: int = 3, base_delay: float = 1.0):
@@ -11,14 +11,16 @@ class OpenAIHandler:
         self.max_retries = max_retries
         self.base_delay = base_delay
         
-    @contextmanager
-    def handle_errors(self):
-        """Context manager for handling OpenAI API errors with exponential backoff."""
+    def generate_completion(self, messages: list, **kwargs) -> dict:
+        """Generate a completion with error handling."""
         retries = 0
-        while True:
+        while retries < self.max_retries:
             try:
-                yield
-                break
+                response = self.client.chat.completions.create(
+                    messages=messages,
+                    **kwargs
+                )
+                return response
             except Exception as e:
                 retries += 1
                 if retries >= self.max_retries:
@@ -26,12 +28,3 @@ class OpenAIHandler:
                 delay = self.base_delay * (2 ** retries)
                 logging.warning(f"OpenAI API error: {str(e)}. Retrying in {delay} seconds...")
                 time.sleep(delay)
-
-    def generate_completion(self, messages: list, **kwargs) -> dict:
-        """Generate a completion with error handling."""
-        with self.handle_errors():
-            response = self.client.chat.completions.create(
-                messages=messages,
-                **kwargs
-            )
-            return response
