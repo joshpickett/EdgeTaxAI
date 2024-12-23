@@ -1,6 +1,7 @@
 import time
 import logging
 from functools import wraps
+from datetime import datetime, timedelta
 from typing import Callable, Any
 import redis
 from prometheus_client import Counter, Histogram, start_http_server
@@ -25,6 +26,16 @@ def monitor_api_calls(endpoint: str) -> Callable:
             # Track request in Prometheus
             REQUEST_COUNT.labels(endpoint=endpoint).inc()
             
+            # Track rate limiting
+            current_minute = datetime.now().strftime('%Y-%m-%d-%H-%M')
+            rate_key = f"rate_limit:{endpoint}:{current_minute}"
+            
+            if redis_client.get(rate_key) and int(redis_client.get(rate_key)) > 100:
+                raise Exception("Rate limit exceeded")
+                
+            redis_client.incr(rate_key)
+            redis_client.expire(rate_key, 60)
+
             # Increment API call counter
             try:
                 redis_client.incr(f"api_calls:{endpoint}")
@@ -93,3 +104,19 @@ def clear_metrics(endpoint: str = None) -> None:
                 redis_client.delete(key)
     except Exception as e:
         logging.error(f"Error clearing metrics: {e}")
+
+def get_rate_limit_status(endpoint: str) -> dict:
+    """Get current rate limit status for endpoint"""
+    try:
+        current_minute = datetime.now().strftime('%Y-%m-%d-%H-%M')
+        rate_key = f"rate_limit:{endpoint}:{current_minute}"
+        current_count = int(redis_client.get(rate_key) or 0)
+        
+        return {
+            "current_count": current_count,
+            "limit": 100,
+            "remaining": max(0, 100 - current_count)
+        }
+    except Exception as e:
+        logging.error(f"Error getting rate limit status: {e}")
+        return {"error": str(e)}
