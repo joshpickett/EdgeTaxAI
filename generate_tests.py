@@ -105,17 +105,12 @@ def generate_tests(source_file_path: str, test_file_path: str, code_content: str
         else:
             test_code, test_summary = test_content, "No summary provided."
 
-        # Add metadata header to the test file
-        feature_description = f"""
-        \"\"\"
-        Test Suite for {os.path.basename(source_file_path)}
+        # Format the test summary as comments at the top of the file
+        formatted_summary = "\n".join(f"# {line.strip()}" for line in test_summary.split("\n"))
+        test_code = f"""# Test Summary:
+{formatted_summary}
 
-        Feature Tested: 
-        {test_summary.strip()}
-
-        \"\"\"
-        """
-        test_code = feature_description + "\n" + test_code.strip()
+{test_code.strip()}"""
 
         # Write the generated test to the test file
         with open(test_file_path, "w") as test_file:

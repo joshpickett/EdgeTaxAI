@@ -1,14 +1,9 @@
 class TestTemplates:
     PYTEST_TEMPLATE = """
-    \"\"\"
-    {feature_description}
+    # Test Summary:
+    # {test_summary}
     
-    Generated on: {generation_date}
-    Source file: {source_file}
-    \"\"\"
-    
-    import pytest
-    {imports}
+    import pytest{imports}
     
     {test_content}
     
@@ -17,15 +12,10 @@ class TestTemplates:
     """
     
     UNITTEST_TEMPLATE = """
-    \"\"\"
-    {feature_description}
+    # Test Summary:
+    # {test_summary}
     
-    Generated on: {generation_date}
-    Source file: {source_file}
-    \"\"\"
-    
-    import unittest
-    {imports}
+    import unittest{imports}
     
     {test_content}
     
