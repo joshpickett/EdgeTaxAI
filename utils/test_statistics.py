@@ -1,6 +1,6 @@
 import time
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import Dict, List, ClassVar, Optional
 import json
 from datetime import datetime
 
@@ -13,6 +13,8 @@ class TestGenerationStats:
     end_time: float = 0.0
     errors: Dict[str, List[str]] = None
     
+    _instance: ClassVar[Optional['TestGenerationStats']] = None
+
     def __init__(self):
         self.errors = {}
         self.start_time = time.time()
@@ -48,3 +50,19 @@ class TestGenerationStats:
         }
         
         return json.dumps(report, indent=2)
+
+    @classmethod
+    def get_instance(cls) -> 'TestGenerationStats':
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+
+    @classmethod
+    def print_summary(cls) -> None:
+        """Print a summary of the test generation statistics."""
+        instance = cls.get_instance()
+        instance.finish()  # Ensure end_time is set
+        report = instance.generate_report()
+        print("\n=== Test Generation Summary ===")
+        print(report)
+        print("=============================\n")
