@@ -15,10 +15,13 @@ class Config:
     # Test Generation Settings
     # Source directories to process (with their corresponding test directories)
     TEST_MAPPING = {
-        "api/models": "tests/unit/models",
-        "api/routes": "tests/unit/routes",
-        "api/middleware": "tests/unit/middleware",
-        "api/utils": "tests/unit/utils"
+        "source_dirs": [
+            "api/models",
+            "api/middleware",
+            "api/routes",
+            "api/utils"
+        ],
+        "test_base_dir": "tests"
     }
     
     # Default test directory structure
