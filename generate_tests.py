@@ -1,7 +1,8 @@
 import os
 import openai
 import logging
-from openai import OpenAI
+from openai import OpenAI, APIError, RateLimitError, APITimeoutError
+from openai.types.error import APIError as OpenAIError
 import time
 import argparse
 from typing import Optional, Dict, Any
@@ -67,7 +68,7 @@ def generate_tests(source_file_path: str, test_file_path: str, code_content: str
                 response = client.chat.completions.create(
                     model=Config.MODEL_NAME,
                     messages=[
-                        {"role": "system", "content": "You are a professional software engineer."},
+                        {"role": "system", "content": "You are a professional software engineer specialized in writing tests."},
                         {
                             "role": "user", 
                             "content": f"""Write {Config.TEST_FRAMEWORK} tests for the following code:
@@ -83,7 +84,7 @@ def generate_tests(source_file_path: str, test_file_path: str, code_content: str
                     timeout=Config.TIMEOUT
                 )
                 break
-            except openai.RateLimitError as e:
+            except (RateLimitError, APITimeoutError, APIError) as e:
                 retries += 1
                 if retries == Config.MAX_RETRIES:
                     raise
@@ -200,6 +201,13 @@ def main():
     Config.TESTS_ROOT = args.target
     Config.TEST_FRAMEWORK = args.framework
 
+    # Clear the summary file at the start
+    summary_file_path = os.path.join(Config.TESTS_ROOT, Config.SUMMARY_FILE)
+    if os.path.exists(summary_file_path):
+        os.remove(summary_file_path)
+
+    log_progress("Starting test generation process...")
+    
     # Start processing
     process_directory(Config.SOURCE_ROOT, Config.TESTS_ROOT)
     
@@ -207,6 +215,8 @@ def main():
     stats.finish()
     with open('test_generation_stats.json', 'w') as f:
         f.write(stats.generate_report())
+    
+    log_progress("Test generation process completed.")
 
 if __name__ == "__main__":
     main()
