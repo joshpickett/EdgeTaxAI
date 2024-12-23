@@ -8,6 +8,7 @@ from typing import Optional, Dict, Any
 from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor
 from utils.test_statistics import TestGenerationStats
+from utils.path_manager import PathManager
 from utils.test_cache import TestCache
 from utils.openai_handler import OpenAIHandler
 
@@ -141,12 +142,8 @@ def generate_tests(source_file_path: str, test_file_path: str, code_content: str
             error=str(e)
         )
 
-def process_file(root: str, file_name: str, target_subdir: str) -> None:
+def process_file(source_file_path: str, test_file_path: str) -> None:
     """Process a single file to generate tests."""
-    source_file_path = os.path.join(root, file_name)
-    test_file_name = f"test_{file_name}"
-    test_file_path = os.path.join(target_subdir, test_file_name)
-
     try:
         # Read the source file content
         with open(source_file_path, "r") as source_file:
@@ -162,50 +159,37 @@ def process_file(root: str, file_name: str, target_subdir: str) -> None:
         log_progress(f"Error processing file {source_file_path}: {e}")
         logging.error(f"Error processing file {source_file_path}: {e}")
 
-def process_directory(source_dir: str, target_dir: str) -> None:
-    """Recursively process a directory to create corresponding test files."""
-    files_to_process = []
-    for root, dirs, files in os.walk(source_dir):
-        # Get the relative path of the current directory
-        relative_path = os.path.relpath(root, source_dir)
-        # Create the corresponding directory in the tests folder
-        target_subdir = os.path.join(target_dir, relative_path)
-        os.makedirs(target_subdir, exist_ok=True)
-        
-        files_to_process.extend([
-            (root, file_name, target_subdir)
-            for file_name in files
-            if file_name.endswith(".py")
-        ])
+def process_directories(path_manager: PathManager) -> None:
+    """Process directories to create corresponding test files."""
+    # Create all necessary test directories
+    path_manager.create_test_directories()
     
-    # Process files concurrently
+    # Get all source files and their test paths
+    files_to_process = path_manager.get_source_files()
+     
     with ThreadPoolExecutor() as executor:
-        executor.map(lambda x: process_file(*x), files_to_process)
+        executor.map(lambda x: process_file(x[0], x[1]), files_to_process)
 
 def main():
     parser = argparse.ArgumentParser(description='Generate tests for Python files')
-    parser.add_argument('--source', type=str, help='Source directory', default=Config.SOURCE_ROOT)
-    parser.add_argument('--target', type=str, help='Target directory', default=Config.TESTS_ROOT)
     parser.add_argument('--framework', type=str, choices=['pytest', 'unittest'], 
                         default=Config.TEST_FRAMEWORK, help='Test framework to use')
     args = parser.parse_args()
 
-    # Update config based on arguments
-    Config.SOURCE_ROOT = args.source
-    Config.TESTS_ROOT = args.target
     Config.TEST_FRAMEWORK = args.framework
 
-    # Clear the summary file at the start
-    summary_file_path = os.path.join(Config.TESTS_ROOT, Config.SUMMARY_FILE)
-    if os.path.exists(summary_file_path):
-        os.remove(summary_file_path)
+    # Initialize PathManager
+    path_manager = PathManager(Config.TEST_MAPPING)
+    
+    # Validate paths
+    invalid_paths = path_manager.validate_paths()
+    if invalid_paths:
+        log_progress(f"Error: The following source directories do not exist: {invalid_paths}")
+        return
 
     log_progress("Starting test generation process...")
+    process_directories(path_manager)
     
-    # Start processing
-    process_directory(Config.SOURCE_ROOT, Config.TESTS_ROOT)
-    
-    # Generate final statistics
     stats.finish()
     with open('test_generation_stats.json', 'w') as f:
         f.write(stats.generate_report())

@@ -13,8 +13,17 @@ class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "supersecretkey")  # Flask session encryption key
 
     # Test Generation Settings
-    SOURCE_ROOT = "api/routes"
-    TESTS_ROOT = "tests"
+    # Source directories to process (with their corresponding test directories)
+    TEST_MAPPING = {
+        "api/models": "tests/unit/models",
+        "api/routes": "tests/unit/routes",
+        "api/middleware": "tests/unit/middleware",
+        "api/utils": "tests/unit/utils"
+    }
+    
+    # Default test directory structure
+    TEST_BASE_DIR = "tests"
+    DEFAULT_TEST_TYPE = "unit"  # Options: unit, integration, e2e
     TEST_FRAMEWORK = "pytest"
     CACHE_ENABLED = True
     CACHE_DURATION_DAYS = 7
@@ -86,8 +95,8 @@ class Config:
         if not cls.OPENAI_API_KEY:
             raise ValueError("OPENAI_API_KEY environment variable is not set")
         
-        if not os.path.exists(cls.SOURCE_ROOT):
-            raise ValueError(f"Source directory {cls.SOURCE_ROOT} does not exist")
+        if not os.path.exists(cls.TEST_MAPPING):
+            raise ValueError(f"Source directory {cls.TEST_MAPPING} does not exist")
             
     @classmethod
     def load_custom_config(cls, config_file: str):
