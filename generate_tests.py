@@ -3,9 +3,10 @@ import openai
 import logging
 import time
 import argparse
+from typing import Optional, Dict, Any
+from dataclasses import dataclass
 from config import Config
 from concurrent.futures import ThreadPoolExecutor
-from typing import Optional
 from utils.test_statistics import TestGenerationStats
 from utils.test_cache import TestCache
 
@@ -23,22 +24,41 @@ logging.basicConfig(
 Config.validate()
 openai.api_key = Config.OPENAI_API_KEY
 
+@dataclass
+class TestGenerationResult:
+    """Data class to hold test generation results"""
+    content: str
+    summary: str
+    success: bool
+    error: Optional[str] = None
 
 def log_progress(message):
     """Log progress to both the console and the log file."""
     print(message)
     logging.info(message)
 
-
-def generate_tests(source_file_path: str, test_file_path: str, code_content: str) -> Optional[str]:
-    """Generates unit tests using OpenAI and writes them to the test file."""
+def generate_tests(source_file_path: str, test_file_path: str, code_content: str) -> TestGenerationResult:
+    """Generates unit tests using OpenAI and writes them to the test file.
+    
+    Args:
+        source_file_path: Path to the source file being tested
+        test_file_path: Path where the generated test will be written
+        code_content: Content of the source file to generate tests for
+        
+    Returns:
+        TestGenerationResult object containing the generated content and metadata
+    """
     retries = 0
     try:
         while retries < Config.MAX_RETRIES:
             # Check cache first
             cached_content = cache.get(code_content)
             if cached_content:
-                return cached_content
+                return TestGenerationResult(
+                    content=cached_content,
+                    summary="",
+                    success=True
+                )
 
             try:
                 log_progress(f"Generating tests for: {source_file_path}")
@@ -47,7 +67,17 @@ def generate_tests(source_file_path: str, test_file_path: str, code_content: str
                     model=Config.MODEL_NAME,
                     messages=[
                         {"role": "system", "content": "You are a professional software engineer."},
-                        {"role": "user", "content": f"Write {Config.TEST_FRAMEWORK} tests for the following code. Include edge cases, a test summary, and a description of the feature being tested:\n\n{code_content}"}
+                        {
+                            "role": "user", 
+                            "content": f"""Write {Config.TEST_FRAMEWORK} tests for the following code:
+                                Include:
+                                - Edge cases and boundary conditions
+                                - Error handling scenarios
+                                - Performance considerations
+                                - Security testing where applicable
+                                - A comprehensive test summary
+                                Code to test:\n\n{code_content}"""
+                        }
                     ],
                     timeout=Config.TIMEOUT
                 )
@@ -97,14 +127,23 @@ def generate_tests(source_file_path: str, test_file_path: str, code_content: str
             summary_file.write(test_summary.strip() + "\n\n")
 
         stats.record_success()
-        return test_content
+        return TestGenerationResult(
+            content=test_content,
+            summary=test_summary,
+            success=True
+        )
 
     except Exception as e:
         error_message = f"Error generating test for {source_file_path}: {e}"
         log_progress(error_message)
         logging.error(error_message)
         stats.record_failure(source_file_path, str(e))
-
+        return TestGenerationResult(
+            content="",
+            summary="",
+            success=False,
+            error=str(e)
+        )
 
 def process_file(root: str, file_name: str, target_subdir: str) -> None:
     """Process a single file to generate tests."""
@@ -126,7 +165,6 @@ def process_file(root: str, file_name: str, target_subdir: str) -> None:
     except Exception as e:
         log_progress(f"Error processing file {source_file_path}: {e}")
         logging.error(f"Error processing file {source_file_path}: {e}")
-
 
 def process_directory(source_dir: str, target_dir: str) -> None:
     """Recursively process a directory to create corresponding test files."""
