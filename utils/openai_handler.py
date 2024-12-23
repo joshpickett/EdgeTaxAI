@@ -11,13 +11,14 @@ class OpenAIHandler:
         self.max_retries = max_retries
         self.base_delay = base_delay
         
-    def generate_completion(self, messages: list, **kwargs) -> dict:
+    def generate_completion(self, messages: list, model: str, **kwargs) -> dict:
         """Generate a completion with error handling."""
         retries = 0
         while retries < self.max_retries:
             try:
                 response = self.client.chat.completions.create(
                     messages=messages,
+                    model=model,
                     **kwargs
                 )
                 return response

@@ -49,7 +49,17 @@ def process_file(source_path: str, test_path: str) -> None:
 
         # Generate new tests using OpenAI
         openai_handler = OpenAIHandler(Config.OPENAI_API_KEY)
-        test_content = openai_handler.generate_completion(...)  # Implementation details here
+        messages = [
+            {"role": "system", "content": "You are a test generation assistant. Generate comprehensive tests for the given code."},
+            {"role": "user", "content": f"Generate tests for:\n\n{source_content}"}
+        ]
+        response = openai_handler.generate_completion(
+            messages=messages,
+            model=Config.MODEL_NAME,
+            temperature=0.7,
+            max_tokens=2000
+        )
+        test_content = response.choices[0].message.content
 
         # Cache the results
         test_cache.set(source_content, test_content)

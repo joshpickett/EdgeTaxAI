@@ -31,8 +31,8 @@ class Config:
     CACHE_ENABLED = True
     CACHE_DURATION_DAYS = 0  # Set to 0 to disable caching
     MAX_RETRIES = 3
+    MODEL_NAME = "gpt-4"  # Specify the OpenAI model to use
     TIMEOUT = 30
-    MODEL_NAME = "gpt-4"
     MAX_WORKERS = 4
     BATCH_SIZE = 10
     RATE_LIMIT_DELAY = 1.0
