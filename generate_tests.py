@@ -1,8 +1,7 @@
 import os
-import openai
 import logging
-from openai import OpenAI, APIError, RateLimitError, APITimeoutError
-from openai.types.error import APIError as OpenAIError
+from openai import OpenAI
+from openai.types import CompletionCreateParams
 import time
 import argparse
 from typing import Optional, Dict, Any
@@ -11,11 +10,12 @@ from api.config import Config
 from concurrent.futures import ThreadPoolExecutor
 from utils.test_statistics import TestGenerationStats
 from utils.test_cache import TestCache
+from utils.openai_handler import OpenAIHandler
 
 stats = TestGenerationStats()
 cache = TestCache()
 
-# Initialize OpenAI client
+# Initialize OpenAI handler
 logging.basicConfig(
     filename=Config.LOG_FILE,
     level=logging.DEBUG, 
@@ -24,7 +24,7 @@ logging.basicConfig(
 
 # Validate config and set API key
 Config.validate()
-client = OpenAI(api_key=Config.OPENAI_API_KEY)
+openai_handler = OpenAIHandler(api_key=Config.OPENAI_API_KEY, max_retries=Config.MAX_RETRIES)
 
 @dataclass
 class TestGenerationResult:
@@ -65,8 +65,7 @@ def generate_tests(source_file_path: str, test_file_path: str, code_content: str
             try:
                 log_progress(f"Generating tests for: {source_file_path}")
                 
-                response = client.chat.completions.create(
-                    model=Config.MODEL_NAME,
+                response = openai_handler.generate_completion(
                     messages=[
                         {"role": "system", "content": "You are a professional software engineer specialized in writing tests."},
                         {
@@ -81,10 +80,11 @@ def generate_tests(source_file_path: str, test_file_path: str, code_content: str
                                 Code to test:\n\n{code_content}"""
                         }
                     ],
+                    model=Config.MODEL_NAME,
                     timeout=Config.TIMEOUT
                 )
                 break
-            except (RateLimitError, APITimeoutError, APIError) as e:
+            except Exception as e:
                 retries += 1
                 if retries == Config.MAX_RETRIES:
                     raise
