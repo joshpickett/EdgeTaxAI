@@ -13,6 +13,12 @@ class DataSyncService {
   async startSync() {
     if (this.syncInProgress) return;
     
+    // Check network connectivity
+    if (!navigator.onLine) {
+      console.log('Offline - sync postponed');
+      return;
+    }
+    
     try {
       this.syncInProgress = true;
       
@@ -41,6 +47,13 @@ class DataSyncService {
     const mergedExpenses = this.mergeData(localExpenses, serverExpenses);
     await this.updateLocalExpenses(mergedExpenses);
     await apiClient.updateExpenses(mergedExpenses);
+    
+    // Update last sync timestamp for expenses
+    await AsyncStorage.setItem('lastExpenseSync', new Date().toISOString());
+  }
+
+  async getLocalExpenses() {
+    return await offlineManager.getExpenses();
   }
 
   async syncIncome() {
@@ -74,9 +87,18 @@ class DataSyncService {
   private mergeData(local, server) {
     return server.map(serverItem => {
       const localItem = local.find(item => item.id === serverItem.id);
+      
+      // If item exists in both, compare timestamps
       return localItem?.lastModified > serverItem.lastModified
         ? localItem
         : serverItem;
+      
+      // Add new items that only exist locally
+      const newLocalItems = local.filter(item => 
+        !server.some(serverItem => serverItem.id === item.id)
+      );
+      
+      return [...mergedItems, ...newLocalItems];
     });
   }
 

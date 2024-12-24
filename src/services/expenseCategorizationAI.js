@@ -4,10 +4,13 @@ class ExpenseCategorizationAI {
   constructor() {
     this.categories = {
       transport: ['uber', 'lyft', 'taxi', 'gas', 'parking'],
-      meals: ['restaurant', 'food', 'cafe', 'coffee'],
+      meals: ['restaurant', 'food', 'cafe', 'coffee', 'lunch', 'dinner', 'breakfast'],
       supplies: ['office', 'supplies', 'equipment'],
       utilities: ['phone', 'internet', 'electricity'],
       marketing: ['advertising', 'promotion', 'marketing'],
+      entertainment: ['movies', 'theatre', 'concert', 'show'],
+      travel: ['hotel', 'airfare', 'flight', 'lodging'],
+      insurance: ['insurance', 'coverage', 'policy']
     };
   }
 
@@ -44,6 +47,11 @@ class ExpenseCategorizationAI {
   offlineCategorizationRequest(expense) {
     const description = expense.description.toLowerCase();
     
+    // Check for amount-based categorization
+    if (expense.amount > 1000) {
+      return { category: 'large-expense', confidence: 0.9, method: 'offline' };
+    }
+
     // Check each category's keywords
     for (const [category, keywords] of Object.entries(this.categories)) {
       if (keywords.some(keyword => description.includes(keyword))) {

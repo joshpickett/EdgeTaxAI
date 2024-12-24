@@ -1,7 +1,8 @@
 // Import Firebase SDK
 import firebase from "firebase/app";
 import "firebase/auth";
-import "firebase/messaging"; // For push notifications (optional for Expo)
+import "firebase/messaging";
+import "firebase/firestore";
 import "firebase/analytics";
 
 // Your Firebase project configuration
@@ -25,7 +26,11 @@ if (!firebase.apps.length) {
 // Initialize Firebase Authentication
 export const auth = firebase.auth();
 
+// Initialize Firestore
+export const db = firebase.firestore();
+
 // Enable persistence
 auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+db.enablePersistence().catch((err) => console.error("Firestore persistence error:", err));
 
 export default firebase;

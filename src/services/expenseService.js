@@ -1,8 +1,16 @@
 const BASE_URL = "http://localhost:5000/api/expenses"; // Replace with your backend URL
 
+import { expenseCategorizationAI } from './expenseCategorizationAI';
+import { offlineManager } from './offlineManager';
+
 // Fetch Expenses
 export const fetchExpenses = async () => {
   try {
+    // Try offline first if no network
+    if (!navigator.onLine) {
+      return await offlineManager.getExpenses();
+    }
+
     const response = await fetch(`${BASE_URL}/list`);
     if (!response.ok) {
       throw new Error("Failed to fetch expenses.");
@@ -18,6 +26,12 @@ export const fetchExpenses = async () => {
 // Add New Expense with receipt support
 export const addExpense = async (description, amount, category, date) => {
   try {
+    // Auto-categorize if no category provided
+    if (!category) {
+      const categorization = await expenseCategorizationAI.categorizeExpense({ description, amount });
+      category = categorization.category;
+    }
+
     const formData = new FormData();
     formData.append('description', description);
     formData.append('amount', amount);
