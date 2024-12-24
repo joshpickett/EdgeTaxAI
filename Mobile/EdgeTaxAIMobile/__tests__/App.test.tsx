@@ -1,17 +1,58 @@
-/**
- * @format
- */
-
-import 'react-native';
 import React from 'react';
+import { render, waitFor } from '@testing-library/react-native';
+import { useColorScheme } from 'react-native';
 import App from '../App';
 
-// Note: import explicitly to use the types shipped with jest.
-import {it} from '@jest/globals';
+// Mock the required dependencies
+jest.mock('@react-navigation/native', () => ({
+  NavigationContainer: ({ children }: { children: React.ReactNode }) => children,
+}));
 
-// Note: test renderer must be required after react-native.
-import renderer from 'react-test-renderer';
+jest.mock('../src/navigation/AppNavigator', () => 'AppNavigator');
 
-it('renders correctly', () => {
-  renderer.create(<App />);
+jest.mock('../src/store', () => ({
+  store: {
+    getState: () => ({}),
+    dispatch: jest.fn(),
+    subscribe: jest.fn(),
+  },
+}));
+
+jest.mock('react-native/Libraries/Utilities/useColorScheme', () => ({
+  __esModule: true,
+  default: jest.fn(),
+}));
+
+describe('App', () => {
+  beforeEach(() => {
+    (useColorScheme as jest.Mock).mockReturnValue('light');
+  });
+
+  it('renders without crashing', () => {
+    const { getByTestId } = render(<App />);
+    expect(getByTestId('app-root')).toBeTruthy();
+  });
+
+  it('shows loading overlay initially', () => {
+    const { getByTestId } = render(<App />);
+    expect(getByTestId('loading-overlay')).toBeTruthy();
+  });
+
+  it('applies correct theme based on color scheme', () => {
+    (useColorScheme as jest.Mock).mockReturnValue('dark');
+    const { getByTestId } = render(<App />);
+    const rootElement = getByTestId('app-root');
+    expect(rootElement.props.style).toContainEqual(
+      expect.objectContaining({
+        backgroundColor: expect.stringMatching(/#|rgb|rgba/),
+      })
+    );
+  });
+
+  it('hides loading overlay after navigation is ready', async () => {
+    const { queryByTestId } = render(<App />);
+    await waitFor(() => {
+      expect(queryByTestId('loading-overlay')).toBeNull();
+    });
+  });
 });

@@ -1,7 +1,7 @@
 import jwt
 import logging
 from datetime import datetime, timedelta
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Tuple
 import keyring
 import platform
 

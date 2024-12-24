@@ -1,16 +1,22 @@
 from functools import wraps
 from flask import request, jsonify
-from typing import Callable, Any, Optional
+from typing import Callable, Any, Optional, Dict
 import jwt
 import redis
 from datetime import datetime, timedelta
 import os
 import json
 import logging
+from ..utils.token_manager import TokenManager
+from ..utils.error_handler import APIError
 
-# Initialize Redis for token storage
-redis_client = redis.Redis(host='localhost', port=6379, db=0)
+# Initialize components
+token_manager = TokenManager()
 REFRESH_THRESHOLD = 300  # 5 minutes before expiry
+
+class AuthError(APIError):
+    """Custom authentication error class"""
+    pass
 
 def token_required(function: Callable) -> Callable:
     """Decorator to verify JSON Web Tokens"""
@@ -18,40 +24,30 @@ def token_required(function: Callable) -> Callable:
     def decorated(*args: Any, **kwargs: Any) -> Any:
         token = None
         
-        # Check if token is in headers
         if 'Authorization' in request.headers:
             authorization_header = request.headers['Authorization']
             try:
                 token = authorization_header.split(" ")[1]
             except IndexError:
-                return jsonify({"error": "Invalid token format"}), 401
+                raise AuthError("Invalid token format", 401)
 
-            # Check if token needs refresh
-            if needs_refresh(token):
-                new_token = refresh_token(token)
-                if new_token:
-                    response = function(*args, **kwargs)
-                    response.headers['New-Token'] = new_token
-                    return response
+            # Validate token
+            try:
+                claims = token_manager.verify_token(token)
+                request.user = claims
+            except jwt.ExpiredSignatureError:
+                if token_manager.can_refresh(token):
+                    new_token = token_manager.refresh_token(token)
+                    if new_token:
+                        response = function(*args, **kwargs)
+                        response.headers['New-Token'] = new_token
+                        return response
+                raise AuthError("Token has expired", 401)
+            except jwt.InvalidTokenError:
+                raise AuthError("Invalid token", 401)
 
         if not token:
-            return jsonify({"error": "Token is missing"}), 401
-
-        try:
-            # Verify token
-            data = jwt.decode(
-                token, 
-                os.getenv('JWT_SECRET_KEY'), 
-                algorithms=["HS256"]
-            )
-            
-            # Add user data to request
-            request.user = data
-            
-        except jwt.ExpiredSignatureError:
-            return jsonify({"error": "Token has expired"}), 401
-        except jwt.InvalidTokenError:
-            return jsonify({"error": "Invalid token"}), 401
+            raise AuthError("Token is missing", 401)
 
         return function(*args, **kwargs)
 

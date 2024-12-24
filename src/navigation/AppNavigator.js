@@ -1,10 +1,10 @@
 import React from "react";
-import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { useSelector } from 'react-redux';
 import { Alert } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// Screens
+// Auth Screens
 import LoginScreen from "../screens/LoginScreen";
 import SignupScreen from "../screens/SignupScreen";
 import DashboardScreen from "../screens/DashboardScreen";
@@ -21,7 +21,9 @@ import { logoutUser } from "../services/api";
 
 const Stack = createNativeStackNavigator();
 
-const AppNavigator = () => {
+const AppNavigator = ({ onReady }) => {
+  const { isAuthenticated } = useSelector(state => state.auth);
+
   // Logout Logic
   const handleLogout = async (navigation) => {
     try {
@@ -38,67 +40,62 @@ const AppNavigator = () => {
   };
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator initialRouteName="Login">
-        {/* Authentication Screens */}
-        <Stack.Screen
-          name="Login"
-          component={LoginScreen}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="Signup"
-          component={SignupScreen}
-          options={{ title: "Sign Up" }}
-        />
-
-        {/* Main App Screens */}
-        <Stack.Screen
-          name="Dashboard"
-          component={({ navigation }) => (
-            <DashboardScreen
-              onLogout={() => handleLogout(navigation)} // Pass Logout Function
-            />
-          )}
-          options={{ title: "Dashboard" }}
-        />
-        <Stack.Screen
-          name="MileageTracking"
-          component={MileageTrackingScreen}
-          options={{ title: "Mileage Tracking" }}
-        />
-        <Stack.Screen
-          name="Expenses"
-          component={ExpensesScreen}
-          options={{ title: "Manage Expenses" }}
-        />
-        <Stack.Screen
-          name="Reports"
-          component={ReportsScreen}
-          options={{ title: "Reports" }}
-        />
-        <Stack.Screen
-          name="BankIntegration"
-          component={BankIntegrationScreen}
-          options={{ title: "Bank Integration" }}
-        />
-        <Stack.Screen
-          name="TaxReminder"
-          component={TaxReminderScreen}
-          options={{ title: "Tax Reminders" }}
-        />
-        <Stack.Screen
-          name="Profile"
-          component={ProfileScreen}
-          options={{ title: "User Profile" }}
-        />
-        <Stack.Screen
-          name="GigPlatforms"
-          component={GigPlatformScreen}
-          options={{ title: "Manage Gig Platforms" }}
-        />
-      </Stack.Navigator>
-    </NavigationContainer>
+    <Stack.Navigator>
+      {!isAuthenticated ? (
+        <Stack.Group screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="Signup" component={SignupScreen} />
+        </Stack.Group>
+      ) : (
+        <Stack.Group>
+          <Stack.Screen
+            name="Dashboard"
+            component={DashboardScreen}
+            options={{
+              title: "Dashboard",
+              headerRight: ({ navigation }) => (
+                <LogoutButton onPress={() => handleLogout(navigation)} />
+              ),
+            }}
+          />
+          <Stack.Screen
+            name="MileageTracking"
+            component={MileageTrackingScreen}
+            options={{ title: "Mileage Tracking" }}
+          />
+          <Stack.Screen
+            name="Expenses"
+            component={ExpensesScreen}
+            options={{ title: "Manage Expenses" }}
+          />
+          <Stack.Screen
+            name="Reports"
+            component={ReportsScreen}
+            options={{ title: "Reports" }}
+          />
+          <Stack.Screen
+            name="BankIntegration"
+            component={BankIntegrationScreen}
+            options={{ title: "Bank Integration" }}
+          />
+          <Stack.Screen
+            name="TaxReminder"
+            component={TaxReminderScreen}
+            options={{ title: "Tax Reminders" }}
+          />
+          <Stack.Screen
+            name="Profile"
+            component={ProfileScreen}
+            options={{ title: "User Profile" }}
+          />
+          <Stack.Screen
+            name="GigPlatforms"
+            component={GigPlatformScreen}
+            options={{ title: "Manage Gig Platforms" }}
+          />
+        </Stack.Group>
+      )}
+    </Stack.Navigator>
   );
 };
 

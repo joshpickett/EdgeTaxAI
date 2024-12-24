@@ -1,15 +1,18 @@
 import streamlit as streamlit
-import requests
 import platform
+from datetime import datetime, timedelta
 from pathlib import Path
 import logging
 import keyring
-from utils import validate_input_fields, send_post_request
-from datetime import datetime, timedelta
+from shared.services.authService import AuthService
+from shared.constants import AUTH_STATES, ERROR_TYPES
+from utils import validate_input_fields
 
 # Asset paths
 ASSETS_DIR = Path(__file__).parent.parent / 'assets'
 LOGO = ASSETS_DIR / 'logo' / 'primary' / 'edgetaxai-horizontal-color.svg'
+
+auth_service = AuthService()
 
 def login_page(api_base_url: str):
     streamlit.title("Login")
@@ -24,59 +27,24 @@ def login_page(api_base_url: str):
     if 'session_expiry' in streamlit.session_state:
         if datetime.now() > streamlit.session_state.session_expiry:
             streamlit.session_state.clear()
-            streamlit.warning("Session expired. Please log in again.")
+            streamlit.warning("Session expired. Please log in again")
 
-    # Check if biometric authentication is available
-    biometric_available = False
-    if platform.system() in ['Darwin', 'Windows']:  # macOS or Windows
+    def handle_login(identifier: str, otp: str) -> bool:
         try:
-            biometric_available = True
-        except Exception:
-            pass
-
-    def handle_send_otp():
-        # Logic to send OTP
-        pass
-
-    def handle_login(identifier, otp):
-        try:
-            response = requests.post(
-                f"{api_base_url}/auth/login",
-                json={"identifier": identifier, "otp": otp}
-            )
-            return response.status_code == 200
+            response = auth_service.login({ 'identifier': identifier, 'otp': otp })
+            if response.token:
+                streamlit.session_state.authenticated = True
+                streamlit.session_state.session_expiry = datetime.now() + timedelta(hours=24)
+                return True
+            return False
         except Exception as e:
             streamlit.error(f"Login failed: {str(e)}")
-            return False
-
-    def handle_biometric_login():
-        try:
-            # Attempt to get stored credentials
-            stored_token = keyring.get_password("taxedgeai", "login_token")
-            if stored_token:
-                response = requests.post(
-                    f"{api_base_url}/auth/biometric/verify",
-                    json={"token": stored_token}
-                )
-                return response.status_code == 200
-            return False
-        except Exception as e:
-            streamlit.error(f"Biometric authentication failed: {str(e)}")
             return False
 
     if not streamlit.session_state.otp_sent:
         if streamlit.button("Send OTP"):
             handle_send_otp()
             
-        # Show biometric option if available
-        if biometric_available:
-            if streamlit.button("Login with Biometrics"):
-                if handle_biometric_login():
-                    streamlit.success("Login successful!")
-                    streamlit.session_state.authenticated = True
-                    streamlit.session_state.session_expiry = datetime.now() + timedelta(hours=24)
-                    return True
-
     # Input fields with validation
     identifier = streamlit.text_input("Identifier (Email or Phone)")
     otp = streamlit.text_input("OTP")
@@ -95,6 +63,4 @@ def login_page(api_base_url: str):
         if streamlit.button("Login"):
             if handle_login(identifier, otp):
                 streamlit.success("Login successful!")
-                streamlit.session_state.authenticated = True
-                streamlit.session_state.session_expiry = datetime.now() + timedelta(hours=24)
                 return True

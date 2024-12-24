@@ -1,11 +1,11 @@
 import config from '../config';
-import { AUTH_STATES, ERROR_TYPES } from '../constants';
+import { handleApiError } from '../utils/errorHandler';
+import { getStorageAdapter } from '../utils/storageAdapter';
 
 class AuthService {
   constructor() {
     this.baseUrl = config.api.baseUrl;
-    this.tokenKey = config.auth.tokenKey;
-    this.refreshTokenKey = config.auth.refreshTokenKey;
+    this.storage = getStorageAdapter();
   }
 
   async login(credentials) {
@@ -21,10 +21,10 @@ class AuthService {
       }
 
       const data = await response.json();
-      this.setTokens(data.token, data.refreshToken);
+      await this.setTokens(data.token, data.refreshToken);
       return data;
     } catch (error) {
-      throw new Error(error.message);
+      throw handleApiError(error);
     }
   }
 
@@ -43,17 +43,17 @@ class AuthService {
       const data = await response.json();
       return data;
     } catch (error) {
-      throw new Error(error.message);
+      throw handleApiError(error);
     }
   }
 
   async refreshToken() {
-    const refreshToken = this.getRefreshToken();
-    if (!refreshToken) {
-      throw new Error('No refresh token available');
-    }
-
     try {
+      const refreshToken = await this.getRefreshToken();
+      if (!refreshToken) {
+        throw new Error('No refresh token available');
+      }
+
       const response = await fetch(`${this.baseUrl}/auth/refresh`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -65,35 +65,36 @@ class AuthService {
       }
 
       const data = await response.json();
-      this.setTokens(data.token, data.refreshToken);
+      await this.setTokens(data.token, data.refreshToken);
       return data;
     } catch (error) {
-      throw new Error(error.message);
+      throw handleApiError(error);
     }
   }
 
-  setTokens(token, refreshToken) {
-    localStorage.setItem(this.tokenKey, token);
+  async setTokens(token, refreshToken) {
+    await this.storage.setItem(config.auth.tokenKey, token);
     if (refreshToken) {
-      localStorage.setItem(this.refreshTokenKey, refreshToken);
+      await this.storage.setItem(config.auth.refreshTokenKey, refreshToken);
     }
   }
 
-  getToken() {
-    return localStorage.getItem(this.tokenKey);
+  async getToken() {
+    return await this.storage.getItem(config.auth.tokenKey);
   }
 
-  getRefreshToken() {
-    return localStorage.getItem(this.refreshTokenKey);
+  async getRefreshToken() {
+    return await this.storage.getItem(config.auth.refreshTokenKey);
   }
 
-  clearTokens() {
-    localStorage.removeItem(this.tokenKey);
-    localStorage.removeItem(this.refreshTokenKey);
+  async clearTokens() {
+    await this.storage.removeItem(config.auth.tokenKey);
+    await this.storage.removeItem(config.auth.refreshTokenKey);
   }
 
-  isAuthenticated() {
-    return !!this.getToken();
+  async isAuthenticated() {
+    const token = await this.getToken();
+    return !!token;
   }
 }
 
