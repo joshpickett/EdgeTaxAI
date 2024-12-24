@@ -11,7 +11,7 @@ import {
   Linking,
   Image,
 } from "react-native";
-import { sharedReportingService } from "../services/sharedReportingService";
+import { reportsService } from "../../shared/services/reportsService";
 import { colors, typography, spacing } from '../styles/tokens';
 
 // Asset paths
@@ -34,7 +34,7 @@ const ReportsScreen = ({ navigation }) => {
   const handleGenerateReport = async (type, params = {}) => {
     setLoading(true);
     try {
-      const data = await sharedReportingService.generateReport(type, params);
+      const data = await reportsService.generateReport(type, params);
       setIRSReports(data);
       Alert.alert("Success", "Reports loaded successfully.");
     } catch (error) {
@@ -54,7 +54,7 @@ const ReportsScreen = ({ navigation }) => {
 
     setLoading(true);
     try {
-      const data = await sharedReportingService.generateReport('custom', filters);
+      const data = await reportsService.generateReport('custom', filters);
       if (data.length === 0) {
         Alert.alert("No Data", "No reports found for the selected filters.");
       }

@@ -1,13 +1,12 @@
 from flask import Blueprint, request, jsonify
 import logging
 from datetime import datetime
-from ..utils.ai_utils import analyze_tax_context, analyze_expense_patterns
+from ..utils.shared_tax_service import TaxService
 from ..utils.analytics_helper import analyze_optimization_opportunities
-from ..utils.tax_calculator import TaxCalculator
 from decimal import Decimal
 
 tax_optimization_bp = Blueprint('tax_optimization', __name__)
-calculator = TaxCalculator()
+tax_service = TaxService()
 
 @tax_optimization_bp.route("/tax/optimize", methods=["POST"])
 def optimize_tax_strategy():
@@ -24,7 +23,7 @@ def optimize_tax_strategy():
         optimization_results = analyze_optimization_opportunities(user_id, year)
         
         # Calculate potential savings
-        potential_savings = calculator.calculate_tax_savings(
+        potential_savings = tax_service.calculate_tax_savings(
             Decimal(str(optimization_results.get('potential_deductions', 0)))
         )
 
@@ -46,8 +45,7 @@ def analyze_deductions():
         # Get expenses and analyze deduction opportunities
         optimization_results = analyze_optimization_opportunities(user_id, year)
         
-        calculator = TaxCalculator()
-        potential_savings = calculator.calculate_tax_savings(
+        potential_savings = tax_service.calculate_tax_savings(
             Decimal(str(optimization_results.get('potential_deductions', 0)))
         )
 
@@ -73,11 +71,10 @@ def enhanced_analyze():
             return jsonify({"error": "User ID and quarter are required"}), 400
             
         # Get AI-powered optimization suggestions
-        optimization_results = analyze_tax_context(expense_data)
+        optimization_results = tax_service.analyze_tax_context(expense_data)
         
         # Calculate potential savings
-        calculator = TaxCalculator()
-        potential_savings = calculator.calculate_tax_savings(
+        potential_savings = tax_service.calculate_tax_savings(
             Decimal(str(optimization_results.get('potential_deductions', 0)))
         )
 

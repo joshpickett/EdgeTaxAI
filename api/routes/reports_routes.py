@@ -1,64 +1,23 @@
-from flask import Blueprint, request, jsonify, send_file
-from datetime import datetime, timedelta
+from flask import Blueprint, request, jsonify
+from datetime import datetime
 import logging
-from typing import Dict, Any, Optional, Union
+from typing import Dict, Any, Union
 from ..utils.db_utils import get_db_connection
 from ..utils.error_handler import handle_api_error
-from ..utils.report_generator import ReportGenerator
-from ..utils.tax_calculator import TaxCalculator
-import pandas as pd
-import io
+from ..utils.report_generator import generate_report
 
 reports_bp = Blueprint('reports', __name__)
-report_generator = ReportGenerator()
-tax_calculator = TaxCalculator()
 
-@reports_bp.route("/reports/tax-summary", methods=["POST"])
-def generate_tax_summary():
-    """Generate comprehensive tax summary with expense analysis"""
+@reports_bp.route("/reports/<report_type>", methods=["POST"])
+def generate_report_endpoint():
     try:
         data = request.json
-        user_id = data.get('user_id')
-        start_date = data.get('start_date')
-        end_date = data.get('end_date')
-        include_projections = data.get('include_projections', False)
-
-        if not user_id:
-            return jsonify({"error": "User ID is required"}), 400
-            
-        summary = report_generator.generate_tax_summary(user_id, start_date, end_date, include_projections)
-        return jsonify(summary)
-    except Exception as e:
-        logging.error(f"Error generating tax summary: {e}")
-        return handle_api_error(e)
-
-@reports_bp.route("/reports/quarterly-tax", methods=["POST"])
-def generate_quarterly_summary():
-    """Generate quarterly expense and tax summary"""
-    try:
-        data = request.json
-        user_id = data.get('user_id')
-        year = data.get('year', datetime.now().year)
-        quarter = data.get('quarter')
-
-        # Calculate quarterly tax estimates
-        quarterly_summary = report_generator.generate_quarterly_report(
-            user_id, year, quarter
+        report = generate_report(
+            data.get('type'),
+            data.get('params', {})
         )
-        
-        # Add tax calculations
-        tax_estimates = tax_calculator.calculate_quarterly_tax(
-            quarterly_summary['income'],
-            quarterly_summary['expenses']
-        )
-        
-        return jsonify({
-            **quarterly_summary,
-            'tax_estimates': tax_estimates
-        }), 200
-
+        return jsonify(report)
     except Exception as e:
-        logging.error(f"Error generating quarterly summary: {e}")
         return handle_api_error(e)
 
 @reports_bp.route("/tax-summary", methods=["POST"])

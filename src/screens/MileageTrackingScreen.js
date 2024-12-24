@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { View, Text, TextInput, Button, Alert, StyleSheet, Switch } from "react-native";
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Location from 'expo-location';
+import mileageService from "../../shared/services/mileageService";
 
 // Add location tracking functionality
 const useLocationTracking = () => {
@@ -31,7 +32,7 @@ const MileageTrackingScreen = () => {
         return;
       }
 
-      const result = await calculateMileage({
+      const result = await mileageService.calculateMileage({
         start: startLocation,
         end: endLocation,
         purpose: purpose,

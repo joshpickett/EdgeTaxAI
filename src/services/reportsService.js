@@ -85,3 +85,36 @@ export const fetchCustomReports = async (userId, filters) => {
     throw new Error("Failed to fetch custom reports. Please check your filters.");
   }
 };
+
+// Shared validation rules
+export const REPORT_VALIDATION_RULES = {
+  date: {
+    required: true,
+    format: 'YYYY-MM-DD'
+  },
+  amount: {
+    required: true,
+    min: 0
+  },
+  category: {
+    required: true,
+    allowedValues: ['business', 'personal', 'mixed']
+  }
+};
+
+export const validateReportData = (reportData) => {
+  const errors = [];
+  
+  if (!reportData.startDate || !reportData.endDate) {
+    errors.push('Date range is required');
+  }
+  
+  if (reportData.endDate < reportData.startDate) {
+    errors.push('End date must be after start date');
+  }
+  
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+};

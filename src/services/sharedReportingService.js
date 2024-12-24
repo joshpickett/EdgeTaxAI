@@ -1,5 +1,8 @@
 import { apiClient } from './apiClient';
 import { offlineManager } from './offlineManager';
+import { cacheManager } from './cacheManager';
+import { validateReportData } from '../utils/validation';
+import { ReportGenerationError, ReportValidationError } from '../types/errors';
 
 class SharedReportingService {
   constructor() {
@@ -10,12 +13,29 @@ class SharedReportingService {
       INCOME: 'income',
       CUSTOM: 'custom'
     };
+    this.cacheManager = cacheManager;
   }
 
   async generateReport(type, params = {}) {
     try {
+      // Validate report parameters
+      const validation = validateReportData(params);
+      if (!validation.isValid) {
+        throw new ReportValidationError(validation.errors.join(', '), 'VALIDATION_ERROR');
+      }
+
+      // Check cache first
+      const cacheKey = `${type}_${JSON.stringify(params)}`;
+      const cachedData = await this.cacheManager.get(cacheKey);
+      if (cachedData) {
+        return cachedData;
+      }
+
       const endpoint = `/reports/${type}`;
       const response = await apiClient.post(endpoint, params);
+      
+      // Cache the response
+      await this.cacheManager.set(cacheKey, response.data);
       return response.data;
     } catch (error) {
       if (!navigator.onLine) {
@@ -25,7 +45,7 @@ class SharedReportingService {
         });
         return null;
       }
-      throw error;
+      throw new ReportGenerationError(error.message, 'REPORT_GENERATION_ERROR');
     }
   }
 

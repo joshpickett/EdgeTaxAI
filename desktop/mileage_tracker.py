@@ -3,6 +3,7 @@ import requests
 from datetime import datetime
 from typing import Dict, Any
 from pathlib import Path
+from shared.services.mileageService import mileageService
 
 # Asset paths
 ASSETS_DIR = Path(__file__).parent.parent / 'assets'
@@ -20,12 +21,12 @@ def mileage_tracker_page(api_base_url):
     tab1, tab2 = st.tabs(["Track New Trip", "View History"])
 
     with tab1:
-        track_new_trip(api_base_url)
+        track_new_trip(mileageService)
     
     with tab2:
-        view_trip_history(api_base_url)
+        view_trip_history(mileageService)
 
-def track_new_trip(api_base_url):
+def track_new_trip(mileage_service):
     start_location = st.text_input("Start Location", placeholder="Enter starting address")
     end_location = st.text_input("End Location", placeholder="Enter destination address")
     purpose = st.text_input("Business Purpose", placeholder="Enter trip purpose")
@@ -49,10 +50,10 @@ def track_new_trip(api_base_url):
                     "frequency": frequency if recurring else None
                 }
 
-                response = requests.post(f"{api_base_url}/mileage", json=payload)
+                response = mileage_service.calculateMileage(payload)
 
-                if response.status_code == 200:
-                    data = response.json()
+                if response['status_code'] == 200:
+                    data = response['data']
                     st.success(f"Total Distance: {data['distance']}")
                     col1, col2 = st.columns(2)
                     with col1:
@@ -63,16 +64,16 @@ def track_new_trip(api_base_url):
                     if recurring:
                         st.success("Recurring trip pattern saved!")
                 else:
-                    error = response.json().get("error", "Failed to calculate mileage.")
+                    error = response.get("error", "Failed to calculate mileage.")
                     st.error(f"Error: {error}")
             except Exception as e:
                 st.error(f"An error occurred: {e}")
 
-def view_trip_history(api_base_url):
+def view_trip_history(mileage_service):
     try:
-        response = requests.get(f"{api_base_url}/mileage/history")
-        if response.status_code == 200:
-            trips = response.json()
+        response = mileage_service.getMileageHistory(userId="current_user_id")  # Replace with actual user ID
+        if response['status_code'] == 200:
+            trips = response['data']
             
             # Summary metrics
             total_miles = sum(trip['distance'] for trip in trips)
