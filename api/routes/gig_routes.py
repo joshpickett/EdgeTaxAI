@@ -268,3 +268,50 @@ def refresh_token():
     except Exception as e:
         logger.error(f"Error refreshing token: {str(e)}")
         return jsonify({"error": "Failed to refresh token"}), 500
+
+@gig_routes.route("/gig/sync/<platform>", methods=["POST"])
+def sync_platform_data(platform):
+    """Sync data from specific gig platform"""
+    try:
+        data = request.json
+        user_id = data.get("user_id")
+        
+        if not user_id:
+            return jsonify({"error": "User ID required"}), 400
+            
+        # Process platform data
+        sync_result = gig_processor.sync_platform_data(platform, user_id)
+        
+        return jsonify({
+            "status": "success",
+            "synced_data": sync_result
+        }), 200
+    except Exception as e:
+        logging.error(f"Platform sync error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@gig_routes.route("/gig/earnings", methods=["GET"])
+def get_earnings():
+    """Get earnings data from all connected platforms"""
+    try:
+        user_id = request.args.get("user_id")
+        start_date = request.args.get("start_date")
+        end_date = request.args.get("end_date")
+        
+        if not user_id:
+            return jsonify({"error": "User ID required"}), 400
+            
+        earnings_data = {}
+        for platform in USER_CONNECTIONS.get(user_id, []):
+            platform_earnings = gig_processor.get_platform_earnings(
+                platform,
+                user_id,
+                start_date,
+                end_date
+            )
+            earnings_data[platform] = platform_earnings
+            
+        return jsonify(earnings_data), 200
+    except Exception as e:
+        logging.error(f"Error fetching earnings: {e}")
+        return jsonify({"error": str(e)}), 500

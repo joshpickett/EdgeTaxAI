@@ -1,9 +1,11 @@
 import os
 import requests
 import logging
-from flask import Blueprint, request, jsonify, g
+from flask import Blueprint, request, jsonify, g, send_file
 from typing import Dict, Any, Optional, Tuple
 from datetime import datetime
+import io
+import pandas as pd
 from ..utils.error_handler import handle_api_error
 from ..utils.db_utils import get_db_connection
 from ..utils.validators import validate_location, validate_date
@@ -261,3 +263,92 @@ def add_recurring_trip():
     except Exception as e:
         logging.error(f"Error adding recurring trip: {str(e)}")
         return jsonify({"error": "Failed to add recurring trip"}), 500
+
+@mileage_bp.route("/mileage/summary", methods=["GET"])
+def get_mileage_summary():
+    """Get mileage summary with tax implications"""
+    try:
+        user_id = request.args.get("user_id")
+        year = request.args.get("year", datetime.now().year)
+        
+        if not user_id:
+            return jsonify({"error": "User ID required"}), 400
+            
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Get total mileage
+        cursor.execute("""
+            SELECT SUM(distance) as total_miles,
+                   COUNT(*) as total_trips
+            FROM mileage
+            WHERE user_id = ?
+            AND strftime('%Y', date) = ?
+        """, (user_id, str(year)))
+        
+        result = cursor.fetchone()
+        total_miles = result[0] or 0
+        total_trips = result[1] or 0
+        
+        # Calculate tax deduction
+        tax_deduction = total_miles * IRS_MILEAGE_RATE
+        
+        return jsonify({
+            'year': year,
+            'total_miles': total_miles,
+            'total_trips': total_trips,
+            'tax_deduction': tax_deduction,
+            'rate_used': IRS_MILEAGE_RATE,
+            'last_updated': datetime.now().isoformat()
+        }), 200
+        
+    except Exception as e:
+        logging.error(f"Error getting mileage summary: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@mileage_bp.route("/mileage/export", methods=["GET"])
+def export_mileage():
+    """Export mileage records in various formats"""
+    try:
+        user_id = request.args.get("user_id")
+        format_type = request.args.get("format", "csv")
+        year = request.args.get("year", datetime.now().year)
+        
+        if not user_id:
+            return jsonify({"error": "User ID required"}), 400
+            
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT date, start_location, end_location, 
+                   distance, purpose
+            FROM mileage
+            WHERE user_id = ?
+            AND strftime('%Y', date) = ?
+            ORDER BY date DESC
+        """, (user_id, str(year)))
+        
+        records = cursor.fetchall()
+        
+        if format_type == "csv":
+            output = io.StringIO()
+            df = pd.DataFrame(records, columns=[
+                'Date', 'Start Location', 'End Location',
+                'Distance', 'Purpose'
+            ])
+            df.to_csv(output, index=False)
+            output.seek(0)
+            
+            return send_file(
+                io.BytesIO(output.getvalue().encode('utf-8')),
+                mimetype='text/csv',
+                as_attachment=True,
+                download_name=f'mileage_records_{year}.csv'
+            )
+            
+        return jsonify({"error": "Unsupported format"}), 400
+        
+    except Exception as e:
+        logging.error(f"Error exporting mileage: {e}")
+        return jsonify({"error": str(e)}), 500

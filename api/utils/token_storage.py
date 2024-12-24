@@ -9,7 +9,13 @@ class TokenStorage:
     def __init__(self, secret_key: str):
         self.secret_key = secret_key
         self.token_expiry = 24  # hours
+        self.refresh_token_expiry = 7 * 24  # 7 days
+        self.token_type = 'Bearer'
         
+    def _get_storage_key(self, user_id: int, token_type: str = 'access') -> str:
+        """Generate storage key for tokens"""
+        return f'user_{user_id}_{token_type}_token'
+
     def generate_token(self, user_id: int, additional_claims: Dict[str, Any] = None) -> str:
         """Generate JSON Web Token with claims"""
         try:
@@ -30,12 +36,14 @@ class TokenStorage:
     def store_token(self, user_id: int, token: str) -> bool:
         """Store token securely based on platform"""
         try:
-            if platform.system() == 'Darwin':  # macOS
-                keyring.set_password('taxedgeai', f'user_{user_id}', token)
-            elif platform.system() == 'Windows':
-                keyring.set_password('taxedgeai', f'user_{user_id}', token)
-            else:  # Linux or others
-                keyring.set_password('taxedgeai', f'user_{user_id}', token)
+            storage_key = self._get_storage_key(user_id)
+            keyring.set_password('taxedgeai', storage_key, token)
+            
+            # Store refresh token if provided
+            if 'refresh_token' in token:
+                refresh_key = self._get_storage_key(user_id, 'refresh')
+                keyring.set_password('taxedgeai', refresh_key, token['refresh_token'])
+                
             return True
         except Exception as e:
             logging.error(f"Error storing token: {e}")
@@ -44,7 +52,7 @@ class TokenStorage:
     def retrieve_token(self, user_id: int) -> Optional[str]:
         """Retrieve stored token"""
         try:
-            return keyring.get_password('taxedgeai', f'user_{user_id}')
+            return keyring.get_password('taxedgeai', self._get_storage_key(user_id))
         except Exception as e:
             logging.error(f"Error retrieving token: {e}")
             return None

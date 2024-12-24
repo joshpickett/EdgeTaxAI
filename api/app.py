@@ -8,7 +8,8 @@ from routes.tax_routes import tax_bp  # Import Tax API
 from routes.mileage_routes import mileage_bp  # Import Mileage API
 from routes.ocr_routes import ocr_bp  # OCR Receipt upload
 from routes.expense_routes import expense_bp  # Import Expense API
-from routes.tax_optimization_routes import tax_optimization_bp
+from routes.platform_routes import platform_bp
+from routes.analytics_routes import analytics_bp
 
 import logging
 
@@ -39,6 +40,8 @@ def create_app():
     app.register_blueprint(mileage_bp, url_prefix="/api/mileage")  # Mileage API
     app.register_blueprint(ocr_bp, url_prefix="/api")  # OCR API
     app.register_blueprint(tax_optimization_bp, url_prefix="/api/tax-optimization")
+    app.register_blueprint(platform_bp, url_prefix="/api/platforms")
+    app.register_blueprint(analytics_bp, url_prefix="/api/analytics")
 
     # Log API Startup
     log_api_startup(app)
@@ -48,13 +51,13 @@ def log_api_startup(app):
     """
     Logs all registered routes and startup information.
     """
-    logging.info("Starting Flask API Server...")
+    logging.info("Starting TaxEdgeAI Flask API Server...")
     logging.info("Registered Endpoints:")
 
     for rule in app.url_map.iter_rules():
         if rule.endpoint != "static":  # Exclude static files
             methods = ','.join(rule.methods - {"HEAD", "OPTIONS"})
-            logging.info(f"{rule.endpoint} â {rule.rule} [{methods}]")
+            logging.info(f"{rule.endpoint} – {rule.rule} [{methods}]")
 
     logging.info("Flask API Server started successfully.")
 

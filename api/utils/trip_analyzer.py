@@ -7,6 +7,7 @@ class TripAnalyzer:
     def __init__(self, database: Database):
         self.database = database
         self.logger = logging.getLogger(__name__)
+        self.cache = {}
 
     def analyze_trip_patterns(self, user_id: int, 
                             date_range: Optional[tuple] = None) -> Dict[str, any]:
@@ -52,6 +53,15 @@ class TripAnalyzer:
         except Exception as exception:
             self.logger.error(f"Error analyzing trip patterns: {str(exception)}")
             raise
+
+    def get_cached_analysis(self, user_id: int, date_range: Optional[tuple] = None):
+        """Get cached trip analysis if available"""
+        cache_key = f"{user_id}_{date_range}"
+        if cache_key in self.cache:
+            cached_data = self.cache[cache_key]
+            if cached_data['timestamp'] > datetime.now() - timedelta(hours=1):
+                return cached_data['data']
+        return None
 
     def _analyze_common_routes(self, trips: List[Dict]) -> List[Dict]:
         """Analyze most common routes from trip data."""
