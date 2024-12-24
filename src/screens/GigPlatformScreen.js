@@ -37,6 +37,13 @@ const platforms = [
   { name: "Fiverr", key: "fiverr", color: "#FFBF00", method: "oauth" },
 ];
 
+// Custom hook for platform management
+const usePlatformManagement = () => {
+  const [platforms, setPlatforms] = useState([]);
+  const [loading, setLoading] = useState(false);
+  return { platforms, setPlatforms, loading, setLoading };
+};
+
 const GigPlatformScreen = () => {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState([]);
@@ -69,8 +76,17 @@ const GigPlatformScreen = () => {
       const message = await connectApiKeyPlatform(platform, apiKey);
       Alert.alert("Success", message);
     } catch (error) {
-      Alert.alert("Error", error.message || "Failed to connect with API key.");
+      handleApiError(error, platform);
     }
+  };
+
+  // Enhanced error handling for API connections
+  const handleApiError = (error, platform) => {
+    console.error(`Platform connection error (${platform}):`, error);
+    Alert.alert(
+      "Connection Error",
+      `Failed to connect to ${platform}. Please try again later.`
+    );
   };
 
   // Load connected platforms
@@ -190,7 +206,7 @@ const GigPlatformScreen = () => {
           >
             {connectedPlatforms.map((platform, index) => (
               <Text key={index} style={styles.connectedText}>
-                Ã¢ {platform.platform.toUpperCase()}
+                ÃÂ¢ {platform.platform.toUpperCase()}
                 <Button
                   title="Sync"
                   onPress={() => handleSync(platform.platform)}

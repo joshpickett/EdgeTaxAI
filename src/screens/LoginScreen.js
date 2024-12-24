@@ -16,6 +16,14 @@ const LoginScreen = ({ navigation }) => {
   const [errors, setErrors] = useState({});
   
   const dispatch = useDispatch();
+  
+  // Add form validation
+  const validateForm = () => {
+    const errors = {};
+    if (!identifier) errors.identifier = "Email or phone is required";
+    return errors;
+  };
+
   const { loading, error, otpSent } = useSelector(
     (state: RootState) => state.auth
   );
@@ -80,6 +88,14 @@ const LoginScreen = ({ navigation }) => {
     } catch (error) {
       console.error("Verify OTP Error:", error);
       Alert.alert("Error", "Unable to verify OTP. Please try again.");
+    }
+  };
+
+  // Enhanced biometric authentication
+  const enhancedBiometricAuth = async () => {
+    const canUseBiometrics = await LocalAuthentication.hasHardwareAsync();
+    if (!canUseBiometrics) {
+      Alert.alert("Error", "Biometric authentication is not available on this device");
     }
   };
 

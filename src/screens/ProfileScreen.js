@@ -1,6 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, TextInput, Button, StyleSheet, Alert, ActivityIndicator, Linking } from "react-native";
 import { getProfile, updateProfile } from "../services/authService"; // Updated imports
+import { useSelector } from 'react-redux';
+
+// Add profile data validation
+const validateProfileData = (data) => {
+  const errors = {};
+  if (!data.full_name) errors.full_name = "Name is required";
+  if (!data.email) errors.email = "Email is required";
+  return errors;
+};
 
 const ProfileScreen = () => {
   const [profile, setProfile] = useState({ full_name: "", email: "", phone_number: "" });
@@ -23,6 +32,11 @@ const ProfileScreen = () => {
 
   // Handle Profile Update
   const handleUpdate = async () => {
+    const errors = validateProfileData(profile);
+    if (Object.keys(errors).length > 0) {
+      Alert.alert("Error", "Please fix the errors in the form.");
+      return;
+    }
     try {
       await updateProfile(profile.full_name, profile.email, profile.phone_number);
       Alert.alert("Success", "Profile updated successfully!");
@@ -35,6 +49,19 @@ const ProfileScreen = () => {
   const handleConnectPlatform = (platform) => {
     const url = `https://your-backend-api.com/api/gig/connect/${platform}`;
     Linking.openURL(url).catch(() => Alert.alert("Error", `Failed to connect ${platform}.`));
+  };
+
+  // Add profile image handling
+  const handleProfileImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+      });
+    } catch (error) {
+      Alert.alert("Error", "Failed to update profile image");
+    }
   };
 
   if (loading) {

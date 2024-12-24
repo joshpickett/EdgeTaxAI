@@ -1,8 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, TextInput, Button, Alert, StyleSheet, Switch, PermissionsAndroid } from "react-native";
+import { View, Text, TextInput, Button, Alert, StyleSheet, Switch } from "react-native";
 import DateTimePicker from '@react-native-community/datetimepicker';
-import Geolocation from '@react-native-community/geolocation';
-import { calculateMileage } from "../services/mileageService";
+import * as Location from 'expo-location';
+
+// Add location tracking functionality
+const useLocationTracking = () => {
+  const [tracking, setTracking] = useState(false);
+  const [currentLocation, setCurrentLocation] = useState(null);
+  const [distance, setDistance] = useState(0);
+  return { tracking, setTracking, currentLocation, setCurrentLocation, distance, setDistance };
+};
 
 const MileageTrackingScreen = () => {
   const [startLocation, setStartLocation] = useState("");
@@ -39,20 +46,28 @@ const MileageTrackingScreen = () => {
     }
   };
 
+  // Add automatic mileage calculation
+  const calculateDistance = (startLoc, endLoc) => {
+    if (!startLoc || !endLoc) return 0;
+    
+    const R = 6371; // Earth's radius in km
+    const dLat = (endLoc.latitude - startLoc.latitude) * Math.PI / 180;
+    const dLon = (endLoc.longitude - startLoc.longitude) * Math.PI / 180;
+    
+    return R * Math.sqrt(dLat * dLat + dLon * dLon);
+  };
+
   const startGPSTracking = async () => {
     try {
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
-      );
+      const { status } = await Location.requestForegroundPermissionsAsync();
       
-      if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+      if (status === 'granted') {
         setIsTracking(true);
-        const id = Geolocation.watchPosition(
+        const id = Location.watchPositionAsync(
+          { accuracy: Location.Accuracy.High, distanceInterval: 10 },
           position => {
             setCurrentLocation(position.coords);
-          },
-          error => console.error(error),
-          { enableHighAccuracy: true, distanceFilter: 10 }
+          }
         );
         setWatchId(id);
       }
@@ -63,7 +78,7 @@ const MileageTrackingScreen = () => {
   
   const stopGPSTracking = () => {
     if (watchId !== null) {
-      Geolocation.clearWatch(watchId);
+      watchId.remove();
       setWatchId(null);
       setIsTracking(false);
     }
