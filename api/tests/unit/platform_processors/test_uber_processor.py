@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, patch, AsyncMock
 from datetime import datetime
 from api.utils.platform_processors.uber_processor import UberProcessor
 
@@ -8,40 +8,32 @@ def uber_processor():
     return UberProcessor()
 
 @pytest.fixture
-def sample_trip_data():
+def mock_api_response():
     return {
         'trips': [
             {
-                'uuid': '123abc',
-                'pickup_time': '2023-01-01T10:00:00Z',
-                'dropoff_time': '2023-01-01T10:30:00Z',
+                'id': '123',
+                'start_time': '2023-01-01T10:00:00Z',
+                'end_time': '2023-01-01T10:30:00Z',
                 'distance': 10.5,
-                'duration': 1800,
-                'fare_amount': 25.50,
+                'fare': 25.50,
                 'status': 'completed'
             }
-        ]
-    }
-
-@pytest.fixture
-def sample_earnings_data():
-    return {
-        'period_start': '2023-01-01',
-        'period_end': '2023-01-07',
-        'earnings_total': 750.00,
-        'expenses_total': 150.00,
-        'net_earnings': 600.00,
-        'trips_count': 30
+        ],
+        'earnings': {
+            'total': 150.00,
+            'trips_count': 5
+        }
     }
 
 @pytest.mark.asyncio
-async def test_process_trips_success(uber_processor, sample_trip_data):
+async def test_process_trips_success(uber_processor, mock_api_response):
     """Test successful processing of Uber trips"""
-    processed_trips = await uber_processor.process_trips(sample_trip_data)
+    processed_trips = await uber_processor.process_trips(mock_api_response)
     
     assert len(processed_trips) == 1
     trip = processed_trips[0]
-    assert trip['trip_id'] == '123abc'
+    assert trip['trip_id'] == '123'
     assert trip['distance'] == 10.5
     assert trip['earnings'] == 25.50
     assert trip['platform'] == 'uber'
@@ -59,17 +51,71 @@ async def test_process_trips_invalid_data(uber_processor):
     assert len(processed_trips) == 0
 
 @pytest.mark.asyncio
-async def test_process_earnings_success(uber_processor, sample_earnings_data):
+async def test_process_earnings_success(uber_processor, mock_api_response):
     """Test successful processing of Uber earnings"""
-    earnings = await uber_processor.process_earnings(sample_earnings_data)
+    earnings = await uber_processor.process_earnings(mock_api_response)
     
     assert earnings['platform'] == 'uber'
-    assert earnings['gross_earnings'] == 750.00
-    assert earnings['net_earnings'] == 600.00
-    assert earnings['trips_count'] == 30
+    assert earnings['total_earnings'] == 150.00
+    assert earnings['trips_count'] == 5
 
 @pytest.mark.asyncio
 async def test_process_earnings_empty_data(uber_processor):
     """Test processing empty earnings data"""
     earnings = await uber_processor.process_earnings({})
     assert earnings == {}
+
+@pytest.mark.asyncio
+async def test_validate_trip_data(uber_processor, mock_api_response):
+    """Test trip data validation"""
+    trip = mock_api_response['trips'][0]
+    is_valid = uber_processor._validate_trip_data(trip)
+    assert is_valid is True
+
+@pytest.mark.asyncio
+async def test_validate_trip_data_invalid(uber_processor):
+    """Test invalid trip data validation"""
+    invalid_trip = {'id': '123'}  # Missing required fields
+    is_valid = uber_processor._validate_trip_data(invalid_trip)
+    assert is_valid is False
+
+@pytest.mark.asyncio
+async def test_calculate_trip_metrics(uber_processor, mock_api_response):
+    """Test trip metrics calculation"""
+    trip = mock_api_response['trips'][0]
+    metrics = uber_processor._calculate_trip_metrics(trip)
+    
+    assert 'duration' in metrics
+    assert 'avg_speed' in metrics
+    assert 'earnings_per_mile' in metrics
+
+@pytest.mark.asyncio
+async def test_format_trip_data(uber_processor, mock_api_response):
+    """Test trip data formatting"""
+    trip = mock_api_response['trips'][0]
+    formatted_trip = uber_processor._format_trip_data(trip)
+    
+    assert formatted_trip['platform'] == 'uber'
+    assert formatted_trip['trip_id'] == trip['id']
+    assert formatted_trip['start_time'] == trip['start_time']
+    assert formatted_trip['end_time'] == trip['end_time']
+
+@pytest.mark.asyncio
+async def test_error_handling(uber_processor):
+    """Test error handling in trip processing"""
+    with pytest.raises(ValueError):
+        await uber_processor.process_trips(None)
+
+@pytest.mark.asyncio
+async def test_date_parsing(uber_processor, mock_api_response):
+    """Test date parsing functionality"""
+    trip = mock_api_response['trips'][0]
+    parsed_date = uber_processor._parse_date(trip['start_time'])
+    assert isinstance(parsed_date, datetime)
+
+@pytest.mark.asyncio
+async def test_distance_conversion(uber_processor):
+    """Test distance conversion functionality"""
+    miles = uber_processor._convert_to_miles(10.0)
+    assert isinstance(miles, float)
+    assert miles > 0
