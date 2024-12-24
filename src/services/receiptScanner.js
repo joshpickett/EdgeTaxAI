@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import { apiClient } from './apiClient';
 import { offlineManager } from './offlineManager';
+import ReceiptService from '../shared/services/receiptService';
 
 class ReceiptScanner {
   async scanReceipt(options = {}) {
@@ -49,13 +50,9 @@ class ReceiptScanner {
         name: receipt.fileName,
       });
 
-      const response = await apiClient.post('/receipts/scan', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const response = await ReceiptService.processReceipt(formData);
 
-      return response.data;
+      return response;
     } catch (error) {
       console.error('Error processing receipt:', error);
       throw error;

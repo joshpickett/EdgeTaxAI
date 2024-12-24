@@ -2,12 +2,14 @@ import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiClient } from './apiClient';
 import { offlineManager } from './offlineManager';
+import { EventEmitter } from '../utils/eventEmitter';
 
 class DataSyncService {
   constructor() {
     this.syncInProgress = false;
     this.lastSyncTime = null;
     this.syncInterval = 1800000; // 30 minutes
+    this.eventEmitter = new EventEmitter();
   }
 
   async startSync() {
@@ -22,12 +24,14 @@ class DataSyncService {
     try {
       this.syncInProgress = true;
       
+      await this.checkPendingOperations();
       // Sync all data types
       await Promise.all([
         this.syncExpenses(),
         this.syncIncome(),
         this.syncMileage(),
-        this.syncReceipts()
+        this.syncReceipts(),
+        this.syncPlatformData()
       ]);
 
       this.lastSyncTime = new Date();
@@ -84,6 +88,20 @@ class DataSyncService {
     }
   }
 
+  async checkPendingOperations() {
+    const pendingOperations = await offlineManager.getPendingOperations();
+    if (pendingOperations.length > 0) {
+      for (const operation of pendingOperations) {
+        try {
+          await operation.execute();
+          await offlineManager.removeOperation(operation.id);
+        } catch (error) {
+          console.error('Error executing pending operation:', error);
+        }
+      }
+    }
+  }
+
   private mergeData(local, server) {
     return server.map(serverItem => {
       const localItem = local.find(item => item.id === serverItem.id);
@@ -115,6 +133,25 @@ class DataSyncService {
   async getSyncStatus() {
     const status = await AsyncStorage.getItem('syncStatus');
     return status ? JSON.parse(status) : null;
+  }
+
+  async syncPlatformData() {
+    const platforms = ['uber', 'lyft', 'doordash', 'instacart'];
+    for (const platform of platforms) {
+      try {
+        await apiClient.syncPlatformData(platform);
+      } catch (error) {
+        console.error(`Error syncing ${platform} data:`, error);
+      }
+    }
+  }
+
+  subscribeSyncStatus(callback) {
+    return this.eventEmitter.subscribe('syncStatus', callback);
+  }
+
+  unsubscribeSyncStatus(subscriptionId) {
+    this.eventEmitter.unsubscribe('syncStatus', subscriptionId);
   }
 }
 

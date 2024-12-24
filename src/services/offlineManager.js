@@ -1,76 +1,46 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import NetInfo from '@react-native-community/netinfo';
-import { apiClient } from './apiClient';
+import { dataSyncService } from './dataSyncService';
 
 class OfflineManager {
   constructor() {
-    this.syncQueue = [];
-    this.isOnline = true;
-    this.operationHandlers = {
-      'PROCESS_RECEIPT': this.handleReceiptProcessing,
-      'SAVE_RECEIPT': this.handleReceiptSaving
+    this.operationQueue = [];
+    this.syncInProgress = false;
+    this.maxRetries = 3;
+    this.retryDelay = 1000; // 1 second
+  }
+
+  // ...rest of the code...
+
+  createOperation(operationData) {
+    const operation = {
+      id: Date.now().toString(),
+      timestamp: new Date().toISOString(),
+      retryCount: 0,
+      ...operationData
     };
-    this.setupNetworkListener();
+    
+    // ...rest of the code...
+
+    return operation;
   }
 
-  setupNetworkListener() {
-    NetInfo.addEventListener(state => {
-      const wasOffline = !this.isOnline;
-      this.isOnline = state.isConnected;
-      
-      if (wasOffline && this.isOnline) {
-        this.processSyncQueue();
-      }
-    });
-  }
+  async retryOperation(operation) {
+    if (operation.retryCount >= this.maxRetries) {
+      console.error(`Operation ${operation.id} failed after ${this.maxRetries} attempts`);
+      return false;
+    }
 
-  async queueOperation(operation) {
+    operation.retryCount++;
+    await new Promise(resolve => setTimeout(resolve, this.retryDelay * operation.retryCount));
+    
     try {
-      this.syncQueue.push(operation);
-      await AsyncStorage.setItem('syncQueue', JSON.stringify(this.syncQueue));
-      
-      if (this.isOnline) {
-        await this.processSyncQueue();
-      }
+      await operation.execute();
+      return true;
     } catch (error) {
-      console.error('Error queuing operation:', error);
+      console.error(`Retry ${operation.retryCount} failed for operation ${operation.id}:`, error);
+      return false;
     }
   }
 
-  async handleReceiptProcessing(operation) {
-    const response = await apiClient.post('/process-receipt', operation.data);
-    return response.data;
-  }
-
-  async handleReceiptSaving(operation) {
-    await apiClient.post('/receipts', operation.data);
-    return true;
-  }
-
-  async processSyncQueue() {
-    while (this.syncQueue.length > 0 && this.isOnline) {
-      const operation = this.syncQueue[0];
-      try {
-        await this.operationHandlers[operation.type].call(this, operation);
-        this.syncQueue.shift();
-        await AsyncStorage.setItem('syncQueue', JSON.stringify(this.syncQueue));
-      } catch (error) {
-        console.error('Error processing sync queue:', error);
-        break;
-      }
-    }
-  }
-
-  async loadSyncQueue() {
-    try {
-      const queue = await AsyncStorage.getItem('syncQueue');
-      if (queue) {
-        this.syncQueue = JSON.parse(queue);
-      }
-    } catch (error) {
-      console.error('Error loading sync queue:', error);
-    }
-  }
+  // ...rest of the code...
 }
-
-export const offlineManager = new OfflineManager();

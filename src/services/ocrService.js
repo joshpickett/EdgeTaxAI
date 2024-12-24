@@ -14,7 +14,7 @@ export const processReceipt = async (imageUri) => {
 
     // Try online processing first
     if (navigator.onLine) {
-      const response = await apiClient.post('/process-receipt', formData, {
+      const response = await apiClient.post('/expenses/process-receipt', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },

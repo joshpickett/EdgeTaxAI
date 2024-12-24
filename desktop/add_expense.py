@@ -1,9 +1,7 @@
 import sqlite3
-from db_utils import get_db_connection
 import logging
+from services.expense_service_adapter import ExpenseServiceAdapter
 from typing import Optional, Dict, Any
-import requests
-from werkzeug.utils import secure_filename
 import os
 
 # Configure Logging
@@ -20,27 +18,38 @@ OCR_API_URL = f"{API_BASE_URL}/process-receipt"
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+expense_service = ExpenseServiceAdapter()
+
+async def sync_expenses():
+    """Sync expenses with the server"""
+    try:
+        result = await expense_service.sync_expenses()
+        if result:
+            print("Expenses synced successfully!")
+        else:
+            print("Sync failed. Changes will be synced later.")
+    except Exception as e:
+        logging.error(f"Sync error: {e}")
+        print("Error syncing expenses. Changes saved locally.")
+
 def process_receipt_ocr(file_path) -> Optional[Dict[str, Any]]:
     """Send the receipt image to the OCR API for text extraction."""
     try:
-        with open(file_path, "rb") as file:
-            files = {"receipt": file}
-            headers = {"X-User-ID": str(st.session_state.get("user_id", ""))}
-            response = requests.post(OCR_API_URL, files=files, headers=headers)
-            
-        if response.status_code == 200:
-            data = response.json()
-            return {
-                "text": data.get("text", ""),
-                "expense_id": data.get("expense_id"),
-                "document_id": data.get("document_id")
-            }
-        else:
-            logging.error(f"OCR API Error: {response.json().get('error', 'Unknown error')}")
-            return None
+        result = expense_service.process_receipt(file_path)
+        if result:
+            return result
     except Exception as e:
         logging.exception(f"Error during OCR processing: {e}")
-        return None
+    return None
+
+def get_expense_category(description: str, amount: float) -> dict:
+    """Get expense category using shared categorization logic"""
+    try:
+        categorization = expense_service.categorize_expense(description, amount)
+        return categorization
+    except Exception as e:
+        logging.error(f"Categorization error: {e}")
+        return {"category": "OTHER", "confidence": 0.0}
 
 def add_expense():
     """Add a new expense to the database."""
@@ -70,6 +79,10 @@ def add_expense():
         print("Error: Description and amount are required fields.")
         return
 
+    # Get expense category using shared logic
+    categorization = get_expense_category(description, float(amount))
+    category = categorization.get("category", category)
+
     try:
         amount = float(amount)
         if amount <= 0:
@@ -80,9 +93,6 @@ def add_expense():
         return
 
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
         # Create expense entry via API
         expense_payload = {
             "description": description,
@@ -90,17 +100,18 @@ def add_expense():
             "category": category
         }
         
-        response = requests.post(f"{API_BASE_URL}/expenses", json=expense_payload)
-        if response.status_code != 201:
-            raise Exception("Failed to create expense via API")
+        result = expense_service.create_expense(expense_payload)
+        if not result:
+            raise Exception("Failed to create expense")
+        
+        # Try to sync changes
+        await sync_expenses()
             
         print("Expense added successfully!")
         logging.info(f"Expense added: {description} - ${amount} - {category}")
     except Exception as e:
         logging.exception(f"Error adding expense: {e}")
         print("Error: Could not add the expense.")
-    finally:
-        conn.close()
 
 def edit_expense():
     """Edit an existing expense."""
@@ -110,7 +121,7 @@ def edit_expense():
             print("Error: Invalid expense ID.")
             return
 
-        conn = get_db_connection()
+        conn = sqlite3.connect('expenses.db')
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM expenses WHERE id = ?", (expense_id,))
         expense = cursor.fetchone()

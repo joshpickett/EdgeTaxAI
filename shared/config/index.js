@@ -21,6 +21,15 @@ const config = {
     otpExpiry: 5 // minutes
   },
 
+  // AI Service Configuration
+  ai: {
+    categorization: {
+      confidenceThreshold: 0.7,
+      enableOffline: true,
+      batchSize: 100
+    }
+  },
+
   // Platform-specific Settings
   platforms: {
     mobile: {

@@ -1,8 +1,8 @@
 import streamlit as st
-import requests
 import pandas as pd
 import logging
-from config import API_BASE_URL
+from services.bank_service_adapter import BankServiceAdapter
+from services.ai_service_adapter import AIServiceAdapter
 
 # Configure Logging
 logging.basicConfig(
@@ -17,6 +17,9 @@ PLAID_CATEGORIES = {
     "TRAVEL": "Travel",
     "TRANSPORTATION": "Vehicle"
 }
+
+bank_service = BankServiceAdapter()
+ai_service = AIServiceAdapter()
 
 def bank_integration_page():
     """
@@ -38,13 +41,7 @@ def bank_integration_page():
     
     if st.button("Connect Bank Account"):
         try:
-            response = requests.post(f"{API_BASE_URL}/api/banks/plaid/link-token", 
-                                   json={"user_id": user_id})
-
-            if response.status_code == 200:
-                link_token = response.json().get("link_token")
-                # Initialize Plaid Link here
-
+            link_token = await bank_service.get_link_token(user_id)
         except Exception as e:
             st.error("An unexpected error occurred while connecting to the bank.")
             logging.exception(f"Exception while connecting to bank: {e}")
@@ -61,27 +58,17 @@ def bank_integration_page():
 
     if st.button("Fetch Transactions"):
         try:
-            params = {
-                "start_date": start_date.isoformat(),
-                "end_date": end_date.isoformat(),
-                "user_id": user_id
-            }
-            response = requests.get(f"{API_BASE_URL}/api/banks/plaid/transactions", 
-                                  params=params)
-
-            if response.status_code == 200:
-                transactions = response.json().get("transactions", [])
-                if transactions:
-                    st.subheader("Bank Transactions")
-                    st.dataframe(transactions)
-                    logging.info(f"User {user_id} fetched bank transactions successfully.")
-                else:
-                    st.info("No transactions found for the connected accounts.")
-                    logging.info(f"User {user_id} has no transactions in connected accounts.")
+            transactions = await bank_service.get_transactions(user_id, start_date, end_date)
+            # Categorize transactions using AI
+            for transaction in transactions:
+                categorization = await ai_service.categorize_expense(transaction['description'], transaction['amount'])
+             
+            if transactions:
+                st.dataframe(transactions)
+                logging.info(f"User {user_id} fetched bank transactions successfully.")
             else:
-                error_message = response.json().get("error", "Failed to fetch transactions.")
-                st.error(error_message)
-                logging.error(f"Error fetching transactions: {error_message}")
+                st.info("No transactions found for the connected accounts.")
+                logging.info(f"User {user_id} has no transactions in connected accounts.")
         except Exception as e:
             st.error("An unexpected error occurred while fetching transactions.")
             logging.exception(f"Exception while fetching transactions: {e}")

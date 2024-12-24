@@ -1,13 +1,15 @@
 from flask import Blueprint, request, jsonify
 from datetime import datetime, timedelta
 from ..utils.db_utils import get_db_connection
-from ..utils.ai_utils import categorize_expense, analyze_expense_patterns, analyze_tax_context
+from ..shared.services.expense_service import ExpenseService
+from ..utils.ai_utils import categorize_expense, analyze_expense_patterns
 from ..utils.validators import validate_expense
 from ..utils.error_handler import handle_api_error
 from ..utils.report_generator import ReportGenerator
 
 expense_blueprint = Blueprint('expense', __name__)
 report_generator = ReportGenerator()
+expense_service = ExpenseService()
 
 @expense_blueprint.route('/expenses/summary', methods=['GET'])
 def get_expense_summary():
@@ -27,41 +29,8 @@ def create_expense():
     data = request.json
     description = data.get('description', '')
     
-    # Handle gig platform expenses
-    if data.get('platform_source'):
-        data['category'] = 'gig_platform'
-        data['tax_deductible'] = True
-        
-    # Categorize expense
-    categorization = categorize_expense(description)
-    
-    # Store expense with platform data if available
-    if data.get('platform_source'):
-        connection = get_db_connection()
-        cursor = connection.cursor()
-        cursor.execute("""
-            INSERT INTO expenses (
-                description, amount, category, platform_source, 
-                platform_trip_id, tax_deductible, tax_category,
-                tax_context
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            data['description'],
-            data['amount'],
-            data['category'],
-            data['platform_source'],
-            data.get('platform_trip_id'),
-            data['tax_deductible'],
-            data.get('tax_category'),
-            data.get('tax_context')
-        ))
-        connection.commit()
-        cursor.close()
-        connection.close()
-        
-        # Analyze tax implications
-        tax_analysis = analyze_tax_context(data['description'], data['amount'])
-        return jsonify({**data, 'tax_analysis': tax_analysis}), 201
+    # Handle platform expenses
+    return expense_service.handle_expense(data)
 
     # Validate expense data
     validation_errors = validate_expense(data)
