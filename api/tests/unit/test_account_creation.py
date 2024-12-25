@@ -1,86 +1,78 @@
 import pytest
 from unittest.mock import Mock, patch
-import streamlit as streamlit
 from api.account_creation import account_creation_page
 
 @pytest.fixture
 def mock_streamlit():
-    with patch('api.account_creation.streamlit') as mock_streamlit:
-        yield mock_streamlit
+    with patch('streamlit.text_input') as mock_input, \
+         patch('streamlit.button') as mock_button:
+        yield {
+            'text_input': mock_input,
+            'button': mock_button
+        }
 
 @pytest.fixture
 def mock_requests():
-    with patch('api.account_creation.requests') as mock_requests:
-        yield mock_requests
+    with patch('requests.post') as mock_post:
+        yield mock_post
 
-def test_account_creation_success(mock_streamlit, mock_requests):
-    """Test successful account creation"""
-    # Mock user input
-    mock_streamlit.text_input.side_effect = [
-        "John Doe",  # full_name
-        "john@example.com",  # email
-        "+1234567890",  # phone_number
-        "password123"  # password
+def test_account_creation_valid_input(mock_streamlit, mock_requests):
+    # Setup mock inputs
+    mock_streamlit['text_input'].side_effect = [
+        "test@example.com",  # email
+        "+12345678900",  # phone
+        "Password123!"  # password
     ]
-    
-    # Mock successful API response
-    mock_response = Mock()
-    mock_response.status_code = 201
-    mock_requests.post.return_value = mock_response
-    
+    mock_streamlit['button'].return_value = True
+    mock_requests.return_value.status_code = 201
+
     # Call the function
     account_creation_page("http://test-api")
-    
+
     # Verify API call
-    mock_requests.post.assert_called_once_with(
+    mock_requests.assert_called_once_with(
         "http://test-api/auth/signup",
         json={
-            "full_name": "John Doe",
-            "email": "john@example.com",
-            "phone_number": "+1234567890",
-            "password": "password123"
+            "email": "test@example.com",
+            "phone": "+12345678900",
+            "password": "Password123!"
         }
     )
-    
-    # Verify success message
-    mock_streamlit.success.assert_called_once()
 
-def test_account_creation_missing_fields(mock_streamlit, mock_requests):
-    """Test account creation with missing fields"""
-    # Mock incomplete user input
-    mock_streamlit.text_input.side_effect = [
-        "John Doe",
-        "",  # Missing email
-        "+1234567890",
-        "password123"
+def test_account_creation_invalid_email(mock_streamlit):
+    mock_streamlit['text_input'].side_effect = [
+        "invalid-email",
+        "+12345678900",
+        "Password123!"
     ]
-    
-    # Call the function
-    account_creation_page("http://test-api")
-    
-    # Verify error message
-    mock_streamlit.error.assert_called_with("All fields are required.")
-    # Verify no API call was made
-    mock_requests.post.assert_not_called()
+    mock_streamlit['button'].return_value = True
+
+    with pytest.raises(ValueError) as exc:
+        account_creation_page("http://test-api")
+    assert "Invalid email format" in str(exc.value)
+
+def test_account_creation_missing_fields(mock_streamlit):
+    mock_streamlit['text_input'].side_effect = [
+        "",  # empty email
+        "",  # empty phone
+        "Password123!"
+    ]
+    mock_streamlit['button'].return_value = True
+
+    with pytest.raises(ValueError) as exc:
+        account_creation_page("http://test-api")
+    assert "All fields are required" in str(exc.value)
 
 def test_account_creation_api_error(mock_streamlit, mock_requests):
-    """Test account creation with API error"""
-    # Mock user input
-    mock_streamlit.text_input.side_effect = [
-        "John Doe",
-        "john@example.com",
-        "+1234567890",
-        "password123"
+    mock_streamlit['text_input'].side_effect = [
+        "test@example.com",
+        "+12345678900",
+        "Password123!"
     ]
-    
-    # Mock failed API response
-    mock_response = Mock()
-    mock_response.status_code = 400
-    mock_response.json.return_value = {"error": "Email already exists"}
-    mock_requests.post.return_value = mock_response
-    
-    # Call the function
-    account_creation_page("http://test-api")
-    
-    # Verify error message
-    mock_streamlit.error.assert_called_once()
+    mock_streamlit['button'].return_value = True
+    mock_requests.return_value.status_code = 500
+    mock_requests.return_value.json.return_value = {"error": "Server error"}
+
+    with pytest.raises(Exception) as exc:
+        account_creation_page("http://test-api")
+    assert "Server error" in str(exc.value)

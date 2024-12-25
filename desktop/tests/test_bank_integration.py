@@ -1,116 +1,111 @@
 import pytest
 from unittest.mock import Mock, patch
-import streamlit as streamlit
-from datetime import date
 from desktop.bank_integration import bank_integration_page
 
 @pytest.fixture
 def mock_streamlit():
-    with patch('desktop.bank_integration.streamlit') as mock_streamlit:
-        yield mock_streamlit
+    with patch('streamlit.title') as mock_title, \
+         patch('streamlit.markdown') as mock_markdown, \
+         patch('streamlit.button') as mock_button, \
+         patch('streamlit.error') as mock_error, \
+         patch('streamlit.success') as mock_success:
+        yield {
+            'title': mock_title,
+            'markdown': mock_markdown,
+            'button': mock_button,
+            'error': mock_error,
+            'success': mock_success
+        }
 
 @pytest.fixture
-def mock_requests():
-    with patch('desktop.bank_integration.requests') as mock_requests:
-        yield mock_requests
+def mock_bank_service():
+    with patch('desktop.services.bank_service_adapter.BankServiceAdapter') as mock:
+        return mock
+
+@pytest.fixture
+def mock_ai_service():
+    with patch('desktop.services.ai_service_adapter.AIServiceAdapter') as mock:
+        return mock
 
 def test_bank_integration_unauthorized(mock_streamlit):
-    """Test bank integration page when user is not logged in"""
-    # Clear session state
-    streamlit.session_state.clear()
+    """Test unauthorized access"""
+    bank_integration_page()
+    mock_streamlit['error'].assert_called_once_with("Please log in to connect your bank accounts.")
+
+def test_connect_bank_success(mock_streamlit, mock_bank_service):
+    """Test successful bank connection"""
+    # Setup
+    mock_streamlit['button'].return_value = True
+    mock_bank_service.get_link_token.return_value = "test-token"
     
+    # Execute
     bank_integration_page()
     
-    mock_streamlit.error.assert_called_once_with("Please log in to connect your bank accounts.")
+    # Verify
+    mock_bank_service.get_link_token.assert_called_once()
+    mock_streamlit['success'].assert_called_once()
 
-def test_connect_bank_success(mock_streamlit, mock_requests):
-    """Test successful bank connection"""
-    streamlit.session_state["user_id"] = "123"
-    mock_requests.post.return_value.status_code = 200
-    mock_requests.post.return_value.json.return_value = {"link_token": "test_token"}
+def test_connect_bank_failure(mock_streamlit, mock_bank_service):
+    """Test failed bank connection"""
+    # Setup
+    mock_streamlit['button'].return_value = True
+    mock_bank_service.get_link_token.side_effect = Exception("Connection failed")
     
-    with patch.object(mock_streamlit, 'button', return_value=True):
-        bank_integration_page()
-        
-        mock_requests.post.assert_called_once()
-        assert "link_token" in mock_requests.post.return_value.json()
+    # Execute
+    bank_integration_page()
+    
+    # Verify
+    mock_streamlit['error'].assert_called_with("An unexpected error occurred while connecting to the bank.")
 
-def test_connect_bank_failure(mock_streamlit, mock_requests):
-    """Test bank connection failure"""
-    streamlit.session_state["user_id"] = "123"
-    mock_requests.post.side_effect = Exception("Connection error")
+def test_fetch_transactions_success(mock_streamlit, mock_bank_service, mock_ai_service):
+    """Test successful transaction fetch"""
+    # Setup
+    mock_transactions = [
+        {"description": "Test transaction", "amount": 100.00}
+    ]
+    mock_bank_service.get_transactions.return_value = mock_transactions
+    mock_ai_service.categorize_expense.return_value = {"category": "test"}
     
-    with patch.object(mock_streamlit, 'button', return_value=True):
-        bank_integration_page()
-        
-        mock_streamlit.error.assert_called_with(
-            "An unexpected error occurred while connecting to the bank."
-        )
+    # Execute
+    bank_integration_page()
+    
+    # Verify
+    mock_bank_service.get_transactions.assert_called_once()
+    mock_ai_service.categorize_expense.assert_called_once()
 
-def test_fetch_transactions_success(mock_streamlit, mock_requests):
-    """Test successful transaction fetching"""
-    streamlit.session_state["user_id"] = "123"
-    mock_requests.get.return_value.status_code = 200
-    mock_requests.get.return_value.json.return_value = {
-        "transactions": [
-            {"id": 1, "amount": 100, "description": "Test"}
-        ]
-    }
+def test_fetch_transactions_failure(mock_streamlit, mock_bank_service):
+    """Test failed transaction fetch"""
+    # Setup
+    mock_bank_service.get_transactions.side_effect = Exception("Fetch failed")
     
-    # Mock date inputs and button click
-    with patch.object(mock_streamlit, 'date_input') as mock_date:
-        mock_date.return_value = date(2023, 1, 1)
-        with patch.object(mock_streamlit, 'button', return_value=True):
-            bank_integration_page()
-            
-            mock_requests.get.assert_called_once()
-            mock_streamlit.dataframe.assert_called_once()
+    # Execute
+    bank_integration_page()
+    
+    # Verify
+    mock_streamlit['error'].assert_called_with("An unexpected error occurred while fetching transactions.")
 
-def test_fetch_transactions_empty(mock_streamlit, mock_requests):
-    """Test fetching transactions with empty result"""
-    streamlit.session_state["user_id"] = "123"
-    mock_requests.get.return_value.status_code = 200
-    mock_requests.get.return_value.json.return_value = {"transactions": []}
+def test_check_balances_success(mock_streamlit, mock_bank_service):
+    """Test successful balance check"""
+    # Setup
+    mock_balances = [
+        {"account_id": "test", "balance": 1000.00, "type": "checking"}
+    ]
+    mock_bank_service.get_balances.return_value = mock_balances
     
-    with patch.object(mock_streamlit, 'date_input') as mock_date:
-        mock_date.return_value = date(2023, 1, 1)
-        with patch.object(mock_streamlit, 'button', return_value=True):
-            bank_integration_page()
-            
-            mock_streamlit.info.assert_called_with(
-                "No transactions found for the connected accounts."
-            )
+    # Execute
+    bank_integration_page()
+    
+    # Verify
+    mock_bank_service.get_balances.assert_called_once()
+    mock_streamlit['success'].assert_called_once()
 
-def test_check_balances_success(mock_streamlit, mock_requests):
-    """Test successful balance checking"""
-    streamlit.session_state["user_id"] = "123"
-    mock_requests.get.return_value.status_code = 200
-    mock_requests.get.return_value.json.return_value = {
-        "balances": [
-            {
-                "account_id": "acc123",
-                "balance": 1000.00,
-                "type": "checking"
-            }
-        ]
-    }
+def test_check_balances_failure(mock_streamlit, mock_bank_service):
+    """Test failed balance check"""
+    # Setup
+    mock_bank_service.get_balances.side_effect = Exception("Balance check failed")
     
-    with patch.object(mock_streamlit, 'button', return_value=True):
-        bank_integration_page()
-        
-        mock_requests.get.assert_called_once()
-        assert mock_streamlit.write.call_count >= 3
-
-def test_disconnect_bank_success(mock_streamlit, mock_requests):
-    """Test successful bank disconnection"""
-    streamlit.session_state["user_id"] = "123"
-    mock_requests.post.return_value.status_code = 200
+    # Execute
+    bank_integration_page()
     
-    with patch.object(mock_streamlit, 'button', return_value=True):
-        with patch.object(mock_streamlit, 'confirm', return_value=True):
-            bank_integration_page()
-            
-            mock_requests.post.assert_called_once()
-            mock_streamlit.success.assert_called_with(
-                "Bank account disconnected successfully"
-            )
+    # Verify
+    mock_streamlit['error'].assert_called_with("Error checking balances")

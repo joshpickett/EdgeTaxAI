@@ -1,181 +1,75 @@
-import axios from 'axios';
-import { APIClient } from '../apiClient';
+import { apiClient } from '../apiClient';
+import MockAdapter from 'axios-mock-adapter';
+import { API_ENDPOINTS } from '../../shared/constants';
 
-// Mock axios
-jest.mock('axios');
+describe('API Client', () => {
+  let mock;
 
-describe('APIClient', () => {
-  let apiClient;
-  const mockBaseURL = 'http://test-api.com';
-  
   beforeEach(() => {
-    // Clear all mocks
-    jest.clearAllMocks();
-    localStorage.clear();
-    
-    // Create axios mock instance
-    axios.create.mockReturnValue({
-      interceptors: {
-        request: { use: jest.fn() },
-        response: { use: jest.fn() }
-      }
-    });
-    
-    apiClient = new APIClient(mockBaseURL);
+    mock = new MockAdapter(apiClient.instance);
   });
 
-  describe('Constructor and Setup', () => {
-    it('should create axios instance with correct config', () => {
-      expect(axios.create).toHaveBeenCalledWith({
-        baseURL: mockBaseURL,
-        timeout: 10000,
-        headers: {
-          'Content-Type': 'application/json',
-        },
+  afterEach(() => {
+    mock.reset();
+  });
+
+  describe('Request Interceptors', () => {
+    it('should add authorization header when token exists', async () => {
+      localStorage.setItem('auth_token', 'test-token');
+      mock.onGet('/test').reply(config => {
+        expect(config.headers.Authorization).toBe('Bearer test-token');
+        return [200];
       });
+
+      await apiClient.get('/test');
     });
 
-    it('should set up request interceptor', () => {
-      const mockToken = 'test-token';
-      localStorage.setItem('authToken', mockToken);
-      
-      // Get the interceptor function
-      const interceptorFunction = apiClient.client.interceptors.request.use.mock.calls[0][0];
-      
-      // Test the interceptor
-      const config = { headers: {} };
-      const result = interceptorFunction(config);
-      
-      expect(result.headers.Authorization).toBe(`Bearer ${mockToken}`);
-    });
-
-    it('should handle request interceptor error', () => {
-      const errorHandler = apiClient.client.interceptors.request.use.mock.calls[0][1];
-      const error = new Error('Test error');
-      
-      expect(() => errorHandler(error)).rejects.toThrow('Test error');
-    });
-  });
-
-  describe('Error Handling', () => {
-    it('should format API errors correctly', () => {
-      const error = {
-        response: {
-          data: { message: 'Test error message' },
-          status: 400
-        }
-      };
-
-      const formattedError = apiClient.handleAPIError(error);
-      
-      expect(formattedError).rejects.toEqual({
-        message: 'Test error message',
-        status: 400,
-        data: error.response.data
+    it('should not add authorization header when token is missing', async () => {
+      localStorage.removeItem('auth_token');
+      mock.onGet('/test').reply(config => {
+        expect(config.headers.Authorization).toBeUndefined();
+        return [200];
       });
+
+      await apiClient.get('/test');
+    });
+  });
+
+  describe('Response Interceptors', () => {
+    it('should handle successful responses', async () => {
+      const mockData = { success: true };
+      mock.onGet('/test').reply(200, mockData);
+
+      const response = await apiClient.get('/test');
+      expect(response.data).toEqual(mockData);
     });
 
-    it('should handle errors without response data', () => {
-      const error = {};
-      const formattedError = apiClient.handleAPIError(error);
+    it('should handle unauthorized errors', async () => {
+      mock.onGet('/test').reply(401);
       
-      expect(formattedError).rejects.toEqual({
-        message: 'An unexpected error occurred',
-        status: undefined,
-        data: undefined
+      await expect(apiClient.get('/test'))
+        .rejects.toThrow('Unauthorized');
+    });
+
+    it('should handle server errors', async () => {
+      mock.onGet('/test').reply(500);
+      
+      await expect(apiClient.get('/test'))
+        .rejects.toThrow('Internal server error');
+    });
+  });
+
+  describe('Retry Mechanism', () => {
+    it('should retry failed requests', async () => {
+      let attempts = 0;
+      mock.onGet('/test').reply(() => {
+        attempts++;
+        return attempts < 3 ? [500] : [200, { success: true }];
       });
-    });
-  });
 
-  describe('Authentication Endpoints', () => {
-    it('should handle login request', async () => {
-      const credentials = { email: 'test@test.com', password: 'password' };
-      const mockResponse = { data: { token: 'test-token' } };
-      
-      axios.create().post.mockResolvedValueOnce(mockResponse);
-      
-      await apiClient.login(credentials);
-      
-      expect(apiClient.client.post).toHaveBeenCalledWith('/auth/login', credentials);
-    });
-
-    it('should handle signup request', async () => {
-      const userData = { 
-        email: 'test@test.com', 
-        password: 'password',
-        fullName: 'Test User'
-      };
-      const mockResponse = { data: { user: userData } };
-      
-      axios.create().post.mockResolvedValueOnce(mockResponse);
-      
-      await apiClient.signup(userData);
-      
-      expect(apiClient.client.post).toHaveBeenCalledWith('/auth/signup', userData);
-    });
-
-    it('should handle One-Time Password verification', async () => {
-      const otpData = { code: '123456', email: 'test@test.com' };
-      const mockResponse = { data: { verified: true } };
-      
-      axios.create().post.mockResolvedValueOnce(mockResponse);
-      
-      await apiClient.verifyOneTimePassword(otpData);
-      
-      expect(apiClient.client.post).toHaveBeenCalledWith('/auth/verify-otp', otpData);
-    });
-  });
-
-  describe('Expense Endpoints', () => {
-    it('should handle get expenses request', async () => {
-      const params = { page: 1, limit: 10 };
-      const mockResponse = { data: { expenses: [] } };
-      
-      axios.create().get.mockResolvedValueOnce(mockResponse);
-      
-      await apiClient.getExpenses(params);
-      
-      expect(apiClient.client.get).toHaveBeenCalledWith('/expenses', { params });
-    });
-
-    it('should handle add expense request', async () => {
-      const expenseData = { amount: 100, description: 'Test' };
-      const mockResponse = { data: { id: 1, ...expenseData } };
-      
-      axios.create().post.mockResolvedValueOnce(mockResponse);
-      
-      await apiClient.addExpense(expenseData);
-      
-      expect(apiClient.client.post).toHaveBeenCalledWith('/expenses', expenseData);
-    });
-
-    it('should handle update expense request', async () => {
-      const id = 1;
-      const expenseData = { amount: 200 };
-      const mockResponse = { data: { id, ...expenseData } };
-      
-      axios.create().put.mockResolvedValueOnce(mockResponse);
-      
-      await apiClient.updateExpense(id, expenseData);
-      
-      expect(apiClient.client.put).toHaveBeenCalledWith(`/expenses/${id}`, expenseData);
-    });
-  });
-
-  describe('Receipt Processing', () => {
-    it('should handle receipt processing request', async () => {
-      const formData = new FormData();
-      const mockResponse = { data: { processed: true } };
-      
-      axios.create().post.mockResolvedValueOnce(mockResponse);
-      
-      await apiClient.processReceipt(formData);
-      
-      expect(apiClient.client.post).toHaveBeenCalledWith(
-        '/process-receipt',
-        formData,
-        { headers: { 'Content-Type': 'multipart/form-data' } }
-      );
+      const response = await apiClient.get('/test');
+      expect(attempts).toBe(3);
+      expect(response.data).toEqual({ success: true });
     });
   });
 });

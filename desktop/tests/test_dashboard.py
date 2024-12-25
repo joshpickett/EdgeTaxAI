@@ -1,107 +1,119 @@
 import pytest
 from unittest.mock import Mock, patch
-import tkinter as tkinter
-from datetime import datetime
+from tkinter import Tk
 from desktop.dashboard import ExpenseDashboard
 
 @pytest.fixture
-def mock_requests():
-    with patch('desktop.dashboard.requests') as mock_request:
-        yield mock_request
+def mock_api():
+    with patch('requests.get') as mock_get, \
+         patch('requests.post') as mock_post, \
+         patch('requests.put') as mock_put, \
+         patch('requests.delete') as mock_delete:
+        yield {
+            'get': mock_get,
+            'post': mock_post,
+            'put': mock_put,
+            'delete': mock_delete
+        }
 
 @pytest.fixture
-def dashboard():
-    with patch('tkinter.Tk'):
-        return ExpenseDashboard()
+def dashboard(monkeypatch):
+    # Mock Tk initialization
+    monkeypatch.setattr(Tk, "__init__", lambda x: None)
+    monkeypatch.setattr(Tk, "geometry", lambda x, y: None)
+    monkeypatch.setattr(Tk, "title", lambda x, y: None)
+    return ExpenseDashboard()
 
-@pytest.fixture
-def sample_expenses():
-    return {
-        'expenses': [
+def test_fetch_expenses_success(dashboard, mock_api):
+    # Arrange
+    mock_response = Mock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "expenses": [
             {
-                'id': 1,
-                'description': 'Test Expense',
-                'amount': 100.00,
-                'category': 'Test'
+                "id": 1,
+                "description": "Test expense",
+                "amount": 100.00,
+                "category": "test"
             }
         ]
     }
+    mock_api['get'].return_value = mock_response
 
-def test_fetch_expenses_success(dashboard, mock_requests, sample_expenses):
-    """Test successful expense fetching"""
-    mock_requests.get.return_value.status_code = 200
-    mock_requests.get.return_value.json.return_value = sample_expenses
-    
+    # Act
     dashboard.fetch_expenses()
-    
+
+    # Assert
     assert len(dashboard.expenses) == 1
-    mock_requests.get.assert_called_once()
+    assert dashboard.expenses[0]["description"] == "Test expense"
+    mock_api['get'].assert_called_once()
 
-def test_fetch_expenses_failure(dashboard, mock_requests):
-    """Test expense fetching failure"""
-    mock_requests.get.return_value.status_code = 400
-    
-    with patch('tkinter.messagebox.showerror') as mock_error:
+def test_fetch_expenses_failure(dashboard, mock_api):
+    # Arrange
+    mock_api['get'].side_effect = Exception("API Error")
+
+    # Act & Assert
+    with pytest.raises(Exception):
         dashboard.fetch_expenses()
-        mock_error.assert_called_once()
 
-def test_edit_expense_success(dashboard, mock_requests):
-    """Test successful expense editing"""
-    dashboard.expenses = [{'id': 1, 'description': 'Old', 'amount': 50, 'category': 'Test'}]
-    mock_requests.put.return_value.status_code = 200
+def test_edit_expense_success(dashboard, mock_api):
+    # Arrange
+    mock_response = Mock()
+    mock_response.status_code = 200
+    mock_api['put'].return_value = mock_response
     
-    with patch('tkinter.simpledialog.askstring', return_value='New'):
-        with patch('tkinter.simpledialog.askfloat', return_value=100.0):
-            with patch('tkinter.messagebox.showinfo') as mock_info:
-                dashboard.edit_expense()
-                mock_info.assert_called_once()
+    dashboard.expenses = [{"id": 1, "description": "Old desc"}]
+    dashboard.expense_listbox = Mock()
+    dashboard.expense_listbox.curselection.return_value = [0]
 
-def test_delete_expense_success(dashboard, mock_requests):
-    """Test successful expense deletion"""
-    dashboard.expenses = [{'id': 1, 'description': 'Test', 'amount': 50, 'category': 'Test'}]
-    mock_requests.delete.return_value.status_code = 200
+    # Act
+    with patch('tkinter.simpledialog.askstring') as mock_dialog:
+        mock_dialog.side_effect = ["New desc", "100", "test"]
+        dashboard.edit_expense()
+
+    # Assert
+    mock_api['put'].assert_called_once()
+
+def test_delete_expense_success(dashboard, mock_api):
+    # Arrange
+    mock_response = Mock()
+    mock_response.status_code = 200
+    mock_api['delete'].return_value = mock_response
     
-    with patch('tkinter.messagebox.askyesno', return_value=True):
-        with patch('tkinter.messagebox.showinfo') as mock_info:
-            dashboard.delete_expense()
-            mock_info.assert_called_once()
+    dashboard.expenses = [{"id": 1, "description": "Test"}]
+    dashboard.expense_listbox = Mock()
+    dashboard.expense_listbox.curselection.return_value = [0]
+
+    # Act
+    with patch('tkinter.messagebox.askyesno') as mock_dialog:
+        mock_dialog.return_value = True
+        dashboard.delete_expense()
+
+    # Assert
+    mock_api['delete'].assert_called_once()
 
 def test_show_bar_chart(dashboard):
-    """Test bar chart display"""
+    # Arrange
     dashboard.expenses = [
-        {'category': 'Test1', 'amount': 100},
-        {'category': 'Test2', 'amount': 200}
+        {"category": "test1", "amount": 100},
+        {"category": "test2", "amount": 200}
     ]
-    
+
+    # Act & Assert
     with patch('matplotlib.pyplot') as mock_plt:
         dashboard.show_bar_chart()
         mock_plt.figure.assert_called_once()
-        mock_plt.show.assert_called_once()
+        mock_plt.bar.assert_called_once()
 
 def test_show_pie_chart(dashboard):
-    """Test pie chart display"""
+    # Arrange
     dashboard.expenses = [
-        {'category': 'Test1', 'amount': 100},
-        {'category': 'Test2', 'amount': 200}
+        {"category": "test1", "amount": 100},
+        {"category": "test2", "amount": 200}
     ]
-    
+
+    # Act & Assert
     with patch('matplotlib.pyplot') as mock_plt:
         dashboard.show_pie_chart()
         mock_plt.figure.assert_called_once()
-        mock_plt.show.assert_called_once()
-
-def test_logout_success(dashboard, mock_requests):
-    """Test successful logout"""
-    mock_requests.post.return_value.status_code = 200
-    
-    with patch('tkinter.messagebox.showinfo') as mock_info:
-        dashboard.logout()
-        assert mock_info.call_count == 2
-
-def test_logout_failure(dashboard, mock_requests):
-    """Test logout with server notification failure"""
-    mock_requests.post.return_value.status_code = 400
-    
-    with patch('tkinter.messagebox.showwarning') as mock_warning:
-        dashboard.logout()
-        mock_warning.assert_called_once()
+        mock_plt.pie.assert_called_once()

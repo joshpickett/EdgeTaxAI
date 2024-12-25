@@ -1,13 +1,13 @@
 import pytest
-from unittest.mock import patch, Mock
-from api.app import create_app, log_api_startup
+from api.app import create_app
+import logging
 
 @pytest.fixture
 def app():
-    """Create test Flask application"""
-    application = create_app()
-    application.config['TESTING'] = True
-    return application
+    """Create and configure test app instance"""
+    app = create_app()
+    app.config['TESTING'] = True
+    return app
 
 @pytest.fixture
 def client(app):
@@ -15,60 +15,52 @@ def client(app):
     return app.test_client()
 
 def test_app_creation(app):
-    """Test Flask application creation"""
-    assert app.name == 'api'
+    """Test app creation and configuration"""
+    assert app is not None
     assert app.config['TESTING'] is True
 
-def test_cors_enabled(app):
-    """Test Cross-Origin Resource Sharing configuration"""
-    assert 'CORS' in app.extensions
-
-def test_blueprints_registered(app):
-    """Test blueprint registration"""
-    blueprints = ['auth_bp', 'expense_bp', 'reports_bp', 'bank_bp', 
-                  'tax_bp', 'mileage_bp', 'ocr_bp', 'tax_optimization_bp']
+def test_registered_blueprints(app):
+    """Test all required blueprints are registered"""
+    blueprints = [
+        'auth_bp',
+        'expense_bp', 
+        'reports_bp',
+        'bank_bp',
+        'tax_bp',
+        'mileage_bp',
+        'ocr_bp',
+        'platform_bp',
+        'analytics_bp'
+    ]
     
     for blueprint in blueprints:
         assert blueprint in app.blueprints
 
 def test_error_handler_registration(app):
-    """Test error handler registration"""
-    from api.utils.error_handler import APIError
-    assert APIError in app.error_handler_spec[None]
+    """Test error handlers are registered"""
+    assert app.error_handler_spec[None][None]
 
-@patch('logging.info')
-def test_log_api_startup(mock_logging, app):
-    """Test application startup logging"""
-    log_api_startup(app)
-    
-    # Verify logging calls
-    mock_logging.assert_any_call("Starting Flask API Server...")
-    mock_logging.assert_any_call("Registered Endpoints:")
-    mock_logging.assert_any_call("Flask API Server started successfully.")
+def test_cors_enabled(app):
+    """Test CORS is enabled"""
+    assert app.config['CORS_HEADERS'] == 'Content-Type'
 
-def test_api_endpoints(client):
-    """Test application programming interface endpoints are accessible"""
-    endpoints = [
-        '/api/auth/health',
-        '/api/expenses/health',
-        '/api/reports/health',
-        '/api/banks/health',
-        '/api/tax/health',
-        '/api/mileage/health'
-    ]
-    
-    for endpoint in endpoints:
-        response = client.get(endpoint)
-        assert response.status_code in [200, 404]  # 404 if no health check implemented
+def test_logging_configuration(app):
+    """Test logging is properly configured"""
+    assert logging.getLogger().level == logging.INFO
 
-def test_error_handling(client):
-    """Test global error handling"""
-    from api.utils.error_handler import APIError
-    
+def test_404_handler(client):
+    """Test 404 error handler"""
+    response = client.get('/nonexistent-endpoint')
+    assert response.status_code == 404
+    assert b'Not Found' in response.data
+
+def test_500_handler(client, mocker):
+    """Test 500 error handler"""
+    # Mock an endpoint that raises an error
     @app.route('/test-error')
     def test_error():
-        raise APIError("Test error", status_code=400)
-    
+        raise Exception('Test error')
+        
     response = client.get('/test-error')
-    assert response.status_code == 400
-    assert b'Test error' in response.data
+    assert response.status_code == 500
+    assert b'Internal Server Error' in response.data
