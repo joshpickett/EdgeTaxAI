@@ -1,9 +1,12 @@
 from openai import OpenAI
 from .api_config import APIConfig
-import logging
-from typing import Dict, Any, List, Tuple
-import json
+from .db_utils import get_db_connection
 from datetime import datetime
+import logging
+from typing import Dict, Any, List, Tuple, Optional
+import json
+import os
+from .document_manager import DocumentManager
 
 # Initialize OpenAI client
 client = OpenAI(api_key=APIConfig.OPENAI_API_KEY)
@@ -54,28 +57,29 @@ def update_learning_system(expense_data: Dict[str, Any], user_correction: str) -
             user_correction,
             expense_data['amount']
         )
-        
-        # Store historical pattern
-        store_pattern(
-            expense_data['description'],
-            user_correction,
-            confidence
-        )
-        
-        cursor.execute("""
-            INSERT INTO learning_feedback 
-            (original_category, corrected_category, description, 
-             confidence_score, correction_timestamp)
-            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-        """, (
-            expense_data['category'],
-            user_correction,
-            expense_data['description'],
-            confidence
-        ))
-        conn.commit()
     except Exception as e:
         logging.error(f"Error updating learning system: {e}")
+        raise
+
+    # Store historical pattern
+    store_pattern(
+        expense_data['description'],
+        user_correction,
+        confidence
+    )
+    
+    cursor.execute("""
+        INSERT INTO learning_feedback 
+        (original_category, corrected_category, description, 
+         confidence_score, correction_timestamp)
+        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+    """, (
+        expense_data['category'],
+        user_correction,
+        expense_data['description'],
+        confidence
+    ))
+    conn.commit()
 
 IRS_COMPLIANCE_RULES = {
     'business': {
@@ -360,7 +364,7 @@ def get_tax_optimization_suggestions(expenses):
         logger.error(f"Error getting tax optimization suggestions: {str(e)}")
         return "Unable to generate tax optimization suggestions at this time."
 
-def analyze_expense_pattern(expenses: List[Dict[str, Any]]) -> Dict[str, Any]:
+def analyze_expense_patterns(expenses: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Analyze expense patterns for better categorization"""
     patterns = {}
     category_frequencies = {}
@@ -498,23 +502,163 @@ def verify_irs_compliance(expense_data: Dict[str, Any]) -> Dict[str, Any]:
 
 def analyze_historical_patterns(description: str) -> Dict[str, float]:
     """Analyze historical patterns for better categorization"""
+
+def analyze_amount_patterns(expenses: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Analyze amount-based patterns in expenses"""
+    amount_patterns = {
+        'low': {'max': 50, 'categories': {}},
+        'medium': {'max': 200, 'categories': {}},
+        'high': {'min': 200, 'categories': {}}
+    }
+    
+    for expense in expenses:
+        amount = expense.get('amount', 0)
+        category = expense.get('category', 'other')
+        
+        if amount <= 50:
+            range_key = 'low'
+        elif amount <= 200:
+            range_key = 'medium'
+        else:
+            range_key = 'high'
+            
+        if category not in amount_patterns[range_key]['categories']:
+            amount_patterns[range_key]['categories'][category] = 0
+        amount_patterns[range_key]['categories'][category] += 1
+    
+    return amount_patterns
+
+def calculate_pattern_confidence(patterns: Dict[str, Any]) -> float:
+    """Calculate overall confidence score from patterns"""
+    if not patterns:
+        return 0.0
+    
+    confidence_scores = {
+        'frequency': calculate_frequency_confidence(patterns.get('frequency', {})),
+        'amount': calculate_amount_confidence(patterns.get('amount', {})),
+        'time': calculate_time_confidence(patterns.get('time', {})),
+        'location': calculate_location_confidence(patterns.get('location', {}))
+    }
+    
+    return sum(confidence_scores.values()) / len(confidence_scores)
+
+def get_amount_range(amount: float) -> str:
+    """Get the range category for an amount"""
+    if amount <= 50:
+        return 'low'
+    elif amount <= 200:
+        return 'medium'
+    return 'high'
+
+def get_time_of_day(hour: int) -> str:
+    """Get the time of day category"""
+    if 5 <= hour < 12:
+        return 'morning'
+    elif 12 <= hour < 17:
+        return 'afternoon'
+    elif 17 <= hour < 22:
+        return 'evening'
+    return 'night'
+
+def calculate_deductible_amount(amount: float, context: str) -> float:
+    """Calculate deductible amount based on context"""
+    deduction_rates = {
+        'business': 1.0,
+        'personal': 0.0,
+        'mixed': 0.5
+    }
+    
+    rate = deduction_rates.get(context, 0.0)
+    return amount * rate
+
+def calculate_correction_confidence(description: str, category: str, amount: float) -> float:
+    """Calculate confidence score for user corrections"""
+    confidence = 0.0
+    
+    # Check if category matches known patterns
+    if any(keyword in description.lower() for keyword in IRS_CATEGORIES.get(category, [])):
+        confidence += 0.4
+    
+    # Check amount ranges
+    if amount < 50 and category in ['meals', 'supplies']:
+        confidence += 0.3
+    elif 50 <= amount <= 200 and category in ['equipment', 'services']:
+        confidence += 0.3
+    elif amount > 200 and category in ['travel', 'insurance']:
+        confidence += 0.3
+    
+    return min(confidence + 0.3, 1.0)  # Base confidence of 0.3
+
+def calculate_frequency_confidence(frequency_data: Dict[str, Any]) -> float:
+    """Calculate confidence based on frequency patterns"""
+    if not frequency_data:
+        return 0.0
+    
+    total_occurrences = sum(data['count'] for data in frequency_data.values())
+    if total_occurrences == 0:
+        return 0.0
+    
+    max_frequency = max(data['count'] for data in frequency_data.values())
+    return min(max_frequency / total_occurrences, 1.0)
+
+def calculate_amount_confidence(amount_data: Dict[str, Any]) -> float:
+    """Calculate confidence based on amount patterns"""
+    if not amount_data:
+        return 0.0
+    
+    consistency_score = len(amount_data.get('categories', {})) / 10.0
+    return min(consistency_score, 1.0)
+
+def calculate_vendor_confidence(vendor_data: Dict[str, Any]) -> float:
+    """Calculate confidence based on vendor patterns"""
+    if not vendor_data:
+        return 0.0
+    
+    vendor_consistency = vendor_data.get('count', 0) / 10.0
+    return min(vendor_consistency, 1.0)
+
+def calculate_location_confidence(location_data: Dict[str, Any]) -> float:
+    """Calculate confidence based on location patterns"""
+    if not location_data:
+        return 0.0
+    
+    location_frequency = location_data.get('count', 0) / 5.0
+    return min(location_frequency, 1.0)
+
+def store_pattern(description: str, category: str, confidence: float) -> None:
+    """Store pattern in the database"""
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # Get historical categorizations
         cursor.execute("""
-            SELECT category, COUNT(*) as count
-            FROM expenses
-            WHERE description LIKE ?
-            GROUP BY category
-        """, (f"%{description}%",))
+            INSERT INTO patterns (description, category, confidence, timestamp)
+            VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+        """, (description, category, confidence))
         
-        patterns = cursor.fetchall()
-        return {row['category']: row['count'] for row in patterns}
+        conn.commit()
     except Exception as e:
-        logging.error(f"Error analyzing patterns: {e}")
-        return {}
+        logging.error(f"Error storing pattern: {e}")
+
+def extract_location(description: str) -> Optional[str]:
+    """Extract location information from description"""
+    common_locations = ['office', 'store', 'restaurant', 'hotel']
+    description_lower = description.lower()
+    
+    for location in common_locations:
+        if location in description_lower:
+            return location
+    return None
+
+def extract_vendor(description: str) -> Optional[str]:
+    """Extract vendor information from description"""
+    # Remove common words and punctuation
+    common_words = ['the', 'at', 'from', 'by', 'in', 'on', 'for']
+    words = description.lower().split()
+    
+    # Remove common words and get first remaining word as vendor
+    filtered_words = [word for word in words if word not in common_words]
+    return filtered_words[0] if filtered_words else None
 
 class LearningSystem:
     def __init__(self):
