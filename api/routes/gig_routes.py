@@ -2,6 +2,8 @@ from flask import Blueprint, request, jsonify, redirect
 import logging
 import os
 import requests
+from typing import Dict, Any, Optional
+from datetime import datetime
 from ..utils.retry_handler import with_retry
 from ..utils.gig_platform_processor import GigPlatformProcessor
 from ..services.gig_platform_service import GigPlatformService
@@ -203,6 +205,7 @@ def sync_platform_data(platform):
         if not user_id:
             return jsonify({"error": "User ID required"}), 400
             
+        # Use the gig_platform_service instance to fetch data
         sync_result = gig_platform_service.sync_platform_data(platform, user_id)
         
         return jsonify({
