@@ -1,6 +1,8 @@
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 from datetime import datetime, timedelta
 import logging
+import requests
+import os
 from .db_utils import Database
 
 class TripAnalyzer:
@@ -8,6 +10,7 @@ class TripAnalyzer:
         self.database = database
         self.logger = logging.getLogger(__name__)
         self.cache = {}
+        self.google_api_key = os.getenv("GOOGLE_MAPS_API_KEY")
 
     def analyze_trip_patterns(self, user_id: int, 
                             date_range: Optional[tuple] = None) -> Dict[str, any]:
@@ -151,3 +154,33 @@ class TripAnalyzer:
         except Exception as exception:
             self.logger.error(f"Error calculating earnings per mile: {str(exception)}")
             raise
+            
+    def fetch_google_directions(self, origin: str, destination: str) -> Tuple[float, Optional[str]]:
+        """
+        Fetch directions and calculate distance using Google Maps API.
+        
+        Args:
+            origin: Starting location address
+            destination: Ending location address
+            
+        Returns:
+            Tuple of (distance in miles, error message if any)
+        """
+        try:
+            url = "https://maps.googleapis.com/maps/api/directions/json"
+            params = {
+                "origin": origin,
+                "destination": destination,
+                "key": self.google_api_key
+            }
+            
+            response = requests.get(url, params=params)
+            data = response.json()
+            
+            if data["status"] == "OK":
+                # Extract distance in miles (converting from meters)
+                return float(data["routes"][0]["legs"][0]["distance"]["value"]) / 1609.34, None
+            return 0, f"Google Maps API Error: {data['status']}"
+            
+        except Exception as e:
+            return 0, f"Error fetching directions: {str(e)}"

@@ -9,6 +9,7 @@ import pandas as pd
 from ..utils.error_handler import handle_api_error
 from ..utils.db_utils import get_db_connection
 from ..utils.trip_analyzer import TripAnalyzer
+from ..config import IRS_MILEAGE_RATE
 
 # Configure Logging
 logging.basicConfig(
@@ -64,7 +65,7 @@ def add_mileage_record():
             return jsonify({"error": "Invalid date format. Use YYYY-MM-DD"}), 400
 
         # Calculate distance using Google Maps API
-        distance, error = fetch_google_directions(start_location, end_location, os.getenv("GOOGLE_API_KEY"))
+        distance, error = trip_analyzer.fetch_google_directions(start_location, end_location)
         if error:
             return jsonify({"error": f"Failed to calculate distance: {error}"}), 500
 
@@ -116,10 +117,9 @@ def bulk_mileage_upload():
                     continue
                     
                 # Calculate distance
-                distance, error = fetch_google_directions(
+                distance, error = trip_analyzer.fetch_google_directions(
                     record["start"], 
-                    record["end"], 
-                    os.getenv("GOOGLE_API_KEY")
+                    record["end"]
                 )
                 
                 if error:

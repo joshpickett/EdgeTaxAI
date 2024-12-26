@@ -1,10 +1,15 @@
 from flask import Blueprint, request, jsonify, send_file
 import logging
+from datetime import datetime
+from ..utils.db_utils import get_db_connection
 from ..utils.tax_calculator import TaxCalculator
 from ..utils.irs_compliance import IRSCompliance
 
 irs_calculator = TaxCalculator()
 irs_compliance = IRSCompliance()
+
+# Initialize Blueprint
+irs_bp = Blueprint("irs", __name__, url_prefix="/api/irs")
 
 @irs_bp.route("/generate-schedule-c", methods=["POST"])
 def generate_schedule_c():
@@ -54,8 +59,18 @@ def generate_quarterly_estimate():
         
         # Calculate estimated tax
         net_income = total_income - total_expenses
-        estimated_tax = calculate_estimated_tax(net_income)
+        estimated_tax = irs_calculator.calculate_self_employment_tax(net_income)['tax_amount']
         
+        def get_quarter_due_date(quarter, year):
+            """Calculate the due date for quarterly taxes"""
+            due_dates = {
+                1: f"{year}-04-15",  # Q1 due April 15
+                2: f"{year}-06-15",  # Q2 due June 15
+                3: f"{year}-09-15",  # Q3 due September 15
+                4: f"{year+1}-01-15"  # Q4 due January 15 of next year
+            }
+            return due_dates.get(quarter)
+
         return jsonify({
             'quarter': quarter,
             'year': year,

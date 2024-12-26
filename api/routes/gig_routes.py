@@ -1,10 +1,16 @@
 from flask import Blueprint, request, jsonify, redirect
 import logging
+import os
+import requests
 from ..utils.retry_handler import with_retry
-from typing import Optional, Dict, Any, Tuple
-from ..utils.error_handler import handle_api_error, handle_validation_error
-from ..utils.validators import validate_platform, validate_user_id
+from ..utils.gig_platform_processor import GigPlatformProcessor
 from ..services.gig_platform_service import GigPlatformService
+
+# Initialize Blueprint
+gig_routes = Blueprint('gig', __name__, url_prefix='/api/gig')
+
+# Initialize services
+gig_platform_service = GigPlatformService()
 
 # Configure Logging
 logging.basicConfig(
@@ -12,8 +18,6 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
-
-gig_platform_service = GigPlatformService()
 
 # Simulated in-memory storage for tokens and connections
 USER_TOKENS = {}
@@ -25,6 +29,18 @@ VALID_PLATFORMS = {"uber", "lyft", "doordash", "instacart", "upwork", "fiverr"}
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# OAuth configuration
+OAUTH_CONFIG = {
+    'uber': {
+        'token_url': 'https://login.uber.com/oauth/v2/token',
+        'auth_url': 'https://login.uber.com/oauth/v2/authorize'
+    },
+    'lyft': {
+        'token_url': 'https://api.lyft.com/oauth/token',
+        'auth_url': 'https://www.lyft.com/oauth/authorize'
+    }
+}
 
 @with_retry(max_attempts=3, initial_delay=1.0)
 @gig_routes.route("/gig/connect/<platform>", methods=["GET"])
@@ -57,16 +73,9 @@ def oauth_callback():
 
         logger.info(f"Token successfully stored for user {user_id} on platform {platform}.")
         
-        raw_data = fetch_platform_data(platform, access_token)
-        
-        # Process platform data
-        processed_data = gig_processor.process_platform_data(
-            platform,
-            raw_data
-        )
-        
-        # Store processed data
-        store_gig_data(user_id, platform, processed_data)
+        # Use platform service to handle data processing
+        processed_data = gig_platform_service.process_platform_data(platform, access_token)
+        gig_platform_service.store_platform_data(user_id, platform, processed_data)
         
         return jsonify({"message": "OAuth successful", "platform": platform}), 200
     except ValueError as e:
@@ -128,8 +137,7 @@ def exchange_token():
         if not platform or not code:
             return jsonify({"error": "Platform and code are required"}), 400
             
-        # Exchange code for token using platform-specific OAuth endpoints
-        token_response = exchange_oauth_code(platform, code)
+        token_response = gig_platform_service.exchange_oauth_code(platform, code)
         return jsonify({"access_token": token_response.get("access_token")}), 200
     except Exception as e:
         logging.error(f"Token exchange error: {str(e)}")
@@ -195,8 +203,7 @@ def sync_platform_data(platform):
         if not user_id:
             return jsonify({"error": "User ID required"}), 400
             
-        # Process platform data
-        sync_result = gig_processor.sync_platform_data(platform, user_id)
+        sync_result = gig_platform_service.sync_platform_data(platform, user_id)
         
         return jsonify({
             "status": "success",
@@ -219,7 +226,7 @@ def get_earnings():
             
         earnings_data = {}
         for platform in USER_CONNECTIONS.get(user_id, []):
-            platform_earnings = gig_processor.get_platform_earnings(
+            platform_earnings = gig_platform_service.get_platform_earnings(
                 platform,
                 user_id,
                 start_date,

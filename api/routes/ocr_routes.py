@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 import logging
 import time
 from functools import wraps
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple, List
 from werkzeug.utils import secure_filename
 import os
 import redis
@@ -85,6 +85,7 @@ def extract_text_from_image(image):
         extracted_fields = {}
         for field, extractor in field_extractors.items():
             extracted_fields[field] = extractor(image)
+            logging.info(f"Extracted {field}: {extracted_fields[field]}")
 
         return extracted_fields
     except Exception as e:
@@ -421,3 +422,52 @@ def extract_total_field(text):
     except Exception as e:
         logging.error(f"Total extraction failed: {e}")
         return None
+
+def extract_vendor_field(text: str) -> Optional[str]:
+    """Extract vendor name from receipt text using pattern matching and AI."""
+    try:
+        # Common business identifiers
+        business_patterns = [
+            r'^([A-Z\s&]+)\n',  # Business name at start of receipt
+            r'((?:Inc|LLC|Ltd|Corp|Corporation|Company)[\.:\s]+[A-Za-z\s&]+)',
+            r'(?:Store|Restaurant|Cafe):\s*([A-Za-z0-9\s&]+)'
+        ]
+        
+        for pattern in business_patterns:
+            match = re.search(pattern, text, re.MULTILINE)
+            if match:
+                return match.group(1).strip()
+        
+        # If patterns fail, use first non-empty line
+        first_line = next((line.strip() for line in text.split('\n') 
+                         if line.strip()), None)
+        return first_line
+    except Exception as e:
+        logging.error(f"Vendor extraction failed: {e}")
+        return None
+
+def extract_line_items(text: str) -> List[Dict[str, Any]]:
+    """Extract individual line items from receipt text."""
+    try:
+        items = []
+        lines = text.split('\n')
+        item_pattern = r'([A-Za-z0-9\s&\-\'\"]+)\s+(\d+(?:\.\d{2})?)'
+        
+        for line in lines:
+            # Skip total lines
+            if re.search(r'total|subtotal|tax|amount due', line, re.IGNORECASE):
+                continue
+                
+            match = re.search(item_pattern, line)
+            if match:
+                description = match.group(1).strip()
+                price = float(match.group(2))
+                items.append({
+                    'description': description,
+                    'price': price
+                })
+        
+        return items
+    except Exception as e:
+        logging.error(f"Line item extraction failed: {e}")
+        return []

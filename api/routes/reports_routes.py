@@ -1,10 +1,16 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, send_file
 from datetime import datetime
 import logging
-from typing import Dict, Any, Union
+import io
+import pandas as pd
+import numpy as np
+from reportlab.pdfgen import canvas
+from openpyxl import Workbook
+from sklearn.linear_model import LinearRegression
+from typing import Dict, Any, List, Union
 from ..utils.db_utils import get_db_connection
 from ..utils.error_handler import handle_api_error
-from ..utils.report_generator import generate_report
+from ..utils.report_generator import generate_report, ReportGenerator
 
 reports_bp = Blueprint('reports', __name__)
 
@@ -59,6 +65,7 @@ def generate_schedule_c():
 def generate_custom_report():
     """Generate custom report based on user specifications"""
     try:
+        report_gen = ReportGenerator()
         data = request.json
         user_id = data.get('user_id')
         start_date = data.get('start_date')
@@ -70,7 +77,7 @@ def generate_custom_report():
         if not user_id:
             return jsonify({"error": "User ID is required"}), 400
             
-        report = report_generator.generate_custom_report(
+        report = report_gen.generate_custom_report(
             user_id, 
             start_date, 
             end_date,
@@ -79,7 +86,7 @@ def generate_custom_report():
         )
         
         if format_type == 'csv':
-            csv_data = report_generator.export_to_csv(report)
+            csv_data = report_gen.export_to_csv(report)
             return send_file(
                 io.StringIO(csv_data),
                 mimetype='text/csv',
