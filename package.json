@@ -1,11 +1,15 @@
 {
-  "dependencies": {
-    "expo-notifications": "^0.29.11",
-    "firebase": "^11.1.0",
-    "react-native-svg": "^15.10.1",
-    "victory-native": "^41.14.0"
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
-  "devDependencies": {
-    "expo-cli": "^4.0.17"
+  "jest": {
+    "preset": "react-native",
+    "setupFilesAfterEnv": ["<rootDir>/src/setupTests.js"],
+    "transformIgnorePatterns": [
+      "node_modules/(?!(react-native|@react-native|@react-navigation)/)"
+    ]
   }
+  ...rest of the package.json...
 }
