@@ -1,75 +1,79 @@
 import { apiClient } from '../apiClient';
-import MockAdapter from 'axios-mock-adapter';
-import { API_ENDPOINTS } from '../../shared/constants';
+import { tokenStorage } from '../../utils/tokenStorage';
 
-describe('API Client', () => {
-  let mock;
+jest.mock('../../utils/tokenStorage');
 
+describe('ApiClient', () => {
   beforeEach(() => {
-    mock = new MockAdapter(apiClient.instance);
+    fetch.mockClear();
+    tokenStorage.getToken.mockClear();
   });
 
-  afterEach(() => {
-    mock.reset();
+  it('adds authorization header when token exists', async () => {
+    tokenStorage.getToken.mockReturnValue('test-token');
+    fetch.mockResponseOnce(JSON.stringify({ data: 'test' }));
+
+    await apiClient.get('/test');
+
+    expect(fetch).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer test-token'
+        })
+      })
+    );
   });
 
-  describe('Request Interceptors', () => {
-    it('should add authorization header when token exists', async () => {
-      localStorage.setItem('auth_token', 'test-token');
-      mock.onGet('/test').reply(config => {
-        expect(config.headers.Authorization).toBe('Bearer test-token');
-        return [200];
-      });
+  it('handles GET requests correctly', async () => {
+    const mockResponse = { data: 'test' };
+    fetch.mockResponseOnce(JSON.stringify(mockResponse));
 
-      await apiClient.get('/test');
-    });
-
-    it('should not add authorization header when token is missing', async () => {
-      localStorage.removeItem('auth_token');
-      mock.onGet('/test').reply(config => {
-        expect(config.headers.Authorization).toBeUndefined();
-        return [200];
-      });
-
-      await apiClient.get('/test');
-    });
+    const result = await apiClient.get('/test');
+    expect(result).toEqual(mockResponse);
   });
 
-  describe('Response Interceptors', () => {
-    it('should handle successful responses', async () => {
-      const mockData = { success: true };
-      mock.onGet('/test').reply(200, mockData);
+  it('handles POST requests correctly', async () => {
+    const mockResponse = { success: true };
+    fetch.mockResponseOnce(JSON.stringify(mockResponse));
 
-      const response = await apiClient.get('/test');
-      expect(response.data).toEqual(mockData);
-    });
+    const payload = { test: 'data' };
+    const result = await apiClient.post('/test', payload);
 
-    it('should handle unauthorized errors', async () => {
-      mock.onGet('/test').reply(401);
-      
-      await expect(apiClient.get('/test'))
-        .rejects.toThrow('Unauthorized');
-    });
-
-    it('should handle server errors', async () => {
-      mock.onGet('/test').reply(500);
-      
-      await expect(apiClient.get('/test'))
-        .rejects.toThrow('Internal server error');
-    });
+    expect(fetch).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify(payload)
+      })
+    );
+    expect(result).toEqual(mockResponse);
   });
 
-  describe('Retry Mechanism', () => {
-    it('should retry failed requests', async () => {
-      let attempts = 0;
-      mock.onGet('/test').reply(() => {
-        attempts++;
-        return attempts < 3 ? [500] : [200, { success: true }];
-      });
+  it('handles network errors', async () => {
+    fetch.mockRejectOnce(new Error('Network error'));
 
-      const response = await apiClient.get('/test');
-      expect(attempts).toBe(3);
-      expect(response.data).toEqual({ success: true });
-    });
+    await expect(apiClient.get('/test')).rejects.toThrow('Network error');
+  });
+
+  it('handles API errors', async () => {
+    fetch.mockResponseOnce(JSON.stringify({ error: 'API Error' }), { status: 400 });
+
+    await expect(apiClient.get('/test')).rejects.toThrow('API Error');
+  });
+
+  it('refreshes token on 401 response', async () => {
+    tokenStorage.getToken.mockReturnValue('old-token');
+    tokenStorage.getRefreshToken.mockReturnValue('refresh-token');
+
+    fetch
+      .mockResponseOnce(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })
+      .mockResponseOnce(JSON.stringify({ token: 'new-token' }))
+      .mockResponseOnce(JSON.stringify({ data: 'test' }));
+
+    const result = await apiClient.get('/test');
+
+    expect(tokenStorage.setTokens).toHaveBeenCalledWith('new-token');
+    expect(result).toEqual({ data: 'test' });
   });
 });

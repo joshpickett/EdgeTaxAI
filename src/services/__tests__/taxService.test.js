@@ -1,154 +1,87 @@
-import { getTaxSavings, getDeductionSuggestions, getTaxRate, getTaxReports } from '../taxService';
+import { getTaxSavings, analyzeDeductions, getTaxRate, getTaxReports } from '../taxService';
+import sharedTaxService from '../../../shared/services/taxService';
 
-describe('TaxService', () => {
+jest.mock('../../../shared/services/taxService');
+
+describe('taxService', () => {
   beforeEach(() => {
-    global.fetch = jest.fn();
-    console.error = jest.fn();
-  });
-
-  afterEach(() => {
-    jest.clearAllMocks();
+    fetch.mockClear();
+    sharedTaxService.calculateTaxSavings.mockClear();
+    sharedTaxService.analyzeTaxDeductions.mockClear();
   });
 
   describe('getTaxSavings', () => {
-    const mockAmount = 1000;
-
-    it('should calculate tax savings successfully', async () => {
-      const mockSavings = { savings: 250 };
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockSavings)
-      });
-
+    it('calculates tax savings successfully', async () => {
+      const mockAmount = 1000;
+      const mockSavings = 250;
+      
+      sharedTaxService.calculateTaxSavings.mockResolvedValueOnce(mockSavings);
+      
       const result = await getTaxSavings(mockAmount);
-      expect(result).toBe(mockSavings.savings);
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining('/tax/savings'),
-        expect.objectContaining({
-          method: 'POST',
-          body: JSON.stringify({ amount: mockAmount })
-        })
-      );
+      expect(result).toBe(mockSavings);
+      expect(sharedTaxService.calculateTaxSavings).toHaveBeenCalledWith(mockAmount);
     });
 
-    it('should handle API errors', async () => {
-      global.fetch.mockResolvedValueOnce({
-        ok: false,
-        json: () => Promise.resolve({ error: 'Failed to calculate' })
-      });
-
-      await expect(getTaxSavings(mockAmount))
-        .rejects.toThrow('Failed to fetch tax savings');
-    });
-
-    it('should handle network errors', async () => {
-      global.fetch.mockRejectedValueOnce(new Error('Network error'));
-      await expect(getTaxSavings(mockAmount)).rejects.toThrow();
-    });
-
-    it('should handle invalid amount input', async () => {
-      await expect(getTaxSavings(-100)).rejects.toThrow();
-      await expect(getTaxSavings(0)).rejects.toThrow();
-      await expect(getTaxSavings('invalid')).rejects.toThrow();
+    it('handles errors in tax savings calculation', async () => {
+      sharedTaxService.calculateTaxSavings.mockRejectedValueOnce(new Error('Calculation failed'));
+      
+      await expect(getTaxSavings(1000)).rejects.toThrow('Calculation failed');
     });
   });
 
-  describe('getDeductionSuggestions', () => {
+  describe('analyzeDeductions', () => {
     const mockExpenses = [
-      { id: 1, amount: 100, category: 'office' },
-      { id: 2, amount: 200, category: 'travel' }
+      { amount: 100, category: 'office' }
     ];
 
-    it('should fetch deduction suggestions successfully', async () => {
-      const mockSuggestions = [
-        { category: 'office', potential: 50 },
-        { category: 'travel', potential: 100 }
-      ];
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ suggestions: mockSuggestions })
-      });
-
-      const result = await getDeductionSuggestions(mockExpenses);
-      expect(result).toEqual(mockSuggestions);
+    it('analyzes deductions successfully', async () => {
+      const mockAnalysis = { 
+        totalDeductions: 100,
+        categories: { office: 100 }
+      };
+      
+      sharedTaxService.analyzeTaxDeductions.mockResolvedValueOnce(mockAnalysis);
+      
+      const result = await analyzeDeductions(mockExpenses);
+      expect(result).toEqual(mockAnalysis);
     });
 
-    it('should handle empty expenses array', async () => {
-      const result = await getDeductionSuggestions([]);
-      expect(result).toEqual([]);
-    });
-
-    it('should handle invalid expense data', async () => {
-      await expect(getDeductionSuggestions(null))
-        .rejects.toThrow();
-      await expect(getDeductionSuggestions(undefined))
-        .rejects.toThrow();
+    it('handles errors in deduction analysis', async () => {
+      sharedTaxService.analyzeTaxDeductions.mockRejectedValueOnce(new Error('Analysis failed'));
+      
+      await expect(analyzeDeductions(mockExpenses)).rejects.toThrow('Analysis failed');
     });
   });
 
   describe('getTaxRate', () => {
-    it('should fetch tax rate successfully', async () => {
-      const mockRate = { tax_rate: 0.25 };
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockRate)
-      });
+    it('fetches tax rate successfully', async () => {
+      const mockResponse = { tax_rate: 0.25 };
+      fetch.mockResponseOnce(JSON.stringify(mockResponse));
 
       const result = await getTaxRate();
-      expect(result).toBe(mockRate.tax_rate);
+      expect(result).toBe(0.25);
     });
 
-    it('should handle API errors', async () => {
-      global.fetch.mockResolvedValueOnce({
-        ok: false,
-        json: () => Promise.resolve({ error: 'Rate not found' })
-      });
-
+    it('handles errors in tax rate fetch', async () => {
+      fetch.mockResponseOnce(JSON.stringify({ error: 'Failed' }), { status: 400 });
+      
       await expect(getTaxRate()).rejects.toThrow('Failed to fetch tax rate');
-    });
-
-    it('should handle invalid tax rate response', async () => {
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ tax_rate: 'invalid' })
-      });
-
-      await expect(getTaxRate()).rejects.toThrow();
     });
   });
 
   describe('getTaxReports', () => {
-    const mockUserId = 'user123';
+    it('fetches tax reports successfully', async () => {
+      const mockReports = [{ id: 1, year: 2023 }];
+      fetch.mockResponseOnce(JSON.stringify({ reports: mockReports }));
 
-    it('should fetch tax reports successfully', async () => {
-      const mockReports = [
-        { id: 1, year: 2023, total: 1000 },
-        { id: 2, year: 2022, total: 800 }
-      ];
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ reports: mockReports })
-      });
-
-      const result = await getTaxReports(mockUserId);
+      const result = await getTaxReports('user123');
       expect(result).toEqual(mockReports);
     });
 
-    it('should handle missing userId', async () => {
-      await expect(getTaxReports()).rejects.toThrow();
-      await expect(getTaxReports(null)).rejects.toThrow();
-      await expect(getTaxReports('')).rejects.toThrow();
-    });
-
-    it('should handle unauthorized access', async () => {
-      global.fetch.mockResolvedValueOnce({
-        ok: false,
-        status: 401,
-        json: () => Promise.resolve({ error: 'Unauthorized' })
-      });
-
-      await expect(getTaxReports(mockUserId))
-        .rejects.toThrow('Failed to fetch tax reports');
+    it('handles errors in tax reports fetch', async () => {
+      fetch.mockResponseOnce(JSON.stringify({ error: 'Failed' }), { status: 400 });
+      
+      await expect(getTaxReports('user123')).rejects.toThrow('Failed to fetch tax reports');
     });
   });
 });

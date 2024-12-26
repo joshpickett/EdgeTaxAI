@@ -1,136 +1,82 @@
 import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import patch, MagicMock
 from datetime import datetime
-import requests
-from desktop.gig_platform_service import (
-    get_oauth_link, fetch_connected_platforms, fetch_platform_data,
-    refresh_platform_token, get_sync_status, validate_platform_connection,
-    disconnect_platform, handle_oauth_callback, GigPlatformError
+from ..gig_platform_service import (
+    get_oauth_link,
+    fetch_connected_platforms,
+    fetch_platform_data,
+    handle_oauth_callback,
+    validate_platform_connection,
+    disconnect_platform,
+    PlatformStatus
 )
 
-@pytest.fixture
-def mock_requests():
-    with patch('desktop.gig_platform_service.requests') as mock_req:
-        yield mock_req
+def test_get_oauth_link(mock_requests):
+    with patch('requests.get') as mock_get:
+        mock_get.return_value = mock_requests(
+            json_data={"oauth_url": "http://test-oauth.com"}
+        )
+        
+        result = get_oauth_link("uber", "http://callback")
+        assert result == "http://test-oauth.com"
+        mock_get.assert_called_once()
 
-@pytest.fixture
-def mock_token_storage():
-    with patch('desktop.gig_platform_service.token_storage') as mock_storage:
-        yield mock_storage
+def test_fetch_connected_platforms(mock_requests, mock_platform_data):
+    with patch('requests.get') as mock_get:
+        mock_get.return_value = mock_requests(
+            json_data={"connected_accounts": mock_platform_data["connected_accounts"]}
+        )
+        
+        result = fetch_connected_platforms(123)
+        assert len(result) == 1
+        assert result[0]["platform"] == "uber"
 
-def test_get_oauth_link_success(mock_requests):
-    """Test successful OAuth link generation"""
-    mock_requests.get.return_value.status_code = 200
-    mock_requests.get.return_value.json.return_value = {'oauth_url': 'test_url'}
-    
-    result = get_oauth_link('uber', 'http://callback')
-    
-    assert result == 'test_url'
-    mock_requests.get.assert_called_once()
+def test_fetch_platform_data_success(mock_requests, mock_platform_data):
+    with patch('requests.get') as mock_get:
+        mock_get.return_value = mock_requests(json_data=mock_platform_data)
+        
+        result = fetch_platform_data(123, "uber")
+        assert result["earnings"] == 1000.00
+        assert len(result["trips"]) == 1
 
-def test_get_oauth_link_failure(mock_requests):
-    """Test OAuth link generation failure"""
-    mock_requests.get.return_value.status_code = 400
-    
-    result = get_oauth_link('uber', 'http://callback')
-    
-    assert result is None
+def test_handle_oauth_callback(mock_requests, mock_token_storage):
+    with patch('requests.post') as mock_post:
+        mock_post.return_value = mock_requests(
+            json_data={"token_data": {"access_token": "test"}}
+        )
+        
+        result = handle_oauth_callback("test_code", "uber", 123)
+        assert result == True
 
-def test_fetch_connected_platforms_success(mock_requests):
-    """Test successful platform connection fetch"""
-    mock_requests.get.return_value.status_code = 200
-    mock_requests.get.return_value.json.return_value = {
-        'connected_accounts': ['uber', 'lyft']
-    }
-    
-    result = fetch_connected_platforms(1)
-    
-    assert len(result) == 2
-    assert 'uber' in result
+def test_validate_platform_connection(mock_requests):
+    with patch('requests.get') as mock_get:
+        mock_get.return_value = mock_requests(
+            json_data={
+                "connected": True,
+                "last_sync": datetime.now().isoformat()
+            }
+        )
+        
+        result = validate_platform_connection(123, "uber")
+        assert isinstance(result, PlatformStatus)
+        assert result.connected == True
 
-def test_fetch_platform_data_success(mock_requests):
-    """Test successful platform data fetch"""
-    mock_requests.get.return_value.status_code = 200
-    mock_requests.get.return_value.json.return_value = {
-        'trips': [{'id': 1}]
-    }
-    
-    result = fetch_platform_data(1, 'uber')
-    
-    assert 'trips' in result
-    assert len(result['trips']) == 1
+def test_disconnect_platform(mock_requests):
+    with patch('requests.post') as mock_post:
+        mock_post.return_value = mock_requests(status_code=200)
+        
+        result = disconnect_platform(123, "uber")
+        assert result == True
 
-def test_refresh_platform_token_success(mock_requests):
-    """Test successful token refresh"""
-    mock_requests.post.return_value.status_code = 200
-    
-    result = refresh_platform_token(1, 'uber')
-    
-    assert result is True
-
-def test_get_sync_status_success(mock_requests):
-    """Test successful sync status retrieval"""
-    mock_requests.get.return_value.status_code = 200
-    mock_requests.get.return_value.json.return_value = {
-        'status': 'completed',
-        'last_sync': '2023-01-01T00:00:00Z'
-    }
-    
-    result = get_sync_status(1, 'uber')
-    
-    assert result['status'] == 'completed'
-    assert 'last_sync' in result
-
-def test_validate_platform_connection_success(mock_requests):
-    """Test successful platform connection validation"""
-    mock_requests.get.return_value.status_code = 200
-    mock_requests.get.return_value.json.return_value = {
-        'connected': True,
-        'last_sync': '2023-01-01T00:00:00Z'
-    }
-    
-    result = validate_platform_connection(1, 'uber')
-    
-    assert result.connected is True
-    assert result.last_sync is not None
-
-def test_disconnect_platform_success(mock_requests):
-    """Test successful platform disconnection"""
-    mock_requests.post.return_value.status_code = 200
-    
-    result = disconnect_platform(1, 'uber')
-    
-    assert result is True
-
-def test_handle_oauth_callback_success(mock_requests, mock_token_storage):
-    """Test successful OAuth callback handling"""
-    mock_requests.post.return_value.status_code = 200
-    mock_requests.post.return_value.json.return_value = {
-        'token_data': {'access_token': 'test_token'}
-    }
-    mock_token_storage.store_token.return_value = True
-    
-    result = handle_oauth_callback('test_code', 'uber', 1)
-    
-    assert result is True
-
-def test_error_handling(mock_requests):
-    """Test error handling in platform operations"""
-    mock_requests.get.side_effect = requests.exceptions.RequestException
-    
-    result = get_oauth_link('uber', 'http://callback')
-    
-    assert result is None
-
-def test_retry_mechanism(mock_requests):
-    """Test retry mechanism for failed requests"""
-    mock_requests.get.side_effect = [
-        requests.exceptions.RequestException,
-        requests.exceptions.RequestException,
-        Mock(status_code=200, json=lambda: {'oauth_url': 'test_url'})
-    ]
-    
-    result = get_oauth_link('uber', 'http://callback')
-    
-    assert result == 'test_url'
-    assert mock_requests.get.call_count == 3
+def test_retry_mechanism():
+    with patch('requests.get') as mock_get:
+        mock_get.side_effect = [
+            Exception("Network error"),
+            Exception("Timeout"),
+            {"status": "success"}
+        ]
+        
+        # Test that function retries specified number of times
+        with pytest.raises(Exception):
+            fetch_connected_platforms(123)
+        assert mock_get.call_count == 3

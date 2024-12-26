@@ -1,90 +1,92 @@
 import pytest
-from unittest.mock import Mock, patch
 import streamlit as streamlit
+from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime
-from desktop.quarterly_tax_reminders import quarterly_tax_reminders_page
+from ..quarterly_tax_reminders import quarterly_tax_reminders_page
 
 @pytest.fixture
 def mock_streamlit():
-    with patch('desktop.quarterly_tax_reminders.streamlit') as mock_streamlit:
-        yield mock_streamlit
+    with patch('streamlit.title') as mock_title, \
+         patch('streamlit.image') as mock_image, \
+         patch('streamlit.markdown') as mock_markdown, \
+         patch('streamlit.session_state') as mock_session:
+        mock_session.user_id = 123
+        yield {
+            'title': mock_title,
+            'image': mock_image,
+            'markdown': mock_markdown,
+            'session': mock_session
+        }
 
 @pytest.fixture
 def mock_requests():
-    with patch('desktop.quarterly_tax_reminders.requests') as mock_requests:
-        yield mock_requests
+    with patch('requests.post') as mock_post:
+        yield mock_post
+
+def test_quarterly_tax_reminders_page_initialization(mock_streamlit):
+    quarterly_tax_reminders_page()
+    mock_streamlit['title'].assert_called_once_with("Quarterly Tax Reminders")
+    mock_streamlit['markdown'].assert_called_with("#### Schedule SMS reminders for your quarterly tax payments.")
 
 def test_unauthorized_access(mock_streamlit):
-    """Test unauthorized access handling"""
-    with patch.dict(streamlit.session_state, clear=True):
+    with patch('streamlit.session_state') as mock_session, \
+         patch('streamlit.error') as mock_error:
+        mock_session.get.return_value = None
         quarterly_tax_reminders_page()
-        mock_streamlit.error.assert_called_once_with("Please log in to set tax reminders.")
+        mock_error.assert_called_once_with("Please log in to set tax reminders.")
 
-def test_schedule_reminder_success(mock_streamlit, mock_requests):
-    """Test successful reminder scheduling"""
-    # Mock session state
-    with patch.dict(streamlit.session_state, {'user_id': '123'}):
-        # Mock user inputs
-        mock_streamlit.text_input.return_value = "+1234567890"
-        mock_streamlit.date_input.return_value = datetime.now().date()
-        mock_streamlit.button.return_value = True
+def test_successful_reminder_scheduling(mock_streamlit, mock_requests):
+    with patch('streamlit.text_input') as mock_input, \
+         patch('streamlit.date_input') as mock_date, \
+         patch('streamlit.button') as mock_button, \
+         patch('streamlit.success') as mock_success:
         
-        # Mock API response
-        mock_requests.post.return_value.status_code = 200
+        mock_input.return_value = "+1234567890"
+        mock_date.return_value = datetime.now().date()
+        mock_button.return_value = True
+        mock_requests.return_value.status_code = 200
         
         quarterly_tax_reminders_page()
-        
-        mock_streamlit.success.assert_called_once_with("Reminder scheduled successfully!")
+        mock_success.assert_called_once_with("Reminder scheduled successfully!")
 
-def test_schedule_reminder_missing_fields(mock_streamlit, mock_requests):
-    """Test reminder scheduling with missing fields"""
-    with patch.dict(streamlit.session_state, {'user_id': '123'}):
-        mock_streamlit.text_input.return_value = ""
-        mock_streamlit.date_input.return_value = None
-        mock_streamlit.button.return_value = True
+def test_missing_fields_validation(mock_streamlit):
+    with patch('streamlit.text_input') as mock_input, \
+         patch('streamlit.date_input') as mock_date, \
+         patch('streamlit.button') as mock_button, \
+         patch('streamlit.error') as mock_error:
+        
+        mock_input.return_value = ""
+        mock_date.return_value = None
+        mock_button.return_value = True
         
         quarterly_tax_reminders_page()
-        
-        mock_streamlit.error.assert_called_with("Both phone number and reminder date are required.")
+        mock_error.assert_called_once_with("Both phone number and reminder date are required.")
 
-def test_schedule_reminder_api_error(mock_streamlit, mock_requests):
-    """Test reminder scheduling with API error"""
-    with patch.dict(streamlit.session_state, {'user_id': '123'}):
-        mock_streamlit.text_input.return_value = "+1234567890"
-        mock_streamlit.date_input.return_value = datetime.now().date()
-        mock_streamlit.button.return_value = True
+def test_api_error_handling(mock_streamlit, mock_requests):
+    with patch('streamlit.text_input') as mock_input, \
+         patch('streamlit.date_input') as mock_date, \
+         patch('streamlit.button') as mock_button, \
+         patch('streamlit.error') as mock_error:
         
-        # Mock API error
-        mock_requests.post.return_value.status_code = 500
-        mock_requests.post.return_value.json.return_value = {"error": "API Error"}
+        mock_input.return_value = "+1234567890"
+        mock_date.return_value = datetime.now().date()
+        mock_button.return_value = True
+        mock_requests.return_value.status_code = 500
+        mock_requests.return_value.json.return_value = {"error": "API Error"}
         
         quarterly_tax_reminders_page()
-        
-        mock_streamlit.error.assert_called_once()
+        mock_error.assert_called_once_with("API Error")
 
-def test_schedule_reminder_exception(mock_streamlit, mock_requests):
-    """Test reminder scheduling with exception"""
-    with patch.dict(streamlit.session_state, {'user_id': '123'}):
-        mock_streamlit.text_input.return_value = "+1234567890"
-        mock_streamlit.date_input.return_value = datetime.now().date()
-        mock_streamlit.button.return_value = True
+def test_exception_handling(mock_streamlit, mock_requests):
+    with patch('streamlit.text_input') as mock_input, \
+         patch('streamlit.date_input') as mock_date, \
+         patch('streamlit.button') as mock_button, \
+         patch('streamlit.error') as mock_error:
         
-        # Mock exception
-        mock_requests.post.side_effect = Exception("Connection error")
+        mock_input.return_value = "+1234567890"
+        mock_date.return_value = datetime.now().date()
+        mock_button.return_value = True
+        mock_requests.side_effect = Exception("Network Error")
         
         quarterly_tax_reminders_page()
-        
-        mock_streamlit.error.assert_called_with(
-            "An unexpected error occurred while scheduling the reminder."
-        )
-
-def test_page_layout(mock_streamlit):
-    """Test page layout and components"""
-    with patch.dict(streamlit.session_state, {'user_id': '123'}):
-        quarterly_tax_reminders_page()
-        
-        mock_streamlit.title.assert_called_once_with("Quarterly Tax Reminders")
-        mock_streamlit.image.assert_called_once()
-        mock_streamlit.markdown.assert_called_once_with(
-            "#### Schedule SMS reminders for your quarterly tax payments."
-        )
+        mock_error.assert_called_once_with("An unexpected error occurred while scheduling the reminder.")

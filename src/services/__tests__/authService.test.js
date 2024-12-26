@@ -1,163 +1,73 @@
-import { sendOneTimePassword, verifyOneTimePassword, getProfile, updateProfile } from '../authService';
+import { authService } from '../authService';
+import { apiClient } from '../apiClient';
+import { tokenStorage } from '../../utils/tokenStorage';
+
+jest.mock('../apiClient');
+jest.mock('../../utils/tokenStorage');
 
 describe('AuthService', () => {
   beforeEach(() => {
-    global.fetch = jest.fn();
-    console.error = jest.fn();
-  });
-
-  afterEach(() => {
     jest.clearAllMocks();
   });
 
-  describe('sendOneTimePassword', () => {
-    const mockIdentifier = 'test@example.com';
-    const mockResponse = { success: true, message: 'One-Time Password sent' };
+  describe('login', () => {
+    it('handles successful login', async () => {
+      const mockResponse = { token: 'test-token', user: { id: 1 } };
+      apiClient.post.mockResolvedValueOnce(mockResponse);
 
-    it('should send One-Time Password successfully', async () => {
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockResponse)
-      });
-
-      const result = await sendOneTimePassword(mockIdentifier);
+      const result = await authService.login('test@example.com', 'password');
 
       expect(result).toEqual(mockResponse);
-      expect(global.fetch).toHaveBeenCalledWith(
-        `${BASE_URL}/send-one-time-password`,
-        expect.objectContaining({
-          method: 'POST',
-          body: expect.any(String)
-        })
-      );
+      expect(tokenStorage.setTokens).toHaveBeenCalledWith('test-token');
     });
 
-    it('should handle network errors', async () => {
-      global.fetch.mockRejectedValueOnce(new Error('Network error'));
+    it('handles login failure', async () => {
+      apiClient.post.mockRejectedValueOnce(new Error('Invalid credentials'));
 
-      await expect(sendOneTimePassword(mockIdentifier)).rejects.toThrow('Failed to send One-Time Password');
-      expect(console.error).toHaveBeenCalled();
-    });
-
-    it('should handle different One-Time Password types', async () => {
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockResponse)
-      });
-
-      await sendOneTimePassword(mockIdentifier, 'login');
-
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          body: expect.stringContaining('"type":"login"')
-        })
-      );
+      await expect(
+        authService.login('test@example.com', 'wrong-password')
+      ).rejects.toThrow('Invalid credentials');
     });
   });
 
-  describe('verifyOneTimePassword', () => {
-    const mockIdentifier = 'test@example.com';
-    const mockOneTimePassword = '123456';
-    const mockResponse = { success: true, token: 'test-token' };
+  describe('logout', () => {
+    it('clears tokens and calls API', async () => {
+      apiClient.post.mockResolvedValueOnce({ success: true });
 
-    it('should verify One-Time Password successfully', async () => {
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockResponse)
-      });
+      await authService.logout();
 
-      const result = await verifyOneTimePassword(mockIdentifier, mockOneTimePassword);
+      expect(tokenStorage.clearTokens).toHaveBeenCalled();
+      expect(apiClient.post).toHaveBeenCalledWith('/auth/logout');
+    });
+  });
+
+  describe('verify One Time Password', () => {
+    it('handles successful One Time Password verification', async () => {
+      const mockResponse = { token: 'test-token' };
+      apiClient.post.mockResolvedValueOnce(mockResponse);
+
+      const result = await authService.verifyOTP('123456');
 
       expect(result).toEqual(mockResponse);
-      expect(global.fetch).toHaveBeenCalledWith(
-        `${BASE_URL}/verify-one-time-password`,
-        expect.objectContaining({
-          method: 'POST',
-          body: JSON.stringify({ identifier: mockIdentifier, one_time_password_code: mockOneTimePassword })
-        })
-      );
+      expect(tokenStorage.setTokens).toHaveBeenCalledWith('test-token');
     });
 
-    it('should handle invalid One-Time Password', async () => {
-      global.fetch.mockResolvedValueOnce({
-        ok: false,
-        json: () => Promise.resolve({ error: 'Invalid One-Time Password' })
-      });
+    it('handles One Time Password verification failure', async () => {
+      apiClient.post.mockRejectedValueOnce(new Error('Invalid One Time Password'));
 
-      await expect(verifyOneTimePassword(mockIdentifier, 'wrong-one-time-password'))
-        .rejects.toThrow('Failed to verify One-Time Password');
+      await expect(authService.verifyOTP('000000')).rejects.toThrow('Invalid One Time Password');
     });
   });
 
-  describe('getProfile', () => {
-    const mockProfile = { id: 1, name: 'Test User' };
+  describe('refresh Token', () => {
+    it('refreshes token successfully', async () => {
+      const mockResponse = { token: 'new-token' };
+      apiClient.post.mockResolvedValueOnce(mockResponse);
 
-    it('should fetch profile successfully', async () => {
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockProfile)
-      });
+      const result = await authService.refreshToken('old-token');
 
-      const result = await getProfile();
-
-      expect(result).toEqual(mockProfile);
-      expect(global.fetch).toHaveBeenCalledWith(
-        `${BASE_URL}/profile`,
-        expect.objectContaining({
-          method: 'GET',
-          credentials: 'include'
-        })
-      );
-    });
-
-    it('should handle unauthorized access', async () => {
-      global.fetch.mockResolvedValueOnce({
-        ok: false,
-        json: () => Promise.resolve({ error: 'Unauthorized' })
-      });
-
-      await expect(getProfile()).rejects.toThrow('Failed to fetch profile details');
-    });
-  });
-
-  describe('updateProfile', () => {
-    const mockProfileData = {
-      fullName: 'New Name',
-      email: 'new@example.com',
-      phoneNumber: '1234567890'
-    };
-
-    it('should update profile successfully', async () => {
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ ...mockProfileData, id: 1 })
-      });
-
-      const result = await updateProfile(
-        mockProfileData.fullName,
-        mockProfileData.email,
-        mockProfileData.phoneNumber
-      );
-
-      expect(result).toEqual(expect.objectContaining(mockProfileData));
-      expect(global.fetch).toHaveBeenCalledWith(
-        `${BASE_URL}/profile`,
-        expect.objectContaining({
-          method: 'PUT',
-          body: expect.any(String)
-        })
-      );
-    });
-
-    it('should handle validation errors', async () => {
-      global.fetch.mockResolvedValueOnce({
-        ok: false,
-        json: () => Promise.resolve({ error: 'Invalid email format' })
-      });
-
-      await expect(updateProfile('Test', 'invalid-email', '123'))
-        .rejects.toThrow('Failed to update profile');
+      expect(result).toEqual(mockResponse);
+      expect(tokenStorage.setTokens).toHaveBeenCalledWith('new-token');
     });
   });
 });

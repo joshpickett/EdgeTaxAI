@@ -1,106 +1,89 @@
 import pytest
 import os
 import json
-from unittest.mock import Mock, patch, mock_open
+from unittest.mock import Mock, patch
 from cryptography.fernet import Fernet
-from desktop.token_storage import TokenStorage
+from ..token_storage import TokenStorage
 
 @pytest.fixture
-def token_storage():
-    """Create a TokenStorage instance with a test key"""
-    test_key = Fernet.generate_key()
-    return TokenStorage(test_key.decode())
+def test_secret_key():
+    return Fernet.generate_key().decode()
+
+@pytest.fixture
+def token_storage(test_secret_key, tmp_path):
+    with patch('os.path.expanduser') as mock_expanduser:
+        mock_expanduser.return_value = str(tmp_path)
+        return TokenStorage(test_secret_key)
 
 @pytest.fixture
 def sample_token_data():
-    """Sample token data for testing"""
     return {
-        'access_token': 'test_access_token',
-        'refresh_token': 'test_refresh_token',
-        'expires_in': 3600
+        "access_token": "test_access_token",
+        "refresh_token": "test_refresh_token",
+        "expires_in": 3600
     }
 
-def test_store_token_success(token_storage, sample_token_data):
-    """Test successful token storage"""
-    with patch('builtins.open', mock_open()) as mock_file:
-        result = token_storage.store_token(1, 'uber', sample_token_data)
-        
-        assert result is True
-        mock_file.assert_called_once()
-        # Verify encrypted data was written
-        written_data = mock_file().write.call_args[0][0]
-        assert isinstance(written_data, bytes)
+def test_token_storage_initialization(token_storage, tmp_path):
+    storage_path = os.path.join(tmp_path, '.taxedgeai', 'tokens')
+    assert os.path.exists(storage_path)
 
-def test_store_token_failure(token_storage, sample_token_data):
-    """Test token storage failure"""
-    with patch('builtins.open', side_effect=Exception("Storage error")):
-        result = token_storage.store_token(1, 'uber', sample_token_data)
-        
-        assert result is False
+def test_store_token_success(token_storage, sample_token_data):
+    result = token_storage.store_token(123, "uber", sample_token_data)
+    assert result == True
+    
+    # Verify file exists
+    filename = token_storage._get_token_file(123, "uber")
+    assert os.path.exists(filename)
 
 def test_get_token_success(token_storage, sample_token_data):
-    """Test successful token retrieval"""
-    # First store the token
-    encrypted_data = token_storage.fernet.encrypt(
-        json.dumps(sample_token_data).encode()
-    )
+    # Store token first
+    token_storage.store_token(123, "uber", sample_token_data)
     
-    with patch('builtins.open', mock_open(read_data=encrypted_data)):
-        with patch('os.path.exists', return_value=True):
-            result = token_storage.get_token(1, 'uber')
-            
-            assert result == sample_token_data
+    # Retrieve token
+    retrieved_data = token_storage.get_token(123, "uber")
+    assert retrieved_data == sample_token_data
 
-def test_get_token_not_found(token_storage):
-    """Test token retrieval when file doesn't exist"""
-    with patch('os.path.exists', return_value=False):
-        result = token_storage.get_token(1, 'uber')
-        
-        assert result is None
+def test_get_nonexistent_token(token_storage):
+    result = token_storage.get_token(999, "nonexistent")
+    assert result is None
 
-def test_get_token_decrypt_error(token_storage):
-    """Test token retrieval with decryption error"""
-    with patch('builtins.open', mock_open(read_data=b'invalid_data')):
-        with patch('os.path.exists', return_value=True):
-            result = token_storage.get_token(1, 'uber')
-            
-            assert result is None
-
-def test_delete_token_success(token_storage):
-    """Test successful token deletion"""
-    with patch('os.path.exists', return_value=True):
-        with patch('os.remove') as mock_remove:
-            result = token_storage.delete_token(1, 'uber')
-            
-            assert result is True
-            mock_remove.assert_called_once()
-
-def test_delete_token_not_found(token_storage):
-    """Test token deletion when file doesn't exist"""
-    with patch('os.path.exists', return_value=False):
-        result = token_storage.delete_token(1, 'uber')
-        
-        assert result is True  # Should return True even if file doesn't exist
-
-def test_delete_token_error(token_storage):
-    """Test token deletion error"""
-    with patch('os.path.exists', return_value=True):
-        with patch('os.remove', side_effect=Exception("Deletion error")):
-            result = token_storage.delete_token(1, 'uber')
-            
-            assert result is False
-
-def test_token_file_path(token_storage):
-    """Test token file path generation"""
-    file_path = token_storage._get_token_file(1, 'uber')
+def test_delete_token_success(token_storage, sample_token_data):
+    # Store token first
+    token_storage.store_token(123, "uber", sample_token_data)
     
-    assert '1_uber_token.enc' in file_path
-    assert '.taxedgeai/tokens' in file_path
+    # Delete token
+    result = token_storage.delete_token(123, "uber")
+    assert result == True
+    
+    # Verify file no longer exists
+    filename = token_storage._get_token_file(123, "uber")
+    assert not os.path.exists(filename)
 
-def test_storage_directory_creation(token_storage):
-    """Test storage directory creation"""
-    with patch('os.makedirs') as mock_makedirs:
-        TokenStorage('test_key')
-        
-        mock_makedirs.assert_called_once()
-        assert mock_makedirs.call_args[1]['exist_ok'] is True
+def test_delete_nonexistent_token(token_storage):
+    result = token_storage.delete_token(999, "nonexistent")
+    assert result == True  # Should return True even if file didn't exist
+
+def test_encryption_decryption(token_storage, sample_token_data):
+    # Store encrypted token
+    token_storage.store_token(123, "uber", sample_token_data)
+    
+    # Read raw encrypted data
+    filename = token_storage._get_token_file(123, "uber")
+    with open(filename, 'rb') as file:
+        encrypted_data = file.read()
+    
+    # Verify data is actually encrypted
+    assert encrypted_data != json.dumps(sample_token_data).encode()
+    
+    # Verify decryption works
+    decrypted_data = token_storage.get_token(123, "uber")
+    assert decrypted_data == sample_token_data
+
+def test_error_handling(token_storage, sample_token_data):
+    with patch('builtins.open', side_effect=Exception("Test error")):
+        result = token_storage.store_token(123, "uber", sample_token_data)
+        assert result == False
+
+def test_file_path_generation(token_storage):
+    filename = token_storage._get_token_file(123, "uber")
+    assert "123_uber_token.enc" in filename

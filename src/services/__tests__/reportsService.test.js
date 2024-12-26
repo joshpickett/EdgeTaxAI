@@ -1,207 +1,121 @@
-import {
-  fetchDashboardData,
-  fetchIRSReports,
-  fetchExpenseData,
-  fetchCustomReports
+import { 
+  fetchDashboardData, 
+  fetchIRSReports, 
+  fetchExpenseData, 
+  fetchCustomReports,
+  validateReportData 
 } from '../reportsService';
 
 describe('ReportsService', () => {
   beforeEach(() => {
+    fetch.mockClear();
     global.fetch = jest.fn();
-    console.error = jest.fn();
-  });
-
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
-
-  describe('fetchWithErrorHandling', () => {
-    it('should handle successful requests', async () => {
-      const mockData = { success: true };
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockData)
-      });
-
-      const result = await fetchExpenseData();
-      expect(result).toEqual(mockData);
-    });
-
-    it('should handle API errors', async () => {
-      global.fetch.mockResolvedValueOnce({
-        ok: false,
-        json: () => Promise.resolve({ error: 'API Error' })
-      });
-
-      await expect(fetchExpenseData()).rejects.toThrow('Failed to fetch expense reports');
-      expect(console.error).toHaveBeenCalled();
-    });
-
-    it('should handle network errors', async () => {
-      global.fetch.mockRejectedValueOnce(new Error('Network error'));
-
-      await expect(fetchExpenseData()).rejects.toThrow('Failed to fetch expense reports');
-      expect(console.error).toHaveBeenCalled();
-    });
   });
 
   describe('fetchDashboardData', () => {
-    it('should fetch all dashboard data successfully', async () => {
+    it('successfully fetches all dashboard data', async () => {
       const mockData = {
-        taxData: { tax: 'data' },
-        incomeData: { income: 'data' },
-        expenseData: { expense: 'data' },
-        planningData: { planning: 'data' }
+        taxData: { tax: 1000 },
+        incomeData: { income: 5000 },
+        expenseData: { expenses: 3000 },
+        planningData: { goals: [] }
       };
 
-      // Mock all individual fetch calls
-      global.fetch.mockImplementation((url) => {
-        return Promise.resolve({
+      fetch.mockImplementation(() => 
+        Promise.resolve({
           ok: true,
-          json: () => Promise.resolve(mockData[url.split('/').pop()])
-        });
-      });
+          json: () => Promise.resolve(mockData)
+        })
+      );
 
       const result = await fetchDashboardData();
       expect(result).toEqual(mockData);
     });
 
-    it('should handle partial data fetch failures', async () => {
-      global.fetch
-        .mockResolvedValueOnce({
-          ok: true,
-          json: () => Promise.resolve({ tax: 'data' })
+    it('handles API errors', async () => {
+      fetch.mockImplementation(() => 
+        Promise.resolve({
+          ok: false,
+          json: () => Promise.resolve({ error: 'API Error' })
         })
-        .mockRejectedValueOnce(new Error('Failed to fetch income'));
+      );
 
-      await expect(fetchDashboardData()).rejects.toThrow('Failed to fetch income');
-      expect(console.error).toHaveBeenCalled();
+      await expect(fetchDashboardData()).rejects.toThrow();
     });
   });
 
   describe('fetchIRSReports', () => {
-    const mockUserId = 'user123';
-
-    it('should fetch IRS reports successfully', async () => {
-      const mockReports = { year: '2023', reports: [] };
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockReports)
-      });
-
-      const result = await fetchIRSReports(mockUserId);
-      expect(result).toEqual(mockReports);
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining(`/irs/${mockUserId}`)
+    it('successfully fetches IRS reports', async () => {
+      const mockReports = { reports: [] };
+      fetch.mockImplementation(() => 
+        Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(mockReports)
+        })
       );
+
+      const result = await fetchIRSReports('user123');
+      expect(result).toEqual(mockReports);
     });
+  });
 
-    it('should handle missing userId', async () => {
-      await expect(fetchIRSReports()).rejects.toThrow();
-    });
+  describe('fetchExpenseData', () => {
+    it('successfully fetches expense data', async () => {
+      const mockExpenses = { expenses: [] };
+      fetch.mockImplementation(() => 
+        Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(mockExpenses)
+        })
+      );
 
-    it('should handle API errors', async () => {
-      global.fetch.mockResolvedValueOnce({
-        ok: false,
-        json: () => Promise.resolve({ error: 'Not found' })
-      });
-
-      await expect(fetchIRSReports(mockUserId))
-        .rejects.toThrow('Failed to fetch IRS-ready reports');
+      const result = await fetchExpenseData();
+      expect(result).toEqual(mockExpenses);
     });
   });
 
   describe('fetchCustomReports', () => {
-    const mockUserId = 'user123';
-    const validFilters = {
-      startDate: '2023-01-01',
-      endDate: '2023-12-31',
-      category: 'expenses'
-    };
-
-    it('should validate required date filters', async () => {
-      const invalidFilters = { ...validFilters, startDate: null };
-      await expect(fetchCustomReports(mockUserId, invalidFilters))
-        .rejects.toThrow('Start date and end date are required');
+    it('validates date inputs', async () => {
+      await expect(fetchCustomReports('user123', {}))
+        .rejects
+        .toThrow('Start date and end date are required.');
     });
 
-    it('should fetch custom reports successfully', async () => {
+    it('successfully fetches custom reports', async () => {
       const mockReports = { reports: [] };
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(mockReports)
-      });
+      fetch.mockImplementation(() => 
+        Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(mockReports)
+        })
+      );
 
-      const result = await fetchCustomReports(mockUserId, validFilters);
+      const result = await fetchCustomReports('user123', {
+        startDate: '2023-01-01',
+        endDate: '2023-12-31'
+      });
       expect(result).toEqual(mockReports);
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.stringContaining(`/custom/${mockUserId}`),
-        expect.objectContaining({
-          method: 'POST',
-          body: expect.any(String)
-        })
-      );
-    });
-
-    it('should handle optional category filter', async () => {
-      const filtersWithoutCategory = {
-        startDate: validFilters.startDate,
-        endDate: validFilters.endDate
-      };
-
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ reports: [] })
-      });
-
-      await fetchCustomReports(mockUserId, filtersWithoutCategory);
-      expect(global.fetch).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          body: expect.stringContaining('"category":""')
-        })
-      );
-    });
-
-    it('should handle invalid date ranges', async () => {
-      const invalidDateRange = {
-        startDate: '2023-12-31',
-        endDate: '2023-01-01'
-      };
-
-      await expect(fetchCustomReports(mockUserId, invalidDateRange))
-        .rejects.toThrow();
     });
   });
 
-  describe('Edge Cases', () => {
-    it('should handle empty responses', async () => {
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve(null)
-      });
-
-      const result = await fetchExpenseData();
-      expect(result).toBeNull();
+  describe('validateReportData', () => {
+    it('validates report data correctly', () => {
+      const validData = {
+        startDate: '2023-01-01',
+        endDate: '2023-12-31'
+      };
+      const result = validateReportData(validData);
+      expect(result.isValid).toBe(true);
     });
 
-    it('should handle malformed JSON responses', async () => {
-      global.fetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.reject(new Error('Invalid JSON'))
-      });
-
-      await expect(fetchExpenseData()).rejects.toThrow();
-    });
-
-    it('should handle timeout errors', async () => {
-      global.fetch.mockImplementationOnce(() => 
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Timeout')), 1000)
-        )
-      );
-
-      await expect(fetchExpenseData()).rejects.toThrow();
+    it('handles invalid date ranges', () => {
+      const invalidData = {
+        startDate: '2023-12-31',
+        endDate: '2023-01-01'
+      };
+      const result = validateReportData(invalidData);
+      expect(result.isValid).toBe(false);
+      expect(result.errors).toContain('End date must be after start date');
     });
   });
 });

@@ -1,133 +1,125 @@
 import pytest
-from unittest.mock import Mock, patch
 import streamlit as streamlit
+from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime
-from desktop.mileage_tracker import mileage_tracker_page, track_new_trip, view_trip_history
+from ..mileage_tracker import mileage_tracker_page, track_new_trip, view_trip_history
+
+@pytest.fixture
+def mock_mileage_service():
+    return Mock()
 
 @pytest.fixture
 def mock_streamlit():
-    with patch('desktop.mileage_tracker.streamlit') as mock_streamlit:
-        yield mock_streamlit
-
-@pytest.fixture
-def mock_requests():
-    with patch('desktop.mileage_tracker.requests') as mock_requests:
-        yield mock_requests
-
-@pytest.fixture
-def sample_trip_data():
-    return {
-        'distance': 25.5,
-        'tax_deduction': 14.75,
-        'start': '123 Main St',
-        'end': '456 Oak Ave',
-        'purpose': 'Client Meeting'
-    }
-
-def test_track_new_trip_success(mock_streamlit, mock_requests, sample_trip_data):
-    """Test successful trip tracking"""
-    mock_requests.post.return_value.status_code = 200
-    mock_requests.post.return_value.json.return_value = sample_trip_data
-    
-    # Mock user inputs
-    mock_streamlit.text_input.side_effect = [
-        sample_trip_data['start'],
-        sample_trip_data['end'],
-        sample_trip_data['purpose']
-    ]
-    mock_streamlit.date_input.return_value = datetime.now()
-    mock_streamlit.checkbox.return_value = False
-    mock_streamlit.button.return_value = True
-    
-    track_new_trip('http://test-api')
-    
-    mock_streamlit.success.assert_called_once()
-    mock_requests.post.assert_called_once()
-
-def test_track_new_trip_missing_fields(mock_streamlit, mock_requests):
-    """Test trip tracking with missing fields"""
-    mock_streamlit.text_input.side_effect = ['', '', '']
-    mock_streamlit.button.return_value = True
-    
-    track_new_trip('http://test-api')
-    
-    mock_streamlit.error.assert_called_with("All fields are required.")
-    mock_requests.post.assert_not_called()
-
-def test_track_new_trip_api_error(mock_streamlit, mock_requests):
-    """Test trip tracking with API error"""
-    mock_requests.post.return_value.status_code = 400
-    mock_requests.post.return_value.json.return_value = {'error': 'API Error'}
-    
-    mock_streamlit.text_input.side_effect = ['Start', 'End', 'Purpose']
-    mock_streamlit.date_input.return_value = datetime.now()
-    mock_streamlit.button.return_value = True
-    
-    track_new_trip('http://test-api')
-    
-    mock_streamlit.error.assert_called()
-
-def test_view_trip_history_success(mock_streamlit, mock_requests):
-    """Test successful trip history viewing"""
-    mock_requests.get.return_value.status_code = 200
-    mock_requests.get.return_value.json.return_value = [
-        {
-            'date': '2023-01-01',
-            'start': 'Start Location',
-            'end': 'End Location',
-            'distance': 20.0,
-            'purpose': 'Business',
-            'tax_deduction': 11.60
+    with patch('streamlit.title') as mock_title, \
+         patch('streamlit.image') as mock_image, \
+         patch('streamlit.markdown') as mock_markdown, \
+         patch('streamlit.tabs') as mock_tabs:
+        yield {
+            'title': mock_title,
+            'image': mock_image,
+            'markdown': mock_markdown,
+            'tabs': mock_tabs
         }
-    ]
-    
-    view_trip_history('http://test-api')
-    
-    mock_streamlit.table.assert_called_once()
-    mock_requests.get.assert_called_once()
 
-def test_view_trip_history_empty(mock_streamlit, mock_requests):
-    """Test viewing empty trip history"""
-    mock_requests.get.return_value.status_code = 200
-    mock_requests.get.return_value.json.return_value = []
-    
-    view_trip_history('http://test-api')
-    
-    mock_streamlit.info.assert_called_with("No trips recorded yet.")
+def test_mileage_tracker_page_initialization(mock_streamlit):
+    mileage_tracker_page("http://test-api")
+    mock_streamlit['title'].assert_called_once_with("Mileage Tracker")
+    mock_streamlit['markdown'].assert_called_with("#### Track your business mileage for tax deductions")
 
-def test_view_trip_history_error(mock_streamlit, mock_requests):
-    """Test trip history viewing with error"""
-    mock_requests.get.side_effect = Exception("API Error")
-    
-    view_trip_history('http://test-api')
-    
-    mock_streamlit.error.assert_called()
+def test_track_new_trip_success(mock_mileage_service):
+    with patch('streamlit.text_input') as mock_input, \
+         patch('streamlit.date_input') as mock_date, \
+         patch('streamlit.button') as mock_button, \
+         patch('streamlit.success') as mock_success:
+        
+        mock_input.side_effect = ["123 Start St", "456 End St", "Business Meeting"]
+        mock_date.return_value = datetime.now()
+        mock_button.return_value = True
+        
+        mock_mileage_service.calculateMileage.return_value = {
+            'status_code': 200,
+            'data': {
+                'distance': 10.5,
+                'tax_deduction': 5.25
+            }
+        }
+        
+        track_new_trip(mock_mileage_service)
+        mock_success.assert_called_once()
+        mock_mileage_service.calculateMileage.assert_called_once()
 
-def test_recurring_trip_setup(mock_streamlit, mock_requests, sample_trip_data):
-    """Test setting up recurring trip"""
-    mock_requests.post.return_value.status_code = 200
-    mock_requests.post.return_value.json.return_value = sample_trip_data
-    
-    mock_streamlit.text_input.side_effect = [
-        sample_trip_data['start'],
-        sample_trip_data['end'],
-        sample_trip_data['purpose']
-    ]
-    mock_streamlit.date_input.return_value = datetime.now()
-    mock_streamlit.checkbox.return_value = True
-    mock_streamlit.selectbox.return_value = "Weekly"
-    mock_streamlit.button.return_value = True
-    
-    track_new_trip('http://test-api')
-    
-    mock_streamlit.success.assert_called()
-    assert "recurring" in mock_requests.post.call_args[1]['json']
+def test_track_new_trip_validation_error(mock_mileage_service):
+    with patch('streamlit.text_input') as mock_input, \
+         patch('streamlit.button') as mock_button, \
+         patch('streamlit.error') as mock_error:
+        
+        mock_input.side_effect = ["", "", ""]
+        mock_button.return_value = True
+        
+        track_new_trip(mock_mileage_service)
+        mock_error.assert_called_with("All fields are required.")
+        mock_mileage_service.calculateMileage.assert_not_called()
 
-def test_mileage_tracker_page_tabs(mock_streamlit):
-    """Test mileage tracker page tabs"""
-    mock_tabs = [Mock(), Mock()]
-    mock_streamlit.tabs.return_value = mock_tabs
+def test_view_trip_history_success(mock_mileage_service):
+    mock_trips = {
+        'status_code': 200,
+        'data': [
+            {
+                'date': '2023-01-01',
+                'start': '123 Start St',
+                'end': '456 End St',
+                'distance': 10.5,
+                'purpose': 'Business Meeting',
+                'tax_deduction': 5.25
+            }
+        ]
+    }
     
-    mileage_tracker_page('http://test-api')
+    mock_mileage_service.getMileageHistory.return_value = mock_trips
     
-    mock_streamlit.tabs.assert_called_once_with(["Track New Trip", "View History"])
+    with patch('streamlit.metric') as mock_metric:
+        view_trip_history(mock_mileage_service)
+        assert mock_metric.call_count == 2
+
+def test_view_trip_history_error(mock_mileage_service):
+    mock_mileage_service.getMileageHistory.side_effect = Exception("API Error")
+    
+    with patch('streamlit.error') as mock_error:
+        view_trip_history(mock_mileage_service)
+        mock_error.assert_called_with("Error fetching trip history: API Error")
+
+def test_recurring_trip_functionality(mock_mileage_service):
+    with patch('streamlit.text_input') as mock_input, \
+         patch('streamlit.date_input') as mock_date, \
+         patch('streamlit.checkbox') as mock_checkbox, \
+         patch('streamlit.selectbox') as mock_selectbox, \
+         patch('streamlit.button') as mock_button:
+        
+        mock_input.side_effect = ["123 Start St", "456 End St", "Daily Commute"]
+        mock_date.return_value = datetime.now()
+        mock_checkbox.return_value = True
+        mock_selectbox.return_value = "Daily"
+        mock_button.return_value = True
+        
+        mock_mileage_service.calculateMileage.return_value = {
+            'status_code': 200,
+            'data': {
+                'distance': 10.5,
+                'tax_deduction': 5.25
+            }
+        }
+        
+        track_new_trip(mock_mileage_service)
+        
+        expected_payload = {
+            'start': '123 Start St',
+            'end': '456 End St',
+            'purpose': 'Daily Commute',
+            'recurring': True,
+            'frequency': 'Daily'
+        }
+        
+        mock_mileage_service.calculateMileage.assert_called_once()
+        actual_payload = mock_mileage_service.calculateMileage.call_args[0][0]
+        assert actual_payload['recurring'] == expected_payload['recurring']
+        assert actual_payload['frequency'] == expected_payload['frequency']
