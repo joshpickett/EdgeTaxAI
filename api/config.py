@@ -22,6 +22,11 @@ class Config:
     DEBUG = os.getenv("DEBUG_MODE", "False").lower() == "true"  # Enable Flask debug mode
     SECRET_KEY = os.getenv("SECRET_KEY", "supersecretkey")  # Flask session encryption key
 
+    # Redis Configuration
+    REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
+    REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))
+    REDIS_DB = int(os.getenv('REDIS_DB', 0))
+
     # Test Generation Settings
     # Source directories to process (with their corresponding test directories)
     TEST_MAPPING = {

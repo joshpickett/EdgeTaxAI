@@ -3,15 +3,24 @@ from flask import request, jsonify
 from typing import Callable, Any, Optional, Dict
 import jwt
 import redis
+from redis.exceptions import RedisError
 from datetime import datetime, timedelta
 import os
 import json
 import logging
 from ..utils.token_manager import TokenManager
+from ..utils.session_manager import SessionManager
 from ..utils.error_handler import APIError
+
+# Initialize Redis client with error handling
+try:
+    redis_client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
+except RedisError as e:
+    logging.error(f"Failed to initialize Redis client: {e}")
 
 # Initialize components
 token_manager = TokenManager()
+session_manager = SessionManager()
 REFRESH_THRESHOLD = 300  # 5 minutes before expiry
 
 class AuthError(APIError):
@@ -145,7 +154,7 @@ class SessionManager:
         session_id = generate_session_id()
         session_data = {
             'user_id': user_id,
-            'device_info': device_info,
+            'device_info': device_info or {},
             'created_at': datetime.utcnow().isoformat(),
             'last_active': datetime.utcnow().isoformat()
         }

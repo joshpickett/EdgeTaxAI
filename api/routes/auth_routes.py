@@ -3,15 +3,9 @@ from typing import Dict, Any, Optional
 import logging
 from datetime import datetime, timedelta, timezone
 from ..utils.validators import validate_email, validate_phone
-from ..utils.otp_manager import OTPManager
-from ..utils.token_storage import TokenStorage
-from ..utils.biometric_auth import BiometricAuth
-from ..utils.error_handler import handle_api_error
-from ..utils.rate_limit import rate_limit
-import sqlite3
-import random
-import os
-import re
+from ..services.auth_service import AuthService
+
+auth_service = AuthService()
 
 # Rate limiting constants
 MAX_LOGIN_ATTEMPTS = 5
@@ -19,11 +13,6 @@ RATE_LIMIT_WINDOW = 3600  # 1 hour
 
 # Blueprint Setup
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
-
-# Initialize components
-otp_manager = OTPManager()
-token_storage = TokenStorage(os.getenv('SECRET_KEY'))
-biometric_auth = BiometricAuth()
 
 # Utility Functions
 DATABASE_FILE = os.getenv("DB_PATH", "database.db")
@@ -119,58 +108,7 @@ def signup() -> tuple[Dict[str, Any], int]:
     Handles user signup with email or phone number and verifies via OTP.
     """
     try:
-        data = request.json
-        if not data or not isinstance(data, dict):
-            return jsonify({"error": "Invalid request data"}), 400
-
-        email = data.get("email")
-        phone_number = data.get("phone_number")
-
-        logging.info(f"Signup attempt - Email: {email}, Phone: {phone_number}")
-
-        # Input Validation
-        if not (email or phone_number):
-            return jsonify({"error": "Email or phone number is required."}), 400
-
-        if email and not is_valid_email(email):
-            return jsonify({"error": "Invalid email format."}), 400
-
-        if phone_number and not is_valid_phone(phone_number):
-            return jsonify({"error": "Invalid phone number format."}), 400
-        
-        identifier = email or phone_number
-
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        try:
-            # Check if user already exists
-            cursor.execute(
-                "SELECT * FROM users WHERE email = ? OR phone_number = ?", (identifier, identifier)
-            )
-            if cursor.fetchone():
-                return jsonify({"error": "User already exists with this email or phone number."}), 400
-
-            logging.info(f"Creating new user with identifier: {identifier}")
-            # Insert new user
-            cursor.execute("BEGIN TRANSACTION")
-            cursor.execute(
-                "INSERT INTO users (email, phone_number, is_verified) VALUES (?, ?, 0)",
-                (email, phone_number),
-            )
-            user_id = cursor.lastrowid
-            conn.commit()
-
-            # Generate and send OTP
-            otp_code = generate_otp()
-            save_otp_for_user(identifier, otp_code)
-            send_sms(phone_number, f"Your verification code is: {otp_code}")
-
-            return jsonify({"message": "Signup successful. OTP sent for verification."}), 201
-        except Exception as e:
-            logging.error(f"Error occurred: {str(e)}")
-            return jsonify({"error": f"An error occurred: {str(e)}"}), 500
-        finally:
-            conn.close()
+        return auth_service.handle_signup(request.json)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -192,7 +130,7 @@ def verify_otp():
         if not otp_code or len(otp_code) != 6:
             return jsonify({"error": "Invalid OTP format"}), 400
 
-        if verify_otp_for_user(identifier, otp_code):
+        if auth_service.verify_otp(data):
             conn = get_db_connection()
             cursor = conn.cursor()
             cursor.execute("BEGIN TRANSACTION")
@@ -215,44 +153,7 @@ def login():
     Handles OTP-based login using email or phone number.
     """
     try:
-        data = request.json
-        if not data:
-            return jsonify({"error": "Missing request data"}), 400
-            
-        email = data.get("email")
-        phone_number = data.get("phone_number")
-        
-        # Check login attempts
-        if not check_login_attempts(email or phone_number):
-            return jsonify({"error": "Too many login attempts. Please try again later."}), 429
-
-        # Input Validation
-        if not (email or phone_number):
-            return jsonify({"error": "Email or phone number is required."}), 400
-
-        if email and not is_valid_email(email):
-            return jsonify({"error": "Invalid email format."}), 400
-
-        if phone_number and not is_valid_phone(phone_number):
-            return jsonify({"error": "Invalid phone number format."}), 400
-
-        identifier = email or phone_number
-
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM users WHERE email = ? OR phone_number = ?", (identifier, identifier))
-        user = cursor.fetchone()
-        conn.close()
-
-        if not user:
-            return jsonify({"error": "User not found."}), 404
-
-        # Generate and send OTP
-        otp_code = generate_otp()
-        save_otp_for_user(identifier, otp_code)
-        send_sms(user["phone_number"], f"Your login verification code is: {otp_code}")
-
-        return jsonify({"message": "OTP sent to your phone number for login verification."}), 200
+        return auth_service.handle_login(request.json)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -267,7 +168,7 @@ def register_biometric():
         if not all([user_id, biometric_data]):
             return jsonify({"error": "Missing required data"}), 400
             
-        success = biometric_auth.register_biometric(user_id, biometric_data)
+        success = auth_service.handle_biometric_registration(user_id, biometric_data)
         if success:
             return jsonify({
                 "message": "Biometric authentication registered successfully"

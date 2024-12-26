@@ -1,84 +1,21 @@
 from flask import Blueprint, request, jsonify
+import logging
 from datetime import datetime
 from decimal import Decimal
-import logging
-from ..utils.analytics_helper import calculate_tax_savings
 from ..utils.tax_calculator import TaxCalculator
-from ..utils.db_utils import get_db_connection
-from ..utils.event_system import EventSystem
-from ..utils.document_manager import DocumentManager
+from ..utils.error_handler import handle_api_error
 
-"""
-Core Tax Calculation Module - Centralized tax calculation functionality
-Handles all basic tax calculations and estimates
-"""
-
-# Configure Logging
-logging.basicConfig(
-    filename="tax_api.log",
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
-)
-
-# Initialize components
 calculator = TaxCalculator()
-event_system = EventSystem()
-document_manager = DocumentManager()
-
-# Blueprint Setup
 tax_bp = Blueprint("tax_routes", __name__)
 
 @tax_bp.route("/api/tax/estimate-quarterly", methods=["POST"])
 def estimate_quarterly_tax():
     """Calculate quarterly estimated tax payments"""
     try:
-        data = request.json
-        user_id = data.get('user_id')
-        year = data.get('year', datetime.now().year)
-        quarter = data.get('quarter')
-
-        conn = get_db_connection()
-        cursor = conn.cursor()
-
-        # Get income and expenses for the quarter
-        cursor.execute("""
-            SELECT SUM(amount) as total_income
-            FROM income
-            WHERE user_id = ? AND strftime('%Y-%m', date) BETWEEN ? AND ?
-        """, (user_id, f"{year}-{(quarter-1)*3+1:02d}", f"{year}-{quarter*3:02d}"))
-        
-        income = cursor.fetchone()[0] or 0
-        
-        estimate = calculator.calculate_quarterly_tax(Decimal(str(income)), Decimal('0'))
-        
-        # Generate and store tax document
-        doc_data = {
-            'user_id': user_id,
-            'type': 'quarterly_estimate',
-            'content': estimate,
-            'period': f"Q{quarter}-{year}"
-        }
-        doc_id = document_manager.store_document(doc_data)
-        
-        # Subscribe to expense events for real-time updates
-        event_system.subscribe('expense_added', lambda data: 
-            update_tax_estimates(data['user_id']))
-            
-        # Publish tax estimate event
-        event_system.publish('tax_estimate_updated', {
-            'user_id': user_id,
-            'estimate': estimate
-        })
-        
-        return jsonify({
-            'estimate': estimate,
-            'document_id': doc_id
-        }), 200
+        return calculator.estimate_quarterly_taxes(request.json)
     except Exception as e:
-        logging.error(f"Error calculating quarterly estimate: {e}")
-        return jsonify({"error": "Failed to calculate quarterly estimate"}), 500
+        return jsonify({"error": str(e)}), 500
 
-# Real-Time Tax Savings Endpoint
 @tax_bp.route("/api/tax/savings", methods=["POST"])
 def real_time_tax_savings():
     """
@@ -124,7 +61,7 @@ def ai_deduction_suggestions():
             return jsonify({"error": "Invalid or missing 'expenses' parameter."}), 400
 
         # Use centralized deduction analysis
-        deduction_analysis = analyze_deductions(expenses)
+        deduction_analysis = calculator.analyze_deductions(expenses)
         
         # Add confidence scores and AI insights
         enhanced_suggestions = [{
@@ -210,9 +147,9 @@ def generate_tax_document():
 
         # Generate appropriate tax document
         if document_type == 'schedule_c':
-            document = generate_schedule_c(user_id, year)
+            document = calculator.generate_schedule_c(user_id, year)
         elif document_type == 'quarterly_estimate':
-            document = generate_quarterly_estimate(user_id, year)
+            document = calculator.generate_quarterly_estimate(user_id, year)
         else:
             return jsonify({"error": "Invalid document type"}), 400
 

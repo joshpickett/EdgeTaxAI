@@ -1,6 +1,7 @@
 import logging
 from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
+import uuid
 import json
 import os
 from pathlib import Path
@@ -14,6 +15,10 @@ class SessionManager:
     def _init_session_directory(self):
         """Initialize session directory"""
         os.makedirs(self.session_directory, exist_ok=True)
+        
+    def generate_session_id(self) -> str:
+        """Generate a unique session ID"""
+        return str(uuid.uuid4())
         
     def create_session(self, user_id: int, data: Dict[str, Any]) -> bool:
         """Create new session for desktop user"""

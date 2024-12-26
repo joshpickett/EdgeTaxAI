@@ -8,22 +8,7 @@ import io
 import pandas as pd
 from ..utils.error_handler import handle_api_error
 from ..utils.db_utils import get_db_connection
-from ..utils.validators import validate_location, validate_date
-from ..utils.ai_utils import analyze_trip_purpose
-
-# Constants
-METERS_TO_MILES = 0.000621371
-IRS_MILEAGE_RATE = float(os.getenv("IRS_MILEAGE_RATE", "0.655"))
-
-# Enhanced business purpose validation
-BUSINESS_PURPOSES = [
-    "client meeting",
-    "delivery",
-    "work related",
-    "business travel",
-    "job site",
-    "work event"
-]
+from ..utils.trip_analyzer import TripAnalyzer
 
 # Configure Logging
 logging.basicConfig(
@@ -35,29 +20,7 @@ logging.basicConfig(
 # Blueprint for mileage-related routes
 mileage_bp = Blueprint("mileage", __name__)
 
-def fetch_google_directions(start: str, end: str, api_key: str) -> tuple[Optional[str], Optional[str]]:
-    """
-    Fetch mileage from Google Directions API.
-    """
-    try:
-        url = f"https://maps.googleapis.com/maps/api/directions/json?origin={start}&destination={end}&key={api_key}"
-        response = requests.get(url)
-        
-        # Cache the response
-        if not hasattr(g, 'directions_cache'):
-            g.directions_cache = {}
-        cache_key = f"{start}-{end}"
-        g.directions_cache[cache_key] = response.json()
-        
-        response.raise_for_status()
-        google_data = response.json()
-
-        if google_data.get("status") == "OK":
-            return google_data["routes"][0]["legs"][0]["distance"]["text"], None
-        else:
-            return None, google_data.get("error_message", "Unknown error from Google API")
-    except Exception as e:
-        return None, str(e)
+trip_analyzer = TripAnalyzer()
 
 @mileage_bp.route("/mileage", methods=["POST"])
 def calculate_mileage() -> Tuple[Dict[str, Any], int]:
@@ -69,57 +32,12 @@ def calculate_mileage() -> Tuple[Dict[str, Any], int]:
         return jsonify({"error": "Invalid JSON payload"}), 400
         
     try:
-        # Extract request data
         data = request.json
         start = data.get("start", "").strip()
         end = data.get("end", "").strip()
         purpose = data.get("purpose", "").strip()
-        recurring = data.get('recurring', False)
-        frequency = data.get('frequency')
         
-        # Validate locations
-        if not validate_location(start):
-            return jsonify({"error": "Invalid start location format"}), 400
-        if not validate_location(end):
-            return jsonify({"error": "Invalid end location format"}), 400
-        
-        # Validate purpose
-        if purpose:
-            purpose_analysis = analyze_trip_purpose(purpose)
-            if not purpose_analysis['is_business']:
-                return jsonify({
-                    "error": "Trip purpose does not appear to be business-related",
-                    "suggestion": purpose_analysis['suggestion']
-                }), 400
-
-        # Fetch mileage using helper function
-        distance, error = fetch_google_directions(start, end, os.getenv("GOOGLE_API_KEY"))
-        if distance:
-            # Calculate tax deduction
-            distance_meters = float(distance.replace(" mi", "").replace(",", ""))
-            distance_miles = distance_meters * METERS_TO_MILES
-            tax_deduction = distance_miles * IRS_MILEAGE_RATE
-            
-            if recurring:
-                # Handle recurring trip pattern
-                conn = get_db_connection()
-                cursor = conn.cursor()
-                cursor.execute("""
-                    INSERT INTO recurring_trips 
-                    (user_id, start_location, end_location, frequency, purpose)
-                    VALUES (?, ?, ?, ?, ?)
-                """, (data.get("user_id"), start, end, frequency, purpose))
-                
-                # Schedule next occurrences
-                schedule_recurring_trips(data.get("user_id"), start, end, frequency)
-
-            return jsonify({
-                "distance": distance,
-                "tax_deduction": round(tax_deduction, 2)
-            })
-        else:
-            return jsonify({"error": error}), 500
-
+        return trip_analyzer.calculate_trip_distance(request.json)
     except Exception as e:
         logging.error(f"Error calculating mileage: {str(e)}")
         return jsonify({"error": "Failed to calculate mileage"}), 500

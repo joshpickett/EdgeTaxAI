@@ -1,13 +1,10 @@
 from flask import Blueprint, request, jsonify, redirect
 import logging
-import os
 from ..utils.retry_handler import with_retry
-import requests
 from typing import Optional, Dict, Any, Tuple
-from ..utils.api_config import APIConfig
 from ..utils.error_handler import handle_api_error, handle_validation_error
 from ..utils.validators import validate_platform, validate_user_id
-from ..utils.gig_platform_processor import GigPlatformProcessor
+from ..services.gig_platform_service import GigPlatformService
 
 # Configure Logging
 logging.basicConfig(
@@ -16,55 +13,7 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 
-# Platform OAuth Configuration
-OAUTH_URLS = {
-    "uber": "https://login.uber.com/oauth/v2/authorize",
-    "lyft": "https://api.lyft.com/oauth/authorize",
-    "upwork": "https://www.upwork.com/ab/account-security/oauth2/authorize"
-}
-
-class GigPlatformError(Exception):
-    """Custom exception for gig platform operations"""
-    def __init__(self, message: str, platform: str, error_code: Optional[str] = None):
-        self.message = message
-        self.platform = platform
-        self.error_code = error_code
-        super().__init__(self.message)
-
-def handle_platform_error(error: Exception) -> Tuple[Dict[str, Any], int]:
-    """Handle platform-specific errors"""
-    if isinstance(error, GigPlatformError):
-        return jsonify({
-            "error": error.message,
-            "platform": error.platform,
-            "error_code": error.error_code
-        }), 400
-    return jsonify({
-        "error": "Internal server error",
-        "details": str(error)
-    }), 500
-
-# OAuth Configuration
-OAUTH_CONFIG = {
-    "uber": {
-        "auth_url": "https://login.uber.com/oauth/v2/authorize",
-        "token_url": "https://login.uber.com/oauth/v2/token",
-        "scopes": ["history", "profile"]
-    },
-    "lyft": {
-        "auth_url": "https://api.lyft.com/oauth/authorize",
-        "token_url": "https://api.lyft.com/oauth/token",
-        "scopes": ["rides.read", "profile"]
-    },
-    "doordash": {
-        "auth_url": "https://identity.doordash.com/connect/authorize",
-        "token_url": "https://identity.doordash.com/connect/token",
-        "scopes": ["delivery_status", "business_status"]
-    }
-}
-
-gig_routes = Blueprint("gig_routes", __name__)
-gig_processor = GigPlatformProcessor()
+gig_platform_service = GigPlatformService()
 
 # Simulated in-memory storage for tokens and connections
 USER_TOKENS = {}
@@ -77,46 +26,13 @@ VALID_PLATFORMS = {"uber", "lyft", "doordash", "instacart", "upwork", "fiverr"}
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def get_oauth_url(platform: str) -> Optional[str]:
-    """Get OAuth URL for platform with proper configuration."""
-    try:
-        platform_url = APIConfig.get_gig_platform_url(platform, "oauth")
-        if not platform_url:
-            logging.warning(f"No OAuth URL configured for platform: {platform}")
-            return None
-            
-        client_id = os.getenv(f'{platform.upper()}_CLIENT_ID')
-        if not client_id:
-            logging.error(f"Missing client ID for platform: {platform}")
-            return None
-            
-        oauth_url = f"{platform_url}?client_id={client_id}"
-        logging.info(f"Generated OAuth URL for {platform}: {oauth_url}")
-        return oauth_url
-    except Exception as e:
-        logging.error(f"Error generating OAuth URL for {platform}: {e}")
-        return None
-
 @with_retry(max_attempts=3, initial_delay=1.0)
 @gig_routes.route("/gig/connect/<platform>", methods=["GET"])
 def connect_platform(platform):
     try:
-        platform = platform.lower()
-        if not validate_platform(platform):
-            raise GigPlatformError(f"Invalid platform: {platform}", platform)
-            
-        oauth_url = get_oauth_url(platform)
-        if not oauth_url:
-            raise GigPlatformError("Failed to generate OAuth URL", platform)
-            
-    except GigPlatformError as e:
-        return handle_platform_error(e)
+        return gig_platform_service.connect_platform(platform.lower(), request.args.get("user_id"))
     except Exception as e:
-        logging.error(f"Platform connection error: {e}")
-        return handle_platform_error(e)
-
-    logging.info(f"Redirecting to OAuth URL for {platform}: {oauth_url}")
-    return redirect(oauth_url)
+        return handle_api_error(e)
 
 @with_retry(max_attempts=3, initial_delay=1.0)
 @gig_routes.route("/gig/callback", methods=["POST"])
