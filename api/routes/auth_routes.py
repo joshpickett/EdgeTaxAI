@@ -1,7 +1,15 @@
+# updated12262024
+
+import os
+import re
+import sqlite3
+import random
 from flask import Blueprint, request, jsonify
 from typing import Dict, Any, Optional
 import logging
 from datetime import datetime, timedelta, timezone
+from twilio.rest import Client
+from ..utils.rate_limit import rate_limit
 from ..utils.validators import validate_email, validate_phone
 from ..services.auth_service import AuthService
 
