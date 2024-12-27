@@ -1,11 +1,13 @@
 # updated1226
 
+import os
+import sys
+from ..setup_path import *
 from flask import Blueprint, request, jsonify, redirect
 from api.utils.retry_handler import with_retry
 from api.utils.validators import validate_user_id, validate_platform
 from api.utils.error_handler import handle_api_error, handle_platform_error, APIError
 import logging
-import os
 import requests
 from typing import Dict, Any, Optional
 from datetime import datetime
