@@ -7,6 +7,8 @@ from datetime import datetime
 from ..utils.retry_handler import with_retry
 from ..utils.gig_platform_processor import GigPlatformProcessor
 from ..services.gig_platform_service import GigPlatformService
+from ..utils.validators import validate_user_id, validate_platform
+from ..utils.error_handler import handle_api_error, handle_platform_error
 
 # Initialize Blueprint
 gig_routes = Blueprint('gig', __name__, url_prefix='/api/gig')
@@ -50,7 +52,7 @@ def connect_platform(platform):
     try:
         return gig_platform_service.connect_platform(platform.lower(), request.args.get("user_id"))
     except Exception as e:
-        return handle_api_error(e)
+        return handle_platform_error(e)
 
 @with_retry(max_attempts=3, initial_delay=1.0)
 @gig_routes.route("/gig/callback", methods=["POST"])
@@ -61,9 +63,10 @@ def oauth_callback():
     code = data.get("code")
 
     try:
-        # Validate inputs
-        user_id = validate_user_id(user_id)
-        validate_platform(platform)
+        if not validate_user_id(user_id):
+            raise ValueError("Invalid user ID")
+        if not validate_platform(platform):
+            raise ValueError(f"Invalid platform: {platform}")
 
         if not code:
             raise ValueError("Authorization code is required.")
@@ -81,7 +84,7 @@ def oauth_callback():
         
         return jsonify({"message": "OAuth successful", "platform": platform}), 200
     except ValueError as e:
-        return handle_validation_error(str(e))
+        return handle_api_error(APIError(str(e), 400))
     except Exception as e:
         logger.error(f"OAuth callback failed: {str(e)}")
         return jsonify({"error": "OAuth callback failed"}), 500
@@ -91,12 +94,13 @@ def oauth_callback():
 def list_connections():
     user_id = request.args.get("user_id")
     try:
-        user_id = validate_user_id(user_id)
+        if not validate_user_id(user_id):
+            raise ValueError("Invalid user ID")
         connections = USER_CONNECTIONS.get(user_id, [])
         logger.info(f"Retrieved connections for user {user_id}.")
         return jsonify({"connections": connections}), 200
     except ValueError as e:
-        return handle_validation_error(str(e))
+        return handle_api_error(APIError(str(e), 400))
     except Exception as e:
         logger.error(f"Failed to fetch connections: {str(e)}")
         return jsonify({"error": "Failed to fetch connections"}), 500
@@ -109,8 +113,10 @@ def fetch_data():
 
     try:
         # Validate inputs
-        user_id = validate_user_id(user_id)
-        validate_platform(platform)
+        if not validate_user_id(user_id):
+            raise ValueError("Invalid user ID")
+        if not validate_platform(platform):
+            raise ValueError(f"Invalid platform: {platform}")
 
         # Check if the platform is connected
         token = USER_TOKENS.get(user_id, {}).get(platform)
@@ -122,7 +128,7 @@ def fetch_data():
         logger.info(f"Fetched data for user {user_id} on platform {platform}.")
         return jsonify(data), 200
     except ValueError as e:
-        return handle_validation_error(str(e))
+        return handle_api_error(APIError(str(e), 400))
     except Exception as e:
         logger.error(f"Failed to fetch data: {str(e)}")
         return jsonify({"error": "Failed to fetch data"}), 500
