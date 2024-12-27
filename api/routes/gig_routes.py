@@ -1,16 +1,15 @@
-# updated12262024
+# updated1226
 
 from flask import Blueprint, request, jsonify, redirect
+from api.utils.retry_handler import with_retry
+from api.utils.validators import validate_user_id, validate_platform
+from api.utils.error_handler import handle_api_error, handle_platform_error, APIError
 import logging
 import os
 import requests
 from typing import Dict, Any, Optional
 from datetime import datetime
-from ..utils.retry_handler import with_retry
-from ..utils.gig_platform_processor import GigPlatformProcessor
 from ..services.gig_platform_service import GigPlatformService
-from ..utils.validators import validate_user_id, validate_platform
-from ..utils.error_handler import handle_api_error, APIError
 
 # Initialize Blueprint
 gig_routes = Blueprint('gig', __name__, url_prefix='/api/gig')
@@ -82,9 +81,7 @@ def oauth_callback():
         
         # Use platform service to handle data processing
         processed_data = gig_platform_service.process_platform_data(platform, access_token)
-        gig_platform_service.store_platform_data(user_id, platform, processed_data)
-        
-        return jsonify({"message": "OAuth successful", "platform": platform}), 200
+        return jsonify(processed_data), 200
     except ValueError as e:
         return handle_api_error(APIError(str(e), 400))
     except Exception as e:
