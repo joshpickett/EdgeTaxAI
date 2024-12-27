@@ -1,3 +1,5 @@
+# updated12262024
+
 from flask import Blueprint, request, jsonify, redirect
 import logging
 import os
@@ -8,7 +10,7 @@ from ..utils.retry_handler import with_retry
 from ..utils.gig_platform_processor import GigPlatformProcessor
 from ..services.gig_platform_service import GigPlatformService
 from ..utils.validators import validate_user_id, validate_platform
-from ..utils.error_handler import handle_api_error, handle_platform_error
+from ..utils.error_handler import handle_api_error, APIError
 
 # Initialize Blueprint
 gig_routes = Blueprint('gig', __name__, url_prefix='/api/gig')
