@@ -1,11 +1,20 @@
+import os
+import sys
+from api.setup_path import setup_python_path
+
+# Set up path for both package and direct execution
+if __name__ == "__main__":
+    setup_python_path(__file__)
+else:
+    setup_python_path()
+
 import asyncio
 from typing import List, Dict, Any, Optional
 import logging
 from datetime import datetime
-import os
-from .cache_utils import CacheManager
-from .error_handler import handle_api_error
-from .monitoring import monitor_api_calls
+from api.utils.cache_utils import CacheManager
+from api.utils.error_handler import handle_api_error
+from api.utils.monitoring import monitor_api_calls
 
 class BatchProcessor:
     def __init__(self):

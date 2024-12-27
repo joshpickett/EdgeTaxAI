@@ -1,21 +1,19 @@
+import os
+import sys
+from api.setup_path import setup_python_path
+
+# Set up path for both package and direct execution
+if __name__ == "__main__":
+    setup_python_path(__file__)
+else:
+    setup_python_path()
+
 from flask import Blueprint, request, jsonify
-from ..services.bank_service import BankService
-from ..utils.error_handler import handle_api_error
 
-# Initialize components
-bank_service = BankService()
-bank_routes = Blueprint('bank', __name__)
+# ...rest of the code...
 
-@bank_routes.route("/link-token", methods=["POST"])
-def create_link_token():
-    try:
-        return bank_service.create_link_token(request.json.get("user_id"))
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-
-@bank_routes.route("/exchange-token", methods=["POST"])
-def exchange_public_token():
-    try:
-        return bank_service.exchange_public_token(request.json.get("user_id"), request.json.get("public_token"))
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+if __name__ == "__main__":
+    from flask import Flask
+    app = Flask(__name__)
+    app.register_blueprint(bank_bp)
+    app.run(debug=True)

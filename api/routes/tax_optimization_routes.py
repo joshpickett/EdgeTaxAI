@@ -1,8 +1,18 @@
+import os
+import sys
+from api.setup_path import setup_python_path
+
+# Set up path for both package and direct execution
+if __name__ == "__main__":
+    setup_python_path(__file__)
+else:
+    setup_python_path()
+
 from flask import Blueprint, request, jsonify
 import logging
 from datetime import datetime
-from ..utils.shared_tax_service import TaxService
-from ..utils.analytics_helper import analyze_optimization_opportunities
+from utils.shared_tax_service import TaxService
+from utils.analytics_helper import analyze_optimization_opportunities
 from decimal import Decimal
 
 tax_optimization_bp = Blueprint('tax_optimization', __name__)
@@ -85,3 +95,9 @@ def enhanced_analyze():
     except Exception as e:
         logging.error(f"Error analyzing deductions: {str(e)}")
         return jsonify({"error": "Failed to analyze deductions"}), 500
+
+if __name__ == "__main__":
+    from flask import Flask
+    app = Flask(__name__)
+    app.register_blueprint(tax_optimization_bp)
+    app.run(debug=True)

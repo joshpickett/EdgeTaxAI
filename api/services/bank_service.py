@@ -1,9 +1,18 @@
+import os
+import sys
+from api.setup_path import setup_python_path
+
+# Set up path for both package and direct execution
+if __name__ == "__main__":
+    setup_python_path(__file__)
+else:
+    setup_python_path()
+
 from typing import Dict, Any, Optional
-from plaid.api import plaid_api
-from ..utils.api_config import APIConfig
-from ..utils.cache_utils import CacheManager
-from ..utils.analytics_helper import AnalyticsHelper
-from ..utils.analytics_integration import AnalyticsIntegration
+from utils.api_config import APIConfig
+from utils.cache_utils import CacheManager
+from utils.analytics_helper import AnalyticsHelper
+from utils.analytics_integration import AnalyticsIntegration
 from datetime import datetime, timedelta
 import logging
 

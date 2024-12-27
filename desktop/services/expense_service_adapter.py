@@ -1,12 +1,12 @@
 from typing import Dict, Any, Optional
 import requests
 import logging
-from ..shared.constants import PLATFORMS
-from ..utils.error_handler import handle_api_error
-from ..shared.constants import EXPENSE_CATEGORIES, TAX_CATEGORIES
-from ..config import Config
-from ..utils.sync_manager import SyncManager
+from desktop.setup_path import setup_desktop_path
+from shared.constants import PLATFORMS, EXPENSE_CATEGORIES, TAX_CATEGORIES
+from desktop.config import Config
+from desktop.utils.error_handler import handle_api_error
 
+setup_desktop_path()
 
 class ExpenseServiceAdapter:
     def __init__(self, base_url: str = Config.API_BASE_URL):

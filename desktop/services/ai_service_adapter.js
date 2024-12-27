@@ -1,5 +1,5 @@
-import { handleApiError } from '../utils/errorHandler';
-import sharedTaxService from '../../shared/services/taxService';
+import { handleApiError } from '@desktop/utils/errorHandler';
+import sharedTaxService from '@shared/services/taxService';
 
 class AIServiceAdapter {
     async categorizeExpense(description, amount) {

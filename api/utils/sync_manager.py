@@ -1,8 +1,18 @@
+import os
+import sys
+from api.setup_path import setup_python_path
+
+# Set up path for both package and direct execution
+if __name__ == "__main__":
+    setup_python_path(__file__)
+else:
+    setup_python_path()
+
 import logging
 from typing import Dict, List, Any
 from datetime import datetime
-from .db_utils import get_db_connection
-from .error_handler import handle_sync_error
+from api.utils.db_utils import get_db_connection
+from api.utils.error_handler import handle_sync_error
 
 class SyncManager:
     def __init__(self):

@@ -1,6 +1,9 @@
 import sqlite3
 import logging
 from typing import List, Dict, Any
+from desktop.setup_path import setup_desktop_path
+
+setup_desktop_path()
 from datetime import datetime
 import json
 

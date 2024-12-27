@@ -1,6 +1,17 @@
+import os
+import sys
+from api.setup_path import setup_python_path
+
+# Set up path for both package and direct execution
+if __name__ == "__main__":
+    setup_python_path(__file__)
+else:
+    setup_python_path()
+
 import logging
 from typing import Dict, Any, List
 from decimal import Decimal
+from api.utils.db_utils import get_db_connection
 
 class IRSCompliance:
     def __init__(self):

@@ -1,11 +1,20 @@
+import os
+import sys
+from api.setup_path import setup_python_path
+
+# Set up path for both package and direct execution
+if __name__ == "__main__":
+    setup_python_path(__file__)
+else:
+    setup_python_path()
+
 from openai import OpenAI
-from .api_config import APIConfig
-from .db_utils import get_db_connection
+from api.utils.api_config import APIConfig
+from api.utils.db_utils import get_db_connection
 from datetime import datetime
 import logging
 from typing import Dict, Any, List, Tuple, Optional
 import json
-import os
 from .document_manager import DocumentManager
 
 # Initialize OpenAI client

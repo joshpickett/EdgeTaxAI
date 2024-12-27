@@ -1,14 +1,24 @@
+import os
+import sys
+from api.setup_path import setup_python_path
+
+# Set up path for both package and direct execution
+if __name__ == "__main__":
+    setup_python_path(__file__)
+else:
+    setup_python_path()
+
 import logging
 from typing import Dict, Any, List
 from datetime import datetime, timedelta
 import asyncio
 import sqlite3
-from .cache_utils import CacheManager
-from .error_handler import handle_api_error
-from .retry_handler import with_retry
-from .platform_processors.uber_processor import UberProcessor
-from .platform_processors.lyft_processor import LyftProcessor
-from .platform_processors.doordash_processor import DoorDashProcessor
+from api.utils.cache_utils import CacheManager
+from api.utils.error_handler import handle_api_error
+from api.utils.retry_handler import with_retry
+from api.utils.platform_processors.uber_processor import UberProcessor
+from api.utils.platform_processors.lyft_processor import LyftProcessor
+from api.utils.platform_processors.doordash_processor import DoorDashProcessor
 
 PROCESSORS = {
     'uber': UberProcessor(),
@@ -19,10 +29,10 @@ PROCESSORS = {
 class GigPlatformProcessor:
     def __init__(self):
         self.cache = CacheManager()
+        self.conn = sqlite3.connect(os.path.join(os.path.dirname(__file__), "..", "..", "database.db"))
         self.retry_attempts = 3
         self.sync_queue = asyncio.Queue()
         self.processing = False
-        self.conn = sqlite3.connect("database.db")
 
     async def start_sync_worker(self):
         """Start background sync worker"""

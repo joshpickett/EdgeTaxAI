@@ -1,9 +1,19 @@
+import os
+import sys
+from api.setup_path import setup_python_path
+
+# Set up path for both package and direct execution
+if __name__ == "__main__":
+    setup_python_path(__file__)
+else:
+    setup_python_path()
+
 from flask import Blueprint, request, jsonify
 import logging
 from datetime import datetime
 from decimal import Decimal
-from ..utils.tax_calculator import TaxCalculator
-from ..utils.error_handler import handle_api_error
+from utils.tax_calculator import TaxCalculator
+from utils.error_handler import handle_api_error
 
 calculator = TaxCalculator()
 tax_bp = Blueprint("tax_routes", __name__)
@@ -168,3 +178,9 @@ def generate_tax_document():
     except Exception as e:
         logging.error(f"Error generating tax document: {str(e)}")
         return jsonify({"error": "Failed to generate tax document."}), 500
+
+if __name__ == "__main__":
+    from flask import Flask
+    app = Flask(__name__)
+    app.register_blueprint(tax_bp)
+    app.run(debug=True)

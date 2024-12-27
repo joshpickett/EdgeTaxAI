@@ -1,8 +1,18 @@
 import os
+import sys
+from api.setup_path import setup_python_path
+
+# Set up path for both package and direct execution
+if __name__ == "__main__":
+    setup_python_path(__file__)
+else:
+    setup_python_path()
+
 import requests
 import sqlite3
 import logging
 from typing import Dict, Any, List, Optional
+from api.utils.db_utils import get_db_connection
 
 # OAuth URLs for each platform
 PLATFORM_OAUTH_URLS = {
@@ -80,7 +90,7 @@ def store_platform_data(user_id: int, platform: str, token_data: Dict[str, Any])
     """
     Stores access tokens in the database for the connected platform.
     """
-    conn = sqlite3.connect("database.db")
+    conn = get_db_connection()
     cursor = conn.cursor()
 
     cursor.execute(

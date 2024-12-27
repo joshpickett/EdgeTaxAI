@@ -1,7 +1,16 @@
+import sys
+from api.setup_path import setup_python_path
+
+# Set up path for both package and direct execution
+if __name__ == "__main__":
+    setup_python_path(__file__)
+else:
+    setup_python_path()
+
 import logging
 from typing import Dict, Any, Optional, List, Tuple
 from datetime import datetime
-import sqlite3
+from api.utils.db_utils import get_db_connection
 import json
 import os
 import uuid

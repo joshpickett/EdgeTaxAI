@@ -1,10 +1,19 @@
+import os
+import sys
+from api.setup_path import setup_python_path
+
+# Set up path for both package and direct execution
+if __name__ == "__main__":
+    setup_python_path(__file__)
+else:
+    setup_python_path()
+
 from flask import Blueprint, request, jsonify
 import logging
 import time
 from functools import wraps
 from typing import Dict, Any, Optional, Tuple, List
 from werkzeug.utils import secure_filename
-import os
 import redis
 import json
 import hashlib

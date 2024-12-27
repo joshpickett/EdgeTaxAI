@@ -1,7 +1,17 @@
+import os
+import sys
+from api.setup_path import setup_python_path
+
+# Set up path for both package and direct execution
+if __name__ == "__main__":
+    setup_python_path(__file__)
+else:
+    setup_python_path()
+
 import redis
 import json
 import logging
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Optional, Any, Dict
 from functools import wraps
 

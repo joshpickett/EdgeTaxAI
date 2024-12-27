@@ -1,9 +1,19 @@
+import os
+import sys
+from api.setup_path import setup_python_path
+
+# Set up path for both package and direct execution
+if __name__ == "__main__":
+    setup_python_path(__file__)
+else:
+    setup_python_path()
+
 from flask import Blueprint, request, jsonify, send_file
 import logging
 from datetime import datetime
-from ..utils.db_utils import get_db_connection
-from ..utils.tax_calculator import TaxCalculator
-from ..utils.irs_compliance import IRSCompliance
+from utils.db_utils import get_db_connection
+from utils.tax_calculator import TaxCalculator
+from utils.irs_compliance import IRSCompliance
 
 irs_calculator = TaxCalculator()
 irs_compliance = IRSCompliance()
@@ -84,3 +94,9 @@ def generate_quarterly_estimate():
     except Exception as e:
         logging.error(f"Error generating quarterly estimate: {str(e)}")
         return jsonify({"error": "Failed to generate quarterly estimate"}), 500
+
+if __name__ == "__main__":
+    from flask import Flask
+    app = Flask(__name__)
+    app.register_blueprint(irs_bp)
+    app.run(debug=True)

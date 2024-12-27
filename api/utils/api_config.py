@@ -1,3 +1,12 @@
+import sys
+from api.setup_path import setup_python_path
+
+# Set up path for both package and direct execution
+if __name__ == "__main__":
+    setup_python_path(__file__)
+else:
+    setup_python_path()
+
 import os
 from dotenv import load_dotenv
 import logging

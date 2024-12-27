@@ -1,9 +1,19 @@
+import os
+import sys
+from api.setup_path import setup_python_path
+
+# Set up path for both package and direct execution
+if __name__ == "__main__":
+    setup_python_path(__file__)
+else:
+    setup_python_path()
+
 from typing import Dict, Any, Optional, List
-from ..utils.gig_platform_processor import GigPlatformProcessor
-from ..utils.gig_utils import PlatformAPI
-from ..models.gig_data import GigData
+from utils.gig_platform_processor import GigPlatformProcessor
+from utils.gig_utils import PlatformAPI
+from models.gig_data import GigData
 from ..models.gig_model import init_gig_table
-from ..utils.cache_utils import CacheManager
+from utils.cache_utils import CacheManager
 from datetime import datetime
 import logging
 

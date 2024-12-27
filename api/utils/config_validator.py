@@ -1,7 +1,16 @@
+import sys
+from api.setup_path import setup_python_path
+
+# Set up path for both package and direct execution
+if __name__ == "__main__":
+    setup_python_path(__file__)
+else:
+    setup_python_path()
+
 import os
 import logging
 from typing import Dict, Any, Optional
-from .error_handler import handle_config_error
+from api.utils.error_handler import handle_config_error
 
 class ConfigurationError(Exception):
     """Custom exception for configuration errors"""

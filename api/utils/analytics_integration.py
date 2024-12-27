@@ -1,9 +1,19 @@
+import os
+import sys
+from api.setup_path import setup_python_path
+
+# Set up path for both package and direct execution
+if __name__ == "__main__":
+    setup_python_path(__file__)
+else:
+    setup_python_path()
+
 from typing import Dict, Optional
 import logging
 from datetime import datetime, timedelta
-from .db_utils import Database
-from .analytics_helper import AnalyticsHelper
-from .cache_utils import CacheManager
+from api.utils.db_utils import Database
+from api.utils.analytics_helper import AnalyticsHelper
+from api.utils.cache_utils import CacheManager
 
 class AnalyticsIntegration:
     def __init__(self, db: Database):

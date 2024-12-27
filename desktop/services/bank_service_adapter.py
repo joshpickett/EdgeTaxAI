@@ -1,8 +1,11 @@
 from typing import Dict, Any, Optional
 import requests
 import logging
-from ..utils.error_handler import handle_api_error
-from ..config import Config
+from desktop.utils.error_handler import handle_api_error
+from desktop.config import Config
+from desktop.setup_path import setup_desktop_path
+
+setup_desktop_path()
 
 class BankServiceAdapter:
     """Adapter for shared bank service functionality"""

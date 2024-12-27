@@ -1,8 +1,18 @@
+import os
+import sys
+from api.setup_path import setup_python_path
+
+# Set up path for both package and direct execution
+if __name__ == "__main__":
+    setup_python_path(__file__)
+else:
+    setup_python_path()
+
 from functools import wraps
 from datetime import datetime, timedelta
 from typing import Dict, Tuple, Optional
 import logging
-from flask import request, jsonify
+from flask import request, jsonify, current_app
 import redis
 import os
 

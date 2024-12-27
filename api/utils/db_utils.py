@@ -1,9 +1,18 @@
+import sys
+from api.setup_path import setup_python_path
+
+# Set up path for both package and direct execution
+if __name__ == "__main__":
+    setup_python_path(__file__)
+else:
+    setup_python_path()
+
 import sqlite3
 import logging
 import datetime
 import random
 import os
-from contextlib import contextmanager
+from contextlib import contextmanager, closing
 from typing import Generator
 
 class DatabaseError(Exception):

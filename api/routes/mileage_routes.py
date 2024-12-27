@@ -1,4 +1,13 @@
 import os
+import sys
+from api.setup_path import setup_python_path
+
+# Set up path for both package and direct execution
+if __name__ == "__main__":
+    setup_python_path(__file__)
+else:
+    setup_python_path()
+
 import requests
 import logging
 from flask import Blueprint, request, jsonify, g, send_file
@@ -6,9 +15,9 @@ from typing import Dict, Any, Optional, Tuple
 from datetime import datetime
 import io
 import pandas as pd
-from ..utils.error_handler import handle_api_error
-from ..utils.db_utils import get_db_connection
-from ..utils.trip_analyzer import TripAnalyzer
+from utils.error_handler import handle_api_error
+from utils.db_utils import get_db_connection
+from utils.trip_analyzer import TripAnalyzer
 from ..config import IRS_MILEAGE_RATE
 
 # Configure Logging
@@ -270,3 +279,9 @@ def export_mileage():
     except Exception as e:
         logging.error(f"Error exporting mileage: {e}")
         return jsonify({"error": str(e)}), 500
+
+if __name__ == "__main__":
+    from flask import Flask
+    app = Flask(__name__)
+    app.register_blueprint(mileage_bp)
+    app.run(debug=True)

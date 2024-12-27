@@ -1,8 +1,18 @@
+import os
+import sys
+from api.setup_path import setup_python_path
+
+# Set up path for both package and direct execution
+if __name__ == "__main__":
+    setup_python_path(__file__)
+else:
+    setup_python_path()
+
 from typing import Dict, Any, Optional
-from ..utils.otp_manager import OTPManager
-from ..utils.token_storage import TokenStorage
-from ..utils.biometric_auth import BiometricAuthentication
-from ..utils.db_utils import get_db_connection
+from utils.otp_manager import OTPManager
+from utils.token_storage import TokenStorage
+from utils.biometric_auth import BiometricAuthentication
+from utils.db_utils import get_db_connection
 from datetime import datetime, timedelta, timezone
 import logging
 

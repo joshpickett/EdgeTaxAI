@@ -1,9 +1,12 @@
 import logging
 from typing import Dict, Any, Optional
 import requests
-from ..shared.constants import SYNC_STATES
-from ..utils.error_handler import handle_api_error
-from ..config import Config
+from desktop.setup_path import setup_desktop_path
+from shared.constants import SYNC_STATES
+from desktop.utils.error_handler import handle_api_error
+from desktop.config import Config
+
+setup_desktop_path()
 
 class SyncServiceAdapter:
     def __init__(self, base_url: str = Config.API_BASE_URL):

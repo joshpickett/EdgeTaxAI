@@ -1,3 +1,13 @@
+import os
+import sys
+from api.setup_path import setup_python_path
+
+# Set up path for both package and direct execution
+if __name__ == "__main__":
+    setup_python_path(__file__)
+else:
+    setup_python_path()
+
 from flask import Blueprint, request, jsonify, send_file
 from datetime import datetime
 import logging
@@ -8,9 +18,9 @@ from reportlab.pdfgen import canvas
 from openpyxl import Workbook
 from sklearn.linear_model import LinearRegression
 from typing import Dict, Any, List, Union
-from ..utils.db_utils import get_db_connection
-from ..utils.error_handler import handle_api_error
-from ..utils.report_generator import generate_report, ReportGenerator
+from utils.db_utils import get_db_connection
+from utils.error_handler import handle_api_error
+from utils.report_generator import generate_report, ReportGenerator
 
 reports_bp = Blueprint('reports', __name__)
 
@@ -500,4 +510,7 @@ def identify_categories_to_watch(predictions: Dict[str, Any]) -> List[str]:
     return to_watch
 
 if __name__ == "__main__":
-    reports_page()
+    from flask import Flask
+    app = Flask(__name__)
+    app.register_blueprint(reports_bp)
+    app.run(debug=True)

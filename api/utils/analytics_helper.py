@@ -1,9 +1,19 @@
+import os
+import sys
+from api.setup_path import setup_python_path
+
+# Set up path for both package and direct execution
+if __name__ == "__main__":
+    setup_python_path(__file__)
+else:
+    setup_python_path()
+
 from typing import Dict, List, Optional
 from datetime import datetime, timedelta
 import logging
-from .db_utils import Database
-from .tax_calculator import TaxCalculator
-from .trip_analyzer import TripAnalyzer
+from api.utils.db_utils import Database
+from api.utils.tax_calculator import TaxCalculator
+from api.utils.trip_analyzer import TripAnalyzer
 
 class AnalyticsHelper:
     def __init__(self, db: Database):
