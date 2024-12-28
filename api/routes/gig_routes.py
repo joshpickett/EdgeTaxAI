@@ -2,16 +2,19 @@
 
 import os
 import sys
-from ..setup_path import *
+from api.setup_path import setup_python_path
+setup_python_path()
+
 from flask import Blueprint, request, jsonify, redirect
 from api.utils.retry_handler import with_retry
 from api.utils.validators import validate_user_id, validate_platform
 from api.utils.error_handler import handle_api_error, handle_platform_error, APIError
+from api.utils.rate_limit import rate_limit
+from api.services.gig_platform_service import GigPlatformService
 import logging
 import requests
 from typing import Dict, Any, Optional
 from datetime import datetime
-from ..services.gig_platform_service import GigPlatformService
 
 # Initialize Blueprint
 gig_routes = Blueprint('gig', __name__, url_prefix='/api/gig')
@@ -33,8 +36,6 @@ USER_CONNECTIONS = {}
 # Valid platforms for OAuth connections
 VALID_PLATFORMS = {"uber", "lyft", "doordash", "instacart", "upwork", "fiverr"}
 
-# Setup logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # OAuth configuration
@@ -50,7 +51,8 @@ OAUTH_CONFIG = {
 }
 
 @with_retry(max_attempts=3, initial_delay=1.0)
-@gig_routes.route("/gig/connect/<platform>", methods=["GET"])
+@rate_limit(requests_per_minute=30)
+@gig_routes.route("/connect/<platform>", methods=["GET"])
 def connect_platform(platform):
     try:
         return gig_platform_service.connect_platform(platform.lower(), request.args.get("user_id"))
@@ -58,7 +60,8 @@ def connect_platform(platform):
         return handle_platform_error(e)
 
 @with_retry(max_attempts=3, initial_delay=1.0)
-@gig_routes.route("/gig/callback", methods=["POST"])
+@rate_limit(requests_per_minute=30)
+@gig_routes.route("/callback", methods=["POST"])
 def oauth_callback():
     data = request.json
     user_id = data.get("user_id")
@@ -74,14 +77,12 @@ def oauth_callback():
         if not code:
             raise ValueError("Authorization code is required.")
 
-        # Simulate token exchange
         access_token = f"token_for_{platform}_{code}"
         USER_TOKENS[user_id] = USER_TOKENS.get(user_id, {})
         USER_TOKENS[user_id][platform] = access_token
 
         logger.info(f"Token successfully stored for user {user_id} on platform {platform}.")
         
-        # Use platform service to handle data processing
         processed_data = gig_platform_service.process_platform_data(platform, access_token)
         return jsonify(processed_data), 200
     except ValueError as e:
@@ -91,7 +92,8 @@ def oauth_callback():
         return jsonify({"error": "OAuth callback failed"}), 500
 
 @with_retry(max_attempts=3, initial_delay=1.0)
-@gig_routes.route("/gig/connections", methods=["GET"])
+@rate_limit(requests_per_minute=60)
+@gig_routes.route("/connections", methods=["GET"])
 def list_connections():
     user_id = request.args.get("user_id")
     try:
@@ -107,24 +109,22 @@ def list_connections():
         return jsonify({"error": "Failed to fetch connections"}), 500
 
 @with_retry(max_attempts=3, initial_delay=1.0)
-@gig_routes.route("/gig/fetch-data", methods=["GET"])
+@rate_limit(requests_per_minute=60)
+@gig_routes.route("/fetch-data", methods=["GET"])
 def fetch_data():
     user_id = request.args.get("user_id")
     platform = request.args.get("platform")
 
     try:
-        # Validate inputs
         if not validate_user_id(user_id):
             raise ValueError("Invalid user ID")
         if not validate_platform(platform):
             raise ValueError(f"Invalid platform: {platform}")
 
-        # Check if the platform is connected
         token = USER_TOKENS.get(user_id, {}).get(platform)
         if not token:
             raise ValueError(f"No access token found for platform: {platform}")
 
-        # Simulate data retrieval
         data = {"platform": platform, "data": f"Sample data for {platform}"}
         logger.info(f"Fetched data for user {user_id} on platform {platform}.")
         return jsonify(data), 200
@@ -135,9 +135,9 @@ def fetch_data():
         return jsonify({"error": "Failed to fetch data"}), 500
 
 @with_retry(max_attempts=3, initial_delay=1.0)
-@gig_routes.route("/gig/exchange-token", methods=["POST"])
+@rate_limit(requests_per_minute=30)
+@gig_routes.route("/exchange-token", methods=["POST"])
 def exchange_token():
-    """Exchange OAuth code for access token."""
     try:
         data = request.json
         platform = data.get("platform")
@@ -153,9 +153,9 @@ def exchange_token():
         return jsonify({"error": "Failed to exchange token"}), 500
 
 @with_retry(max_attempts=3, initial_delay=1.0)
+@rate_limit(requests_per_minute=30)
 @gig_routes.route("/refresh-token", methods=["POST"])
 def refresh_token():
-    """Refresh OAuth token for platform"""
     try:
         data = request.json
         user_id = data.get("user_id")
@@ -164,17 +164,14 @@ def refresh_token():
         if not all([user_id, platform]):
             return jsonify({"error": "Missing required parameters"}), 400
             
-        # Get refresh token
         refresh_token = USER_TOKENS.get(user_id, {}).get(f"{platform}_refresh")
         if not refresh_token:
             return jsonify({"error": "No refresh token found"}), 404
             
-        # Get platform config
         platform_config = OAUTH_CONFIG.get(platform)
         if not platform_config:
             return jsonify({"error": "Platform not supported"}), 400
             
-        # Request new token
         response = requests.post(
             platform_config["token_url"],
             data={
@@ -187,7 +184,6 @@ def refresh_token():
         
         if response.status_code == 200:
             new_tokens = response.json()
-            # Update stored tokens
             if user_id not in USER_TOKENS:
                 USER_TOKENS[user_id] = {}
             USER_TOKENS[user_id][platform] = new_tokens["access_token"]
@@ -202,9 +198,10 @@ def refresh_token():
         logger.error(f"Error refreshing token: {str(e)}")
         return jsonify({"error": "Failed to refresh token"}), 500
 
-@gig_routes.route("/gig/sync/<platform>", methods=["POST"])
+@with_retry(max_attempts=3, initial_delay=1.0)
+@rate_limit(requests_per_minute=30)
+@gig_routes.route("/sync/<platform>", methods=["POST"])
 def sync_platform_data(platform):
-    """Sync data from specific gig platform"""
     try:
         data = request.json
         user_id = data.get("user_id")
@@ -212,7 +209,6 @@ def sync_platform_data(platform):
         if not user_id:
             return jsonify({"error": "User ID required"}), 400
             
-        # Use the gig_platform_service instance to fetch data
         sync_result = gig_platform_service.sync_platform_data(platform, user_id)
         
         return jsonify({
@@ -223,9 +219,10 @@ def sync_platform_data(platform):
         logging.error(f"Platform sync error: {e}")
         return jsonify({"error": str(e)}), 500
 
-@gig_routes.route("/gig/earnings", methods=["GET"])
+@with_retry(max_attempts=3, initial_delay=1.0)
+@rate_limit(requests_per_minute=60)
+@gig_routes.route("/earnings", methods=["GET"])
 def get_earnings():
-    """Get earnings data from all connected platforms"""
     try:
         user_id = request.args.get("user_id")
         start_date = request.args.get("start_date")
