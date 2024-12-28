@@ -1,3 +1,10 @@
+import os
+import sys
+from api.setup_path import setup_python_path
+
+# Set up path for both package and direct execution
+setup_python_path()
+
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, Tuple

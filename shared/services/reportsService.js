@@ -1,30 +1,69 @@
 import { setupSharedPath } from './setup_path';
 setupSharedPath();
 
+import { REPORT_TYPES, REPORT_CONFIGS, CACHE_KEYS } from '../config/reportConfig';
 import { apiClient } from './apiClient';
-import { offlineManager } from 'utils/offlineManager';
-import { validateReportData } from 'utils/validation';
+import { validateReportData } from '../utils/validation';
+import { logger } from '../utils/logger';
 
-class ReportsService {
+export class ReportsService {
   constructor() {
-    this.reportTypes = {
-      TAX_SUMMARY: 'tax_summary',
-      QUARTERLY: 'quarterly',
-      CUSTOM: 'custom'
-    };
+    this.reportTypes = REPORT_TYPES;
+    this.configs = REPORT_CONFIGS;
     this.cacheManager = cacheManager;
+    this.logger = logger;
+  }
+
+  async validateData(params, rules) {
+    const errors = [];
+    for (const [field, rule] of Object.entries(rules)) {
+      if (rule.required && !params[field]) {
+        errors.push(`${field} is required`);
+      } else if (params[field] && !rule.validate(params[field])) {
+        errors.push(`${field} is invalid`);
+      }
+    }
+    return { isValid: errors.length === 0, errors };
+  }
+
+  validateReportConfig(type, params) {
+    const config = this.configs[type];
+    if (!config) {
+      throw new Error(`Invalid report type: ${type}`);
+    }
+    return validateReportData(params, config.validationRules);
+  }
+  
+  async generateTaxSummary(params) {
+    return this.generateReport(REPORT_TYPES.TAX_SUMMARY, params);
+  }
+
+  async generateQuarterlyReport(params) {
+    return this.generateReport(REPORT_TYPES.QUARTERLY, params);
+  }
+
+  async getCachedReport(type, params) {
+    const cacheKey = CACHE_KEYS.getReportCacheKey(type, params);
+    try {
+      const cachedData = await this.cacheManager.get(cacheKey);
+      if (cachedData) {
+        this.logger.debug(`Cache hit for ${type} report`);
+        return cachedData;
+      }
+    } catch (error) {
+      this.logger.error(`Cache error for ${type} report: ${error.message}`);
+    }
+    return null;
   }
 
   async generateReport(type, params = {}) {
     try {
-      // Validate report parameters
-      const validation = validateReportData(params);
+      const validation = this.validateReportConfig(type, params);
       if (!validation.isValid) {
         throw new Error(validation.errors.join(', '));
       }
 
-      // Check cache first
-      const cacheKey = `${type}_${JSON.stringify(params)}`;
+      const cacheKey = CACHE_KEYS.getReportCacheKey(type, params);
       const cachedData = await this.cacheManager.get(cacheKey);
       if (cachedData) {
         return cachedData;

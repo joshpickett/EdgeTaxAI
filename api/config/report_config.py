@@ -1,6 +1,25 @@
 from datetime import timedelta
 
 REPORT_CONFIG = {
+    # Test Generation Settings
+    'TEST_SETTINGS': {
+        'source_dirs': [
+            "api/models",
+            "api/middleware",
+            "api/routes",
+            "api/utils"
+        ],
+        'test_base_dir': "tests",
+        'default_test_type': "unit",
+        'test_framework': "pytest",
+        'batch_size': 5,
+        'max_workers': 4,
+        'rate_limit_delay': 1.0,
+        'model_name': "gpt-4",
+        'timeout': 30,
+        'summary_file': "test_summary.txt"
+    },
+
     'CACHE_SETTINGS': {
         'tax_summary': 3600,  # 1 hour
         'expense_report': 1800,  # 30 minutes

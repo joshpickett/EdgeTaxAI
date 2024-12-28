@@ -1,6 +1,11 @@
 from decimal import Decimal
+import os
 
 TAX_CONFIG = {
+    # IRS Mileage Rate
+    'IRS_MILEAGE_RATE': float(os.getenv("IRS_MILEAGE_RATE", "0.655")),
+    'DEFAULT_TAX_RATE': 0.25,  # 25% default tax rate
+
     # Tax brackets for 2023 (example)
     'TAX_BRACKETS': [
         (0, 11000, Decimal('0.10')),
@@ -28,6 +33,14 @@ TAX_CONFIG = {
         2: '06-15',
         3: '09-15',
         4: '01-15'
+    },
+    
+    # Quarterly tax periods with start/end dates
+    'QUARTERLY_PERIODS': {
+        1: {'start': '-01-01', 'end': '-03-31', 'due': '-04-15'},  # Q1
+        2: {'start': '-04-01', 'end': '-06-30', 'due': '-06-15'},  # Q2
+        3: {'start': '-07-01', 'end': '-09-30', 'due': '-09-15'},  # Q3
+        4: {'start': '-10-01', 'end': '-12-31', 'due': '-01-15'}   # Q4
     },
     
     # Cache settings
