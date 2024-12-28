@@ -1,43 +1,36 @@
+import os
+import sys
+from api.setup_path import setup_python_path
+
+# Set up path for both package and direct execution
+if __name__ == "__main__":
+    setup_python_path(__file__)
+else:
+    setup_python_path()
+
 from datetime import datetime, timedelta
 from typing import Dict, Any
 from http import HTTPStatus
 import logging
 from flask import Blueprint, request, jsonify
 from flask_paginate import Pagination, get_page_args
-from flask_caching import Cache
-from ..middleware.auth_middleware import require_auth
-from ..services.expense_service import ExpenseService
-from ..utils.validators import validate_expense
-from ..utils.error_handler import handle_api_error
-from ..utils.report_generator import ReportGenerator
-from ..utils.rate_limiter import rate_limit
+from api.middleware.auth_middleware import require_auth
+from api.services.expense_service import ExpenseService
+from api.utils.validators import validate_expense
+from api.utils.error_handler import handle_api_error
+from api.utils.report_generator import ReportGenerator
+from api.utils.rate_limit import rate_limit
+from api.utils.cache_utils import CacheManager, cache_response
 
 expense_blueprint = Blueprint('expense', __name__)
 report_generator = ReportGenerator()
 expense_service = ExpenseService()
-
-# Configure logging
-logger = logging.getLogger(__name__)
-
-# Configure caching
-cache = Cache(config={
-    'CACHE_TYPE': 'simple',
-    'CACHE_DEFAULT_TIMEOUT': 300
-})
-
-# Pagination configuration
-PER_PAGE = 20
-
-# Add rate limiting configuration
-RATE_LIMIT = "100/hour"
-
-def init_app(app):
-    cache.init_app(app)
+cache_manager = CacheManager()
 
 @expense_blueprint.route('/expenses/summary', methods=['GET'])
 @require_auth
-@rate_limit(RATE_LIMIT)
-@cache.cached(timeout=300, query_string=True)
+@rate_limit("100/hour")
+@cache_response(timeout=300)
 def get_expense_summary():
     """
     Get expense summary with tax implications
@@ -73,7 +66,7 @@ def get_expense_summary():
 
 @expense_blueprint.route('/expenses', methods=['POST'])
 @require_auth
-@rate_limit(RATE_LIMIT)
+@rate_limit("100/hour")
 def create_expense():
     """
     Create a new expense
@@ -111,7 +104,7 @@ def create_expense():
 
 @expense_blueprint.route('/expenses/<expense_id>', methods=['GET'])
 @require_auth
-@rate_limit(RATE_LIMIT)
+@rate_limit("100/hour")
 def get_expense(expense_id: str):
     """
     Get a specific expense by ID
@@ -132,7 +125,7 @@ def get_expense(expense_id: str):
 
 @expense_blueprint.route('/expenses/<expense_id>', methods=['DELETE'])
 @require_auth
-@rate_limit(RATE_LIMIT)
+@rate_limit("100/hour")
 def delete_expense(expense_id: str):
     """
     Delete a specific expense
@@ -153,7 +146,7 @@ def delete_expense(expense_id: str):
 
 @expense_blueprint.route('/expenses/<expense_id>', methods=['PUT'])
 @require_auth
-@rate_limit(RATE_LIMIT)
+@rate_limit("100/hour")
 def update_expense(expense_id: str):
     """
     Update an existing expense
@@ -197,7 +190,7 @@ def update_expense(expense_id: str):
 
 @expense_blueprint.route('/expenses', methods=['GET'])
 @require_auth
-@rate_limit(RATE_LIMIT)
+@rate_limit("100/hour")
 def get_expenses():
     """
     Get all expenses with pagination
@@ -225,7 +218,7 @@ def get_expenses():
             page_parameter='page',
             per_page_parameter='per_page'
         )
-        per_page = min(per_page or PER_PAGE, 100)  # Limit maximum items per page
+        per_page = min(per_page or 20, 100)  # Limit maximum items per page
 
         total, expenses = expense_service.get_expenses_paginated(
             user_id, 
