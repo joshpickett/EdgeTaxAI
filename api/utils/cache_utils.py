@@ -33,6 +33,8 @@ logging.basicConfig(
 class CacheManager:
     def __init__(self, default_timeout: int = 3600):
         self.default_timeout = default_timeout
+        self.report_timeout = 7200  # 2 hours for reports
+        self.analytics_timeout = 3600  # 1 hour for analytics
 
     def get(self, key: str) -> Optional[Any]:
         """Retrieve value from cache."""
@@ -54,6 +56,21 @@ class CacheManager:
         except Exception as e:
             logging.error(f"Cache get error: {e}")
             return None
+
+    def get_report_cache(self, user_id: int, report_type: str, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Get cached report data"""
+        try:
+            cache_key = self._generate_report_cache_key(user_id, report_type, params)
+            data = redis_client.get(cache_key)
+            return json.loads(data) if data else None
+        except Exception as e:
+            logging.error(f"Report cache get error: {e}")
+            return None
+
+    def _generate_report_cache_key(self, user_id: int, report_type: str, params: Dict[str, Any]) -> str:
+        """Generate a unique cache key for reports"""
+        param_str = json.dumps(params, sort_keys=True)
+        return f"report:{user_id}:{report_type}:{hash(param_str)}"
 
     def set(self, key: str, value: Any, timeout: Optional[int] = None) -> bool:
         """Store value in cache."""
@@ -82,6 +99,16 @@ class CacheManager:
             logging.error(f"Cache set error: {e}")
             return False
 
+    def set_report_cache(self, user_id: int, report_type: str, params: Dict[str, Any], 
+                         data: Dict[str, Any]) -> bool:
+        """Cache report data with appropriate TTL"""
+        try:
+            cache_key = self._generate_report_cache_key(user_id, report_type, params)
+            return redis_client.setex(cache_key, self.report_timeout, json.dumps(data))
+        except Exception as e:
+            logging.error(f"Report cache set error: {e}")
+            return False
+
     def delete(self, key: str) -> bool:
         """Remove value from cache."""
         try:
@@ -98,6 +125,12 @@ class CacheManager:
         except Exception as e:
             logging.error(f"Cache invalidation error: {e}")
             return False
+
+    def invalidate_user_reports(self, user_id: int) -> bool:
+        """Invalidate all reports for a user"""
+        pattern = f"report:{user_id}:*"
+        keys = redis_client.keys(pattern)
+        return all(redis_client.delete(key) for key in keys)
 
 def cache_response(timeout: int = 3600):
     """Decorator for caching API responses."""

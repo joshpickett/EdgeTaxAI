@@ -1,0 +1,25 @@
+from marshmallow import Schema, fields, validate
+from datetime import datetime
+
+class ReportBaseSchema(Schema):
+    user_id = fields.Int(required=True)
+    year = fields.Int(required=False, default=lambda: datetime.now().year)
+    format = fields.Str(validate=validate.OneOf(['json', 'pdf', 'excel']), default='json')
+
+class TaxSummarySchema(ReportBaseSchema):
+    categories = fields.List(fields.Str(), required=False)
+    include_predictions = fields.Bool(default=False)
+
+class ScheduleCSchema(ReportBaseSchema):
+    business_name = fields.Str(required=False)
+    ein = fields.Str(required=False)
+
+class CustomReportSchema(ReportBaseSchema):
+    start_date = fields.Date(required=True)
+    end_date = fields.Date(required=True)
+    categories = fields.List(fields.Str(), required=False)
+    report_type = fields.Str(validate=validate.OneOf(['detailed', 'summary']), default='detailed')
+
+class AnalyticsRequestSchema(ReportBaseSchema):
+    analysis_type = fields.List(fields.Str(), required=False)
+    include_predictions = fields.Bool(default=False)
