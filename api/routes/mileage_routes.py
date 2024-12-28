@@ -1,12 +1,13 @@
 import os
 import sys
-from api.setup_path import setup_python_path
 
-# Set up path for both package and direct execution
-if __name__ == "__main__":
-    setup_python_path(__file__)
-else:
-    setup_python_path()
+from api.setup_path import setup_python_path
+setup_python_path(__file__)
+
+from api.utils.cache_utils import CacheManager, cache_response
+from api.utils.error_handler import handle_api_error, APIError
+from api.utils.rate_limit import rate_limit
+
 
 import requests
 import logging
@@ -18,13 +19,16 @@ import pandas as pd
 from api.utils.error_handler import handle_api_error
 from api.utils.db_utils import get_db_connection
 from api.utils.trip_analyzer import TripAnalyzer
-from ..config import IRS_MILEAGE_RATE
+from api.config import IRS_MILEAGE_RATE
 from api.utils.session_manager import SessionManager
 from api.utils.token_manager import TokenManager
 
 # Initialize managers
 session_manager = SessionManager()
 token_manager = TokenManager()
+
+# Initialize cache manager
+cache_manager = CacheManager()
 
 # Configure Logging
 logging.basicConfig(
@@ -39,6 +43,8 @@ mileage_bp = Blueprint("mileage", __name__)
 trip_analyzer = TripAnalyzer()
 
 @mileage_bp.route("/mileage", methods=["POST"])
+@rate_limit(requests_per_minute=60)
+@handle_api_error
 def calculate_mileage() -> Tuple[Dict[str, Any], int]:
     """
     Calculate mileage between two locations using Google Maps API.
@@ -46,17 +52,25 @@ def calculate_mileage() -> Tuple[Dict[str, Any], int]:
     """
     if not request.is_json:
         return jsonify({"error": "Invalid JSON payload"}), 400
-        
+    
     try:
         data = request.json
         start = data.get("start", "").strip()
         end = data.get("end", "").strip()
         purpose = data.get("purpose", "").strip()
         
-        return trip_analyzer.calculate_trip_distance(request.json)
+        # Check cache first
+        cache_key = f"mileage:{start}:{end}"
+        cached_result = cache_manager.get(cache_key)
+        if cached_result:
+            return cached_result
+
+        result = trip_analyzer.calculate_trip_distance(request.json)
+        cache_manager.set(cache_key, result, timeout=86400)  # Cache for 24 hours
+        return result
+
     except Exception as e:
-        logging.error(f"Error calculating mileage: {str(e)}")
-        return jsonify({"error": "Failed to calculate mileage"}), 500
+        raise APIError(f"Failed to calculate mileage: {str(e)}", status_code=500)
 
 @mileage_bp.route("/mileage/add", methods=["POST"])
 def add_mileage_record():
@@ -106,6 +120,8 @@ def add_mileage_record():
         return jsonify({"error": "Failed to add mileage record"}), 500
 
 @mileage_bp.route("/mileage/bulk", methods=["POST"])
+@rate_limit(requests_per_minute=30)
+@handle_api_error
 def bulk_mileage_upload():
     """Handle bulk mileage record uploads."""
     try:
@@ -160,8 +176,7 @@ def bulk_mileage_upload():
         }), 200
         
     except Exception as e:
-        logging.error(f"Error processing bulk mileage upload: {e}")
-        return jsonify({"error": "Failed to process bulk upload"}), 500
+        raise APIError(f"Failed to process bulk upload: {str(e)}", status_code=500)
 
 @mileage_bp.route("/mileage/recurring", methods=["POST"])
 def add_recurring_trip():
@@ -198,6 +213,8 @@ def add_recurring_trip():
         return jsonify({"error": "Failed to add recurring trip"}), 500
 
 @mileage_bp.route("/mileage/summary", methods=["GET"])
+@cache_response(timeout=3600)  # Cache for 1 hour
+@handle_api_error
 def get_mileage_summary():
     """Get mileage summary with tax implications"""
     try:
