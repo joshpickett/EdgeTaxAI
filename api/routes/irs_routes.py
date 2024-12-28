@@ -8,6 +8,7 @@ import logging
 from datetime import datetime
 from api.utils.db_utils import get_db_connection
 from api.utils.tax_calculator import TaxCalculator
+from api.utils.income_tax_utils import IncomeTaxCalculator
 from api.utils.irs_compliance import IRSCompliance
 from api.utils.session_manager import SessionManager
 from api.utils.token_manager import TokenManager
@@ -43,55 +44,21 @@ def generate_quarterly_estimate():
         if not all([user_id, quarter]):
             return jsonify({"error": "User ID and quarter required"}), 400
             
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Calculate quarterly income and expenses
-        quarter_start = f"{year}-{(quarter-1)*3+1:02d}-01"
-        quarter_end = f"{year}-{quarter*3:02d}-31"
-        
-        cursor.execute("""
-            SELECT SUM(amount) as total_income
-            FROM income
-            WHERE user_id = ? 
-            AND date BETWEEN ? AND ?
-        """, (user_id, quarter_start, quarter_end))
-        
-        total_income = cursor.fetchone()[0] or 0
-        
-        cursor.execute("""
-            SELECT SUM(amount) as total_expenses
-            FROM expenses
-            WHERE user_id = ?
-            AND date BETWEEN ? AND ?
-        """, (user_id, quarter_start, quarter_end))
-        
-        total_expenses = cursor.fetchone()[0] or 0
-        
+        # Get quarterly calculations from the utility
+        quarterly_data = IncomeTaxCalculator.calculate_quarterly_amounts(
+            user_id, quarter, year
+        )
+         
         # Calculate estimated tax
-        net_income = total_income - total_expenses
-        estimated_tax = irs_calculator.calculate_self_employment_tax(net_income)['tax_amount']
-        
-        def get_quarter_due_date(quarter, year):
-            """Calculate the due date for quarterly taxes"""
-            due_dates = {
-                1: f"{year}-04-15",  # Q1 due April 15
-                2: f"{year}-06-15",  # Q2 due June 15
-                3: f"{year}-09-15",  # Q3 due September 15
-                4: f"{year+1}-01-15"  # Q4 due January 15 of next year
-            }
-            return due_dates.get(quarter)
-
+        estimated_tax = irs_calculator.calculate_self_employment_tax(
+            quarterly_data['net_income']
+        )['tax_amount']
+ 
         return jsonify({
-            'quarter': quarter,
-            'year': year,
-            'total_income': total_income,
-            'total_expenses': total_expenses,
-            'net_income': net_income,
+            **quarterly_data,
             'estimated_tax': estimated_tax,
-            'due_date': get_quarter_due_date(quarter, year)
         })
-        
+
     except Exception as e:
         logging.error(f"Error generating quarterly estimate: {str(e)}")
         return jsonify({"error": "Failed to generate quarterly estimate"}), 500

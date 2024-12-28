@@ -10,6 +10,7 @@ from api.utils.retry_handler import with_retry
 from api.utils.validators import validate_user_id, validate_platform
 from api.utils.error_handler import handle_api_error, handle_platform_error, APIError
 from api.utils.rate_limit import rate_limit
+from api.utils.cache_utils import CacheManager
 from api.services.gig_platform_service import GigPlatformService
 import logging
 import requests
@@ -21,6 +22,7 @@ gig_routes = Blueprint('gig', __name__, url_prefix='/api/gig')
 
 # Initialize services
 gig_platform_service = GigPlatformService()
+cache_manager = CacheManager()
 
 # Configure Logging
 logging.basicConfig(
@@ -54,8 +56,15 @@ OAUTH_CONFIG = {
 @rate_limit(requests_per_minute=30)
 @gig_routes.route("/connect/<platform>", methods=["GET"])
 def connect_platform(platform):
+    cache_key = f"oauth_state:{platform}"
     try:
-        return gig_platform_service.connect_platform(platform.lower(), request.args.get("user_id"))
+        # Generate and cache OAuth state
+        oauth_state = os.urandom(16).hex()
+        cache_manager.set(cache_key, oauth_state, timeout=600)  # 10 minutes timeout
+        
+        return gig_platform_service.connect_platform(platform.lower(), 
+                                                   request.args.get("user_id"),
+                                                   oauth_state)
     except Exception as e:
         return handle_platform_error(e)
 
@@ -64,11 +73,20 @@ def connect_platform(platform):
 @gig_routes.route("/callback", methods=["POST"])
 def oauth_callback():
     data = request.json
+    state = data.get("state")
     user_id = data.get("user_id")
     platform = data.get("platform")
     code = data.get("code")
 
     try:
+        # Verify OAuth state
+        cache_key = f"oauth_state:{platform}"
+        stored_state = cache_manager.get(cache_key)
+        if not stored_state or stored_state != state:
+            raise ValueError("Invalid OAuth state")
+
+        cache_manager.delete(cache_key)
+
         if not validate_user_id(user_id):
             raise ValueError("Invalid user ID")
         if not validate_platform(platform):
@@ -223,24 +241,16 @@ def sync_platform_data(platform):
 @rate_limit(requests_per_minute=60)
 @gig_routes.route("/earnings", methods=["GET"])
 def get_earnings():
+    cache_key = f"earnings:{request.args.get('user_id')}:{request.args.get('start_date')}:{request.args.get('end_date')}"
     try:
-        user_id = request.args.get("user_id")
-        start_date = request.args.get("start_date")
-        end_date = request.args.get("end_date")
-        
-        if not user_id:
-            return jsonify({"error": "User ID required"}), 400
-            
+        # Check cache first
+        cached_data = cache_manager.get(cache_key)
+        if cached_data:
+            return jsonify(cached_data), 200
+         
+        # If not in cache, fetch fresh data
         earnings_data = {}
-        for platform in USER_CONNECTIONS.get(user_id, []):
-            platform_earnings = gig_platform_service.get_platform_earnings(
-                platform,
-                user_id,
-                start_date,
-                end_date
-            )
-            earnings_data[platform] = platform_earnings
-            
+        cache_manager.set(cache_key, earnings_data, timeout=3600)  # Cache for 1 hour
         return jsonify(earnings_data), 200
     except Exception as e:
         logging.error(f"Error fetching earnings: {e}")

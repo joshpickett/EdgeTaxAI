@@ -20,11 +20,11 @@ import logging
 class GigPlatformService:
     def __init__(self):
         self.processor = GigPlatformProcessor()
-        self.gig_data = GigData()
         self.cache = CacheManager()
+        self.gig_data = GigData()
         init_gig_table()
 
-    def connect_platform(self, platform: str, user_id: int) -> Dict[str, Any]:
+    def connect_platform(self, platform: str, user_id: int, oauth_state: str) -> Dict[str, Any]:
         """Handle platform connection process"""
         try:
             oauth_url = self.processor.get_oauth_url(platform)
@@ -56,7 +56,7 @@ class GigPlatformService:
             # Exchange code for tokens
             token_data = await self.processor.exchange_code_for_token(platform, code)
             
-            # Store platform data
+            # Store platform connection
             self.gig_data.store_platform_data(user_id, platform, token_data)
 
             # Initialize platform sync

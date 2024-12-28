@@ -20,7 +20,23 @@ SHARED_CONFIG = {
 class Config:
     APP_NAME = "TaxEdgeAI Backend"
     DEBUG = os.getenv("DEBUG_MODE", "False").lower() == "true"  # Enable Flask debug mode
-    SECRET_KEY = os.getenv("SECRET_KEY", "supersecretkey")  # Flask session encryption key
+    
+    # OCR Configuration
+    OCR_MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB limit
+    OCR_ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf'}
+    OCR_UPLOAD_FOLDER = "uploads"
+    OCR_RATE_LIMIT = {
+        'DEFAULT': 100,  # requests per minute
+        'BATCH': 50     # requests per minute for batch operations
+    }
+    
+    # IRS Quarterly Tax Due Dates
+    QUARTERLY_TAX_DATES = {
+        1: {'start': '-01-01', 'end': '-03-31', 'due': '-04-15'},  # Q1
+        2: {'start': '-04-01', 'end': '-06-30', 'due': '-06-15'},  # Q2
+        3: {'start': '-07-01', 'end': '-09-30', 'due': '-09-15'},  # Q3
+        4: {'start': '-10-01', 'end': '-12-31', 'due': '-01-15'}   # Q4 (due next year)
+    }
 
     # Redis Configuration
     REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')

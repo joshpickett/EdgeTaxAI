@@ -9,7 +9,6 @@ import time
 from functools import wraps
 from typing import Dict, Any, Optional, Tuple, List
 from werkzeug.utils import secure_filename
-import redis
 import json
 import hashlib
 import re
@@ -19,24 +18,11 @@ from api.utils.error_handler import handle_api_error
 from api.utils.cache_utils import CacheManager, cache_response
 from api.utils.ai_utils import extract_receipt_data, analyze_receipt_text
 from api.utils.monitoring import monitor_api_calls
-from api.utils.batch_processor import BatchProcessor
-from api.utils.expense_integration import ExpenseIntegration
-from api.utils.document_manager import DocumentManager
-from api.utils.session_manager import SessionManager
-from api.utils.token_manager import TokenManager
-
-# Configure Redis
-redis_client = redis.Redis(host='localhost', port=6379, db=0)
-
-# Constants for validation
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB limit
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf'}
-RATE_LIMIT_REQUESTS = 100
-RATE_LIMIT_WINDOW = 3600  # 1 hour
+from api.utils.rate_limit import rate_limit
+from api.config import Config
 
 # Create upload folder
-UPLOAD_FOLDER = "uploads"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(Config.OCR_UPLOAD_FOLDER, exist_ok=True)
 
 # Configure Logging
 logging.basicConfig(
@@ -104,25 +90,12 @@ def extract_text_from_image(image):
 
 @ocr_bp.route("/process-receipt", methods=["POST"])
 @monitor_api_calls("process_receipt")
+@rate_limit(requests_per_minute=Config.OCR_RATE_LIMIT['DEFAULT'])
 @cache_response(timeout=3600)  # Cache for 1 hour
 def process_receipt():
     """Process receipt image and extract relevant information."""
     try:
         cache_manager = CacheManager()
-         
-        # Rate limiting check
-        user_id = request.headers.get('X-User-ID')
-        if not user_id:
-            return jsonify({"error": "User ID required in headers"}), 401
-
-        rate_key = f"rate_limit:{user_id}"
-        request_count = redis_client.get(rate_key)
-        
-        if request_count and int(request_count) >= RATE_LIMIT_REQUESTS:
-            return jsonify({"error": "Rate limit exceeded"}), 429
-
-        redis_client.incr(rate_key)
-        redis_client.expire(rate_key, RATE_LIMIT_WINDOW)
 
         if "receipt" not in request.files:
             return jsonify({"error": "No receipt file provided"}), 400
@@ -130,11 +103,11 @@ def process_receipt():
         file = request.files["receipt"]
         
         # File size validation
-        if len(file.read()) > MAX_FILE_SIZE:
+        if len(file.read()) > Config.OCR_MAX_FILE_SIZE:
             return jsonify({"error": "File size exceeds 10MB limit"}), 400
         file.seek(0)  # Reset file pointer after reading
 
-        if not allowed_file_extension(file.filename, ALLOWED_EXTENSIONS):
+        if not allowed_file_extension(file.filename, Config.OCR_ALLOWED_EXTENSIONS):
             return jsonify({"error": "Invalid file type"}), 400
 
         if not file.filename:
@@ -154,7 +127,7 @@ def process_receipt():
 
         # Save the uploaded file
         filename = secure_filename(file.filename)
-        file_path = os.path.join(UPLOAD_FOLDER, filename)
+        file_path = os.path.join(Config.OCR_UPLOAD_FOLDER, filename)
         file.save(file_path)
 
         # Load image into Google Vision
@@ -212,6 +185,7 @@ def process_receipt():
 
 @ocr_bp.route("/analyze-receipt", methods=["POST"])
 @monitor_api_calls("analyze_receipt")
+@rate_limit(requests_per_minute=Config.OCR_RATE_LIMIT['DEFAULT'])
 @cache_response(timeout=1800)  # Cache for 30 minutes
 def analyze_receipt():
     """Analyze receipt image and extract structured data."""
@@ -222,16 +196,16 @@ def analyze_receipt():
         file = request.files["receipt"]
         
         # File size validation
-        if len(file.read()) > MAX_FILE_SIZE:
+        if len(file.read()) > Config.OCR_MAX_FILE_SIZE:
             return jsonify({"error": "File size exceeds 10MB limit"}), 400
         file.seek(0)  # Reset file pointer after reading
 
-        if not allowed_file_extension(file.filename, ALLOWED_EXTENSIONS):
+        if not allowed_file_extension(file.filename, Config.OCR_ALLOWED_EXTENSIONS):
             return jsonify({"error": "Invalid file type"}), 400
 
         # Save and process the file
         filename = secure_filename(file.filename)
-        file_path = os.path.join(UPLOAD_FOLDER, filename)
+        file_path = os.path.join(Config.OCR_UPLOAD_FOLDER, filename)
         file.save(file_path)
 
         # Extract text using Google Vision
@@ -261,6 +235,7 @@ def analyze_receipt():
             os.remove(file_path)
 
 @ocr_bp.route("/extract-expense", methods=["POST"])
+@rate_limit(requests_per_minute=Config.OCR_RATE_LIMIT['DEFAULT'])
 def extract_expense():
     """Extract expense information from receipt text."""
     try:
@@ -283,6 +258,7 @@ def extract_expense():
         return jsonify({"error": "Failed to extract expense data"}), 500
 
 @ocr_bp.route("/extract-text", methods=["POST"])
+@rate_limit(requests_per_minute=Config.OCR_RATE_LIMIT['DEFAULT'])
 def extract_text():
     """Extract text from receipt image without structured analysis."""
     try:
@@ -292,16 +268,16 @@ def extract_text():
         file = request.files["receipt"]
         
         # File size validation
-        if len(file.read()) > MAX_FILE_SIZE:
+        if len(file.read()) > Config.OCR_MAX_FILE_SIZE:
             return jsonify({"error": "File size exceeds 10MB limit"}), 400
         file.seek(0)  # Reset file pointer after reading
 
-        if not allowed_file_extension(file.filename, ALLOWED_EXTENSIONS):
+        if not allowed_file_extension(file.filename, Config.OCR_ALLOWED_EXTENSIONS):
             return jsonify({"error": "Invalid file type"}), 400
 
         # Save and process the file
         filename = secure_filename(file.filename)
-        file_path = os.path.join(UPLOAD_FOLDER, filename)
+        file_path = os.path.join(Config.OCR_UPLOAD_FOLDER, filename)
         file.save(file_path)
 
         # Extract text using Google Vision
@@ -330,6 +306,7 @@ def extract_text():
             os.remove(file_path)
 
 @ocr_bp.route("/process-batch", methods=["POST"])
+@rate_limit(requests_per_minute=Config.OCR_RATE_LIMIT['BATCH'])
 async def process_receipt_batch():
     """Process multiple receipts in batch mode"""
     try:
