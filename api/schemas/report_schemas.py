@@ -10,16 +10,11 @@ class TaxSummarySchema(ReportBaseSchema):
     categories = fields.List(fields.Str(), required=False)
     include_predictions = fields.Bool(default=False)
 
-class ScheduleCSchema(ReportBaseSchema):
-    business_name = fields.Str(required=False)
-    ein = fields.Str(required=False)
-
-class CustomReportSchema(ReportBaseSchema):
+class ExpenseReportSchema(ReportBaseSchema):
     start_date = fields.Date(required=True)
     end_date = fields.Date(required=True)
     categories = fields.List(fields.Str(), required=False)
-    report_type = fields.Str(validate=validate.OneOf(['detailed', 'summary']), default='detailed')
 
-class AnalyticsRequestSchema(ReportBaseSchema):
+class AnalyticsReportSchema(ReportBaseSchema):
     analysis_type = fields.List(fields.Str(), required=False)
     include_predictions = fields.Bool(default=False)
