@@ -1,6 +1,9 @@
+from desktop.setup_path import setup_desktop_path
+setup_desktop_path()
+
 import requests
 import logging
-import streamlit as st
+import streamlit as streamlit
 
 def categorize_expense(api_base_url, description):
     """

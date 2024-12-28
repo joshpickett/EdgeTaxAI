@@ -1,6 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { setupSrcPath } from '../setup_path';
 import { Card } from 'react-native-elements';
+import { colors, typography, spacing } from '../styles/tokens';
 import { VictoryPie } from 'victory-native';
 
 const ExpenseSummaryCard = ({ data }) => {
@@ -38,9 +40,9 @@ const ExpenseSummaryCard = ({ data }) => {
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 10,
-    marginBottom: 15,
-    elevation: 3
+    borderRadius: spacing.md,
+    marginBottom: spacing.md,
+    elevation: spacing.xs
   },
   content: {
     flexDirection: 'row',
@@ -48,16 +50,16 @@ const styles = StyleSheet.create({
   },
   infoContainer: {
     flex: 1,
-    padding: 10
+    padding: spacing.sm
   },
   chartContainer: {
     flex: 1,
     alignItems: 'center'
   },
   label: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 5
+    fontSize: typography.fontSize.sm,
+    color: colors.text.secondary,
+    marginBottom: spacing.xs
   },
   amount: {
     fontSize: 18,

@@ -1,6 +1,10 @@
 import { useSelector, useDispatch } from 'react-redux';
-import { loginUser, verifyOTP, logout } from '../store/slices/authSlice';
-import { RootState } from '../store';
+import { loginUser, verifyOTP, logout } from 'store/slices/authSlice';
+import { RootState } from 'store/types';
+import { setupSrcPath } from 'setup_path';
+
+// Initialize path setup
+setupSrcPath();
 
 export const useAuth = () => {
   const dispatch = useDispatch();

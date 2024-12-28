@@ -1,8 +1,11 @@
+from desktop.setup_path import setup_desktop_path
+setup_desktop_path()
+
 import streamlit as st
 import pandas as pd
 import logging
-from services.bank_service_adapter import BankServiceAdapter
-from services.ai_service_adapter import AIServiceAdapter
+from desktop.services.bank_service_adapter import BankServiceAdapter
+from desktop.services.ai_service_adapter import AIServiceAdapter
 
 # Configure Logging
 logging.basicConfig(

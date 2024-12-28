@@ -1,7 +1,10 @@
+from desktop.setup_path import setup_desktop_path
+setup_desktop_path()
+
 import streamlit as st
 import requests
 import pandas as pd
-from config import API_BASE_URL
+from desktop.config import API_BASE_URL
 
 def reports_page():
     """
@@ -130,7 +133,7 @@ def reports_page():
             connected_accounts = response.json().get("connected_accounts", [])
             if connected_accounts:
                 for account in connected_accounts:
-                    st.write(f"✅ Connected: {account['platform'].capitalize()}")
+                    st.write(f"✔ Connected: {account['platform'].capitalize()}")
             else:
                 st.write("No connected platforms yet.")
         else:

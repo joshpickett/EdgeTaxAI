@@ -1,26 +1,31 @@
+import os
+from typing import Callable, Any, Optional, Dict, Union
+from api.utils.rate_limit import rate_limit
+from api.utils.session_manager import SessionManager
+from api.utils.token_manager import TokenManager
+from api.utils.error_handler import APIError
+from api.setup_path import setup_python_path
+setup_python_path(__file__)
+
 from functools import wraps
 from flask import request, jsonify
-from typing import Callable, Any, Optional, Dict
 import jwt
 import redis
 from redis.exceptions import RedisError
 from datetime import datetime, timedelta
-import os
 import json
 import logging
-from ..utils.token_manager import TokenManager
-from ..utils.session_manager import SessionManager
-from ..utils.error_handler import APIError
 
 # Initialize Redis client with error handling
 try:
     redis_client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
-except RedisError as e:
-    logging.error(f"Failed to initialize Redis client: {e}")
+except redis.RedisError as e:
+    logging.error(f"Failed to initialize Redis client: {str(e)}")
+    redis_client = None
 
 # Initialize components
-token_manager = TokenManager()
-session_manager = SessionManager()
+token_manager = TokenManager()  # Initialize at module level
+session_manager = SessionManager()  # Initialize at module level
 REFRESH_THRESHOLD = 300  # 5 minutes before expiry
 
 class AuthError(APIError):
@@ -33,6 +38,9 @@ def token_required(function: Callable) -> Callable:
     def decorated(*args: Any, **kwargs: Any) -> Any:
         token = None
         
+        if not os.getenv('JWT_SECRET_KEY'):
+            raise AuthError("JWT secret key not configured", 500)
+
         if 'Authorization' in request.headers:
             authorization_header = request.headers['Authorization']
             try:
@@ -40,11 +48,14 @@ def token_required(function: Callable) -> Callable:
             except IndexError:
                 raise AuthError("Invalid token format", 401)
 
+            if not validate_token_format(token):
+                raise AuthError("Invalid token format", 401)
+
             # Validate token
             try:
                 claims = token_manager.verify_token(token)
                 request.user = claims
-            except jwt.ExpiredSignatureError:
+            except jwt.InvalidTokenError as e:
                 if token_manager.can_refresh(token):
                     new_token = token_manager.refresh_token(token)
                     if new_token:
@@ -52,8 +63,6 @@ def token_required(function: Callable) -> Callable:
                         response.headers['New-Token'] = new_token
                         return response
                 raise AuthError("Token has expired", 401)
-            except jwt.InvalidTokenError:
-                raise AuthError("Invalid token", 401)
 
         if not token:
             raise AuthError("Token is missing", 401)
@@ -93,31 +102,8 @@ def refresh_token(old_token: str) -> Optional[str]:
     except:
         return None
 
-def rate_limit(requests_per_minute: int) -> Callable:
-    """Rate limiting decorator"""
-    def decorator(function: Callable) -> Callable:
-        bucket_name = f"rate_limit:{function.__name__}"
-        
-        @wraps(function)
-        def decorated_function(*args: Any, **kwargs: Any):
-            client_ip = request.remote_addr
-            key = f"{bucket_name}:{client_ip}"
-            
-            # Get current request count
-            current = redis_client.get(key)
-            if current is None:
-                redis_client.setex(key, 60, 1)
-            elif int(current) >= requests_per_minute:
-                return jsonify({
-                    "error": "Rate limit exceeded",
-                    "retry_after": redis_client.ttl(key)
-                }), 429
-            else:
-                redis_client.incr(key)
-                
-            return function(*args, **kwargs)
-        return decorated_function
-    return decorator
+# Use the rate limit implementation from utils
+rate_limit = rate_limit.rate_limit
 
 class APIError(Exception):
     """Custom API Exception"""
@@ -144,34 +130,24 @@ def validate_token_format(token: str) -> bool:
     except:
         return False
 
-class SessionManager:
-    def __init__(self):
-        self.redis = redis_client
-        self.session_duration = 24 * 60 * 60  # 24 hours
+session_manager = session_manager.SessionManager()
 
-    def create_session(self, user_id: int, device_info: dict) -> str:
-        """Create new session with device tracking"""
-        session_id = generate_session_id()
+def create_session(user_id: int, device_info: dict) -> str:
+    """Create new session with device tracking"""
+    try:
         session_data = {
             'user_id': user_id,
             'device_info': device_info or {},
             'created_at': datetime.utcnow().isoformat(),
-            'last_active': datetime.utcnow().isoformat()
+            'last_active': datetime.utcnow().isoformat(),
+            'expires_at': (datetime.utcnow() + timedelta(seconds=session_manager.session_duration)).isoformat()
         }
-        
-        self.redis.setex(
-            f"session:{session_id}",
-            self.session_duration,
-            json.dumps(session_data)
-        )
-        return session_id
+        if not redis_client:
+            raise AuthError("Session storage unavailable", 500)
 
-    def validate_session(self, session_id: str) -> bool:
-        """Validate session and update last active time"""
-        session_key = f"session:{session_id}"
-        if self.redis.exists(session_key):
-            session_data = json.loads(self.redis.get(session_key))
-            session_data['last_active'] = datetime.utcnow().isoformat()
-            self.redis.setex(session_key, self.session_duration, json.dumps(session_data))
-            return True
-        return False
+        if session_manager.create_session(user_id, session_data):
+            return session_data.get('session_id')
+        return None
+    except Exception as e:
+        logging.error(f"Error creating session: {e}")
+        return None

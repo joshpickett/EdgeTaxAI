@@ -1,7 +1,10 @@
+from desktop.setup_path import setup_desktop_path
+setup_desktop_path()
+
 import streamlit as st
 import requests
 import logging
-from utils import validate_input_fields, send_post_request
+from desktop.utils import validate_input_fields, send_post_request
 
 def account_creation_page(api_base_url):
     """

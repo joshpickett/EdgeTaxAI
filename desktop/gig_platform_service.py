@@ -1,3 +1,6 @@
+from desktop.setup_path import setup_desktop_path
+setup_desktop_path()
+
 import requests
 import os
 import logging
@@ -6,9 +9,10 @@ import time
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
-from .token_storage import TokenStorage
+from desktop.token_storage import TokenStorage
+from desktop.config import API_CONFIG
 
-BASE_URL = os.getenv("API_BASE_URL", "https://your-backend-api.com/api")
+BASE_URL = API_CONFIG['BASE_URL']
 token_storage = TokenStorage(os.getenv("SECRET_KEY"))
 
 MAX_RETRIES = 3

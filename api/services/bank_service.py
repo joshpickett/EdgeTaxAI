@@ -105,3 +105,104 @@ class BankService:
         except Exception as e:
             logging.error(f"Transaction fetch error: {e}")
             return {"error": str(e)}, 500
+
+    def get_accounts(self, user_id: int) -> tuple[Dict[str, Any], int]:
+        """Get user's connected bank accounts"""
+        try:
+            if user_id not in self.user_tokens:
+                return {"error": "No connected bank account."}, 400
+                
+            client = self.get_plaid_client()
+            response = client.accounts_get({
+                "access_token": self.user_tokens[user_id]
+            })
+            
+            return {"accounts": response.accounts}, 200
+            
+        except Exception as e:
+            logging.error(f"Account fetch error: {e}")
+            return {"error": str(e)}, 500
+
+    def get_balance(self, user_id: int) -> tuple[Dict[str, Any], int]:
+        """Get account balances"""
+        try:
+            if user_id not in self.user_tokens:
+                return {"error": "No connected bank account."}, 400
+                
+            client = self.get_plaid_client()
+            response = client.accounts_balance_get({
+                "access_token": self.user_tokens[user_id]
+            })
+            
+            balances = [{
+                "account_id": account.account_id,
+                "balance": account.balances.current
+            } for account in response.accounts]
+            
+            return {"balances": balances}, 200
+            
+        except Exception as e:
+            logging.error(f"Balance fetch error: {e}")
+            return {"error": str(e)}, 500
+
+    def disconnect_bank(self, user_id: int) -> tuple[Dict[str, Any], int]:
+        """Disconnect bank integration"""
+        try:
+            if user_id not in self.user_tokens:
+                return {"error": "No connected bank account."}, 400
+                
+            # Remove access token
+            self.user_tokens.pop(user_id)
+            return {"message": "Bank account disconnected successfully."}, 200
+            
+        except Exception as e:
+            logging.error(f"Disconnect error: {e}")
+            return {"error": str(e)}, 500
+
+    def search_transactions(self, user_id: int, filters: Dict) -> tuple[Dict[str, Any], int]:
+        """Search transactions with filters"""
+        try:
+            transactions_response = self.get_transactions(user_id)
+            if "error" in transactions_response[0]:
+                return transactions_response
+                
+            transactions = transactions_response[0]["transactions"]
+            filtered_transactions = self.analytics_helper.filter_transactions(
+                transactions, filters
+            )
+            
+            return {"transactions": filtered_transactions}, 200
+            
+        except Exception as e:
+            logging.error(f"Transaction search error: {e}")
+            return {"error": str(e)}, 500
+
+    def verify_account(self, user_id: int) -> tuple[Dict[str, Any], int]:
+        """Verify account status"""
+        try:
+            accounts_response = self.get_accounts(user_id)
+            if "error" in accounts_response[0]:
+                return accounts_response
+                
+            verification_status = "verified" if accounts_response[0]["accounts"] else "unverified"
+            return {"verification_status": verification_status}, 200
+            
+        except Exception as e:
+            logging.error(f"Verification error: {e}")
+            return {"error": str(e)}, 500
+
+    def analyze_transactions(self, user_id: int) -> tuple[Dict[str, Any], int]:
+        """Analyze transaction patterns"""
+        try:
+            transactions_response = self.get_transactions(user_id)
+            if "error" in transactions_response[0]:
+                return transactions_response
+                
+            transactions = transactions_response[0]["transactions"]
+            analysis = self.analytics_integration.analyze_spending_patterns(transactions)
+            
+            return {"analysis": analysis}, 200
+            
+        except Exception as e:
+            logging.error(f"Analysis error: {e}")
+            return {"error": str(e)}, 500

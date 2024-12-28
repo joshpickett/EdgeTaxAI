@@ -1,12 +1,15 @@
+from desktop.setup_path import setup_desktop_path
+setup_desktop_path()
+
 import streamlit as streamlit
 import platform
 from datetime import datetime, timedelta
 from pathlib import Path
 import logging
 import keyring
-from shared.services.authService import AuthService
-from shared.constants import AUTH_STATES, ERROR_TYPES
-from utils import validate_input_fields
+from desktop.services.authService import AuthService
+from desktop.constants import AUTH_STATES, ERROR_TYPES
+from desktop.utils import validate_input_fields
 
 # Asset paths
 ASSETS_DIR = Path(__file__).parent.parent / 'assets'

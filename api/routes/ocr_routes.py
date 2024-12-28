@@ -1,12 +1,7 @@
 import os
 import sys
 from api.setup_path import setup_python_path
-
-# Set up path for both package and direct execution
-if __name__ == "__main__":
-    setup_python_path(__file__)
-else:
-    setup_python_path()
+setup_python_path(__file__)
 
 from flask import Blueprint, request, jsonify
 import logging
@@ -20,13 +15,15 @@ import hashlib
 import re
 from google.cloud import vision
 from datetime import datetime
-from ..utils.error_handler import handle_api_error
-from ..utils.cache_utils import CacheManager, cache_response
-from ..utils.ai_utils import extract_receipt_data, analyze_receipt_text
-from ..utils.monitoring import monitor_api_calls
-from ..utils.batch_processor import BatchProcessor
-from ..utils.expense_integration import ExpenseIntegration
-from ..utils.document_manager import DocumentManager
+from api.utils.error_handler import handle_api_error
+from api.utils.cache_utils import CacheManager, cache_response
+from api.utils.ai_utils import extract_receipt_data, analyze_receipt_text
+from api.utils.monitoring import monitor_api_calls
+from api.utils.batch_processor import BatchProcessor
+from api.utils.expense_integration import ExpenseIntegration
+from api.utils.document_manager import DocumentManager
+from api.utils.session_manager import SessionManager
+from api.utils.token_manager import TokenManager
 
 # Configure Redis
 redis_client = redis.Redis(host='localhost', port=6379, db=0)
@@ -53,6 +50,10 @@ ocr_bp = Blueprint("ocr", __name__)
 batch_processor = BatchProcessor()
 document_manager = DocumentManager()
 expense_integration = ExpenseIntegration()
+
+# Initialize session and token managers
+session_manager = SessionManager()  # Initialize at module level
+token_manager = TokenManager()  # Initialize at module level
 
 # Initialize Google Cloud Vision client
 try:

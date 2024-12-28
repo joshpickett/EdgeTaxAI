@@ -1,6 +1,9 @@
+import { setupSharedPath } from './setup_path';
+setupSharedPath();
+
 import { apiClient } from './apiClient';
-import { handleApiError } from '../utils/errorHandler';
-import { SYNC_STATES } from '../constants';
+import { handleApiError } from 'utils/errorHandler';
+import { SYNC_STATES } from 'constants';
 
 class SyncService {
     constructor() {
@@ -10,10 +13,17 @@ class SyncService {
         this.statusSubscribers = new Set();
     }
 
+    validateUserId(userId) {
+        if (!userId) {
+            throw new Error('User ID is required for synchronization.');
+        }
+    }
+
     async syncData(userId) {
         if (this.syncInProgress) {
             return { status: SYNC_STATES.SYNCING };
         }
+        this.validateUserId(userId);
 
         try {
             this.syncInProgress = true;

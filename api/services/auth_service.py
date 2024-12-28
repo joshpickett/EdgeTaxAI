@@ -1,128 +1,97 @@
-import os
-import sys
-from api.setup_path import setup_python_path
-
-# Set up path for both package and direct execution
-if __name__ == "__main__":
-    setup_python_path(__file__)
-else:
-    setup_python_path()
-
-from typing import Dict, Any, Optional
-from utils.otp_manager import OTPManager
-from utils.token_storage import TokenStorage
-from utils.biometric_auth import BiometricAuthentication
-from utils.db_utils import get_db_connection
-from datetime import datetime, timedelta, timezone
 import logging
+from datetime import datetime, timedelta, timezone
+from typing import Dict, Any, Tuple
+from api.services.db_service import DatabaseService
+from api.utils.session_manager import SessionManager
+from api.utils.token_manager import TokenManager
+from api.utils.otp_service import generate_otp, send_otp
+from api.exceptions.auth_exceptions import AuthenticationError
+
+session_manager = SessionManager()
 
 class AuthService:
     def __init__(self):
-        self.db = get_db_connection()
-        self.otp_manager = OTPManager()
-        self.token_storage = TokenStorage()
-        self.biometric_auth = BiometricAuthentication()
+        self.db = DatabaseService()
+        self.token_manager = TokenManager()
         
-    def handle_signup(self, data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-        """Handle user signup process"""
-        try:
-            email = data.get("email")
-            phone_number = data.get("phone_number")
-            
-            if not (email or phone_number):
-                return {"error": "Email or phone number is required."}, 400
-                
-            # Check if user exists
-            cursor = self.db.cursor()
-            cursor.execute(
-                "SELECT * FROM users WHERE email = ? OR phone_number = ?",
-                (email, phone_number)
-            )
-            if cursor.fetchone():
-                return {"error": "User already exists."}, 400
-                
-            # Create new user
-            cursor.execute(
-                "INSERT INTO users (email, phone_number, is_verified) VALUES (?, ?, 0)",
-                (email, phone_number)
-            )
-            self.db.commit()
-            
-            # Generate and send OTP
-            identifier = email or phone_number
-            otp = self.otp_manager.generate_otp()
-            self.otp_manager.save_otp(identifier, otp)
-            
-            return {"message": "Signup successful. OTP sent for verification."}, 201
-            
-        except Exception as e:
-            logging.error(f"Signup error: {e}")
-            return {"error": str(e)}, 500
-            
-    def handle_login(self, data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-        """Handle user login process"""
+    def handle_signup(self, data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
         try:
             identifier = data.get("email") or data.get("phone_number")
-            
             if not identifier:
-                return {"error": "Email or phone number required."}, 400
+                raise AuthenticationError("Email or phone number required")
                 
-            cursor = self.db.cursor()
-            cursor.execute(
-                "SELECT * FROM users WHERE email = ? OR phone_number = ?",
-                (identifier, identifier)
+            # Validate identifier
+            if "@" in identifier:
+                if not validate_email(identifier):
+                    raise AuthenticationError("Invalid email format")
+            else:
+                if not validate_phone(identifier):
+                    raise AuthenticationError("Invalid phone format")
+                    
+            # Generate and save OTP
+            otp = generate_otp()
+            expiry = datetime.now(timezone.utc) + timedelta(minutes=5)
+            
+            # Create session for the signup process
+            session_manager.create_session(identifier, {'signup_stage': 'otp_sent'})
+ 
+            self.db.execute_query(
+                """INSERT INTO users (email, phone_number, otp_code, otp_expiry) 
+                   VALUES (?, ?, ?, ?)""",
+                (identifier if "@" in identifier else None,
+                 identifier if "@" not in identifier else None,
+                 otp, expiry)
             )
-            user = cursor.fetchone()
             
-            if not user:
-                return {"error": "User not found."}, 404
-                
-            # Generate and send OTP
-            otp = self.otp_manager.generate_otp()
-            self.otp_manager.save_otp(identifier, otp)
+            # Send OTP
+            send_otp(identifier, otp)
             
-            return {"message": "OTP sent for verification."}, 200
+            return {"message": "OTP sent"}, 200
             
         except Exception as e:
-            logging.error(f"Login error: {e}")
-            return {"error": str(e)}, 500
+            logging.error(f"Signup error: {str(e)}")
+            raise
             
-    def verify_otp(self, data: Dict[str, Any]) -> tuple[Dict[str, Any], int]:
-        """Verify OTP for user authentication"""
+    def user_exists(self, identifier: str) -> bool:
+        """Check if user exists by email or phone"""
         try:
-            identifier = data.get("email") or data.get("phone_number")
-            otp_code = data.get("otp_code")
-            
-            if not all([identifier, otp_code]):
-                return {"error": "Missing required fields."}, 400
-                
-            if self.otp_manager.verify_otp(identifier, otp_code):
-                cursor = self.db.cursor()
-                cursor.execute(
-                    "UPDATE users SET is_verified = 1 WHERE email = ? OR phone_number = ?",
-                    (identifier, identifier)
-                )
-                self.db.commit()
-                return {"message": "OTP verified successfully."}, 200
-                
-            return {"error": "Invalid or expired OTP."}, 401
-            
+            result = self.db.execute_query(
+                """SELECT id FROM users 
+                   WHERE email = ? OR phone_number = ?""",
+                (identifier, identifier),
+                fetch_one=True
+            )
+            return bool(result)
         except Exception as e:
-            logging.error(f"OTP verification error: {e}")
-            return {"error": str(e)}, 500
+            logging.error(f"Error checking user existence: {str(e)}")
+            raise
             
-    def handle_biometric_registration(self, user_id: int, biometric_data: str) -> tuple[Dict[str, Any], int]:
+    def verify_otp(self, data: Dict[str, Any]) -> bool:
+        """Verify OTP code"""
+        identifier = data.get("email") or data.get("phone_number")
+        otp_code = data.get("otp_code")
+        
+        result = self.db.execute_query(
+            """SELECT otp_code, otp_expiry FROM users 
+               WHERE (email = ? OR phone_number = ?) AND otp_code = ?""",
+            (identifier, identifier, otp_code),
+            fetch_one=True
+        )
+        
+        if not result:
+            return False
+            
+        expiry = datetime.fromisoformat(result[1])
+        return datetime.now(timezone.utc) <= expiry
+        
+    def handle_biometric_registration(self, user_id: int, biometric_data: str) -> bool:
         """Handle biometric registration"""
         try:
-            if not all([user_id, biometric_data]):
-                return {"error": "Missing required data."}, 400
-                
-            success = self.biometric_auth.register_biometric(user_id, biometric_data)
-            
-            if success:
-                return {"message": "Biometric registration successful."}, 200
-            return {"error": "Biometric registration failed."}, 400
-            
+            self.db.execute_query(
+                "UPDATE users SET biometric_data = ? WHERE id = ?",
+                (biometric_data, user_id)
+            )
+            return True
         except Exception as e:
-            logging.error(f"Biometric registration error: {e}")
-            return {"error": str(e)}, 500
+            logging.error(f"Biometric registration error: {str(e)}")
+            return False

@@ -1,8 +1,11 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
+import { setupSrcPath } from '../../setup_path';
 import DashboardOverview from '../DashboardOverview';
 import { dataSyncService } from '../../services/dataSyncService';
 import { reportsService } from '../../services/reportsService';
+
+setupSrcPath();
 
 jest.mock('../../services/dataSyncService');
 jest.mock('../../services/reportsService');

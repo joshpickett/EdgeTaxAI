@@ -1,6 +1,8 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
+import { setupSrcPath } from '../../setup_path';
 import FinancialPlanningCard from '../FinancialPlanningCard';
+import { colors, spacing } from '../../styles/tokens';
 
 jest.mock('victory-native', () => ({
   VictoryPie: 'VictoryPie',
@@ -60,8 +62,9 @@ describe('FinancialPlanningCard', () => {
     );
 
     const progressBar = getByTestId('progress-bar');
-    expect(progressBar.props.style).toContainEqual(
-      expect.objectContaining({ width: '70%' })
-    );
+    expect(progressBar.props.style).toContainEqual(expect.objectContaining({ 
+      width: '70%',
+      backgroundColor: colors.primary.light 
+    }));
   });
 });

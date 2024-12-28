@@ -1,3 +1,6 @@
+from desktop.setup_path import setup_desktop_path
+setup_desktop_path()
+
 import streamlit as st
 import requests
 

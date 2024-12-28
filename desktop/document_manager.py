@@ -1,9 +1,13 @@
+from desktop.setup_path import setup_desktop_path
+setup_desktop_path()
+
 import streamlit as streamlit
 import requests
 import logging
 from datetime import datetime
 from typing import Dict, Any, List, Optional
 import os
+from desktop.config import API_CONFIG
 
 class DocumentManager:
     def __init__(self, api_base_url: str):

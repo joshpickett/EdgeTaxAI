@@ -1,6 +1,8 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
+import { setupSrcPath } from '../../setup_path';
 import LoadingOverlay from '../LoadingOverlay';
+import { colors } from '../../styles/tokens';
 
 describe('LoadingOverlay', () => {
   it('renders correctly when visible', () => {
@@ -25,5 +27,14 @@ describe('LoadingOverlay', () => {
   it('renders with default message when none provided', () => {
     const { getByText } = render(<LoadingOverlay visible={true} />);
     expect(getByText('Loading...')).toBeTruthy();
+  });
+
+  it('uses custom color when provided', () => {
+    const customColor = '#FF0000';
+    const { getByTestId } = render(
+      <LoadingOverlay color={colors.error.main} />
+    );
+    const spinner = getByTestId('loading-spinner');
+    expect(spinner.props.color).toBe(customColor);
   });
 });

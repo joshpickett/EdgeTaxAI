@@ -1,6 +1,8 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
+import { setupSrcPath } from '../../setup_path';
 import PlatformDataDisplay from '../PlatformDataDisplay';
+import { colors, typography } from '../../styles/tokens';
 
 describe('PlatformDataDisplay', () => {
   const mockData = {
@@ -20,8 +22,10 @@ describe('PlatformDataDisplay', () => {
     const { getByText } = render(
       <PlatformDataDisplay data={mockData} />
     );
+    const platformTitle = getByText('Uber');
+    expect(platformTitle.props.style).toContainEqual(
+      expect.objectContaining({ fontSize: typography.fontSize.lg }));
 
-    expect(getByText('Uber')).toBeTruthy();
     expect(getByText('$1,000')).toBeTruthy();
     expect(getByText('50 trips')).toBeTruthy();
     expect(getByText('20 hours')).toBeTruthy();

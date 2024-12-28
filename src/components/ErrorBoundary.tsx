@@ -1,6 +1,8 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { setupSrcPath } from '../setup_path';
 import { colors, typography, spacing } from '../styles/tokens';
+setupSrcPath();
 
 interface Props {
   children: ReactNode;

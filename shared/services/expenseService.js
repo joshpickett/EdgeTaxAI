@@ -1,3 +1,10 @@
+import { setupSharedPath } from './setup_path';
+setupSharedPath();
+
+import config from 'config';
+import { handleApiError } from 'utils/errorHandler';
+import ApiClient from './apiClient';
+
 class ExpenseService {
     constructor() {
         this.client = ApiClient;

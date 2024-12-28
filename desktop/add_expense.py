@@ -1,6 +1,9 @@
+from desktop.setup_path import setup_desktop_path
+setup_desktop_path()
+
 import sqlite3
 import logging
-from services.expense_service_adapter import ExpenseServiceAdapter
+from desktop.services.expense_service_adapter import ExpenseServiceAdapter
 from typing import Optional, Dict, Any
 import os
 

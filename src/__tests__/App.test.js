@@ -1,9 +1,13 @@
 import React from 'react';
 import { render } from '@testing-library/react';
 import { Provider } from 'react-redux';
+import { setupSrcPath } from '../setup_path';
 import { store } from '../store';
 import App from '../../App';
 import AppNavigator from '../navigation/AppNavigator';
+
+// Setup source path
+setupSrcPath();
 
 // Mock the AppNavigator component
 jest.mock('../navigation/AppNavigator', () => {

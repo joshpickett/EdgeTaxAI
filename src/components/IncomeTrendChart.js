@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Dimensions, Button } from 'react-native';
+import { View, StyleSheet, Dimensions } from 'react-native';
+import { setupSrcPath } from '../setup_path';
 import { VictoryLine, VictoryChart, VictoryAxis, VictoryTheme } from 'victory-native';
+import { colors, typography, spacing } from '../styles/tokens';
 import { Card } from 'react-native-elements';
 
 const IncomeTrendChart = ({ data }) => {
@@ -49,7 +51,7 @@ const IncomeTrendChart = ({ data }) => {
             x="date"
             y="amount"
             style={{
-              data: { stroke: "#007AFF" }
+              data: { stroke: colors.primary.main }
             }}
           />
         </VictoryChart>
@@ -60,31 +62,31 @@ const IncomeTrendChart = ({ data }) => {
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 10,
-    marginBottom: 15,
-    elevation: 3,
+    borderRadius: spacing.md,
+    marginBottom: spacing.md,
+    elevation: spacing.xs,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25
   },
   chartContainer: {
     alignItems: 'center',
-    marginTop: 10
+    marginTop: spacing.sm
   },
   periodSelector: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginBottom: 15
+    marginBottom: spacing.md
   },
   legend: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 10
+    marginTop: spacing.sm
   },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 10
+    marginHorizontal: spacing.md
   },
 });
 

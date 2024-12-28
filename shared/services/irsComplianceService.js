@@ -1,5 +1,8 @@
-import config from '../config';
-import { handleApiError } from '../utils/errorHandler';
+import { setupSharedPath } from './setup_path';
+setupSharedPath();
+
+import config from 'config';
+import { handleApiError } from 'utils/errorHandler';
 import ApiClient from './apiClient';
 
 class IRSComplianceService {

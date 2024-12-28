@@ -1,8 +1,11 @@
+from desktop.setup_path import setup_desktop_path
+setup_desktop_path()
+
 import streamlit as streamlit
 import requests
 import re
 from datetime import datetime
-from config import API_BASE_URL
+from desktop.config import API_BASE_URL
 from pathlib import Path
 
 # Asset paths

@@ -10,6 +10,9 @@ import {
   Alert,
   ActivityIndicator,
 } from "react-native";
+import ExpenseItem from "components/ExpenseItem";
+import AddExpenseForm from "components/AddExpenseForm";
+import { styles } from "styles/expenses";
 import {
   listExpenses,
   editExpense,

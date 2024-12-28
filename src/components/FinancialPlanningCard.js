@@ -1,6 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { setupSrcPath } from '../setup_path';
 import { Card, Button } from 'react-native-elements';
+import { colors, typography, spacing } from '../styles/tokens';
 import { VictoryPie, VictoryBar } from 'victory-native';
 
 const FinancialPlanningCard = ({ planningData }) => {
@@ -61,15 +63,15 @@ const FinancialPlanningCard = ({ planningData }) => {
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 10,
-    marginBottom: 15,
-    elevation: 3,
-    padding: 15
+    borderRadius: spacing.md,
+    marginBottom: spacing.md,
+    elevation: spacing.xs,
+    padding: spacing.md
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 10
+    fontSize: typography.fontSize.lg,
+    fontWeight: typography.fontWeight.bold,
+    marginBottom: spacing.sm
   },
   goalsSection: {
     marginBottom: 20
@@ -85,8 +87,8 @@ const styles = StyleSheet.create({
   },
   progress: {
     height: '100%',
-    backgroundColor: '#4ECDC4',
-    borderRadius: 5
+    backgroundColor: colors.success.main,
+    borderRadius: spacing.xs
   },
   savingsSection: {
     marginBottom: 20

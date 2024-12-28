@@ -1,4 +1,7 @@
-import streamlit as st
+from desktop.setup_path import setup_desktop_path
+setup_desktop_path()
+
+import streamlit as streamlit
 import requests
 import logging
 from pathlib import Path
@@ -7,7 +10,7 @@ from pathlib import Path
 ASSETS_DIR = Path(__file__).parent.parent / 'assets'
 TAX_REMINDER_ICON = ASSETS_DIR / 'logo' / 'icon' / 'edgetaxai-icon-color.svg'
 
-from config import API_BASE_URL
+from desktop.config import API_BASE_URL
 
 # Configure Logging
 logging.basicConfig(
@@ -20,25 +23,25 @@ def quarterly_tax_reminders_page():
     """
     Quarterly Tax Reminders Page: Schedule SMS reminders for tax payments via API.
     """
-    st.title("Quarterly Tax Reminders")
-    st.image(str(TAX_REMINDER_ICON), width=50)
-    st.markdown("#### Schedule SMS reminders for your quarterly tax payments.")
+    streamlit.title("Quarterly Tax Reminders")
+    streamlit.image(str(TAX_REMINDER_ICON), width=50)
+    streamlit.markdown("#### Schedule SMS reminders for your quarterly tax payments.")
 
     # Validate User Session
-    if "user_id" not in st.session_state:
-        st.error("Please log in to set tax reminders.")
+    if "user_id" not in streamlit.session_state:
+        streamlit.error("Please log in to set tax reminders.")
         logging.error("Unauthorized access attempt: User not logged in.")
         return
 
-    user_id = st.session_state["user_id"]
+    user_id = streamlit.session_state["user_id"]
 
     # Input Fields
-    phone_number = st.text_input("Enter Your Phone Number (e.g., +1234567890)")
-    reminder_date = st.date_input("Reminder Date")
+    phone_number = streamlit.text_input("Enter Your Phone Number (e.g., +1234567890)")
+    reminder_date = streamlit.date_input("Reminder Date")
 
-    if st.button("Schedule Reminder"):
+    if streamlit.button("Schedule Reminder"):
         if not phone_number or not reminder_date:
-            st.error("Both phone number and reminder date are required.")
+            streamlit.error("Both phone number and reminder date are required.")
             logging.warning(f"User {user_id} submitted incomplete reminder details.")
         else:
             try:
@@ -50,12 +53,12 @@ def quarterly_tax_reminders_page():
                 response = requests.post(f"{API_BASE_URL}/tax/reminders", json=payload)
 
                 if response.status_code == 200:
-                    st.success("Reminder scheduled successfully!")
+                    streamlit.success("Reminder scheduled successfully!")
                     logging.info(f"User {user_id} scheduled a reminder for {reminder_date} to {phone_number}.")
                 else:
                     error_message = response.json().get("error", "Failed to schedule reminder.")
-                    st.error(error_message)
+                    streamlit.error(error_message)
                     logging.error(f"API Error - Failed to schedule reminder for user {user_id}: {error_message}")
             except Exception as e:
-                st.error("An unexpected error occurred while scheduling the reminder.")
+                streamlit.error("An unexpected error occurred while scheduling the reminder.")
                 logging.exception(f"Exception while scheduling reminder for user {user_id}: {e}")

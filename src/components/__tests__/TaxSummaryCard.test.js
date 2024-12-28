@@ -1,6 +1,8 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
+import { setupSrcPath } from '../../setup_path';
 import TaxSummaryCard from '../TaxSummaryCard';
+import { colors, typography } from '../../styles/tokens';
 
 jest.mock('victory-native', () => ({
   VictoryPie: 'VictoryPie'
@@ -17,9 +19,13 @@ describe('TaxSummaryCard', () => {
   };
 
   it('renders tax summary data correctly', () => {
-    const { getByText } = render(<TaxSummaryCard taxData={mockTaxData} />);
+    const { getByText } = render(
+      <TaxSummaryCard taxData={mockTaxData} />
+    );
 
-    expect(getByText('Quarterly Tax Summary')).toBeTruthy();
+    const title = getByText('Quarterly Tax Summary');
+    expect(title.props.style).toContainEqual(
+      expect.objectContaining({ fontSize: typography.fontSize.xl }));
     expect(getByText('Q2')).toBeTruthy();
     expect(getByText('$5000')).toBeTruthy();
     expect(getByText('$3000')).toBeTruthy();

@@ -1,13 +1,18 @@
+from desktop.setup_path import setup_desktop_path
+setup_desktop_path()
+
 import streamlit as streamlit
 import requests
 import os
 from urllib.parse import urlencode
-from bank_integration import bank_integration_page
-from gig_platform_service import get_oauth_link, fetch_connected_platforms, fetch_platform_data, handle_oauth_callback
-from login_page import show_login_page  # Import the login page logic
+from desktop.bank_integration import bank_integration_page
+from desktop.gig_platform_service import get_oauth_link, fetch_connected_platforms, fetch_platform_data, handle_oauth_callback
+from desktop.login_page import show_login_page  # Import the login page logic
 from datetime import datetime
 from pathlib import Path
+from desktop.config import ASSETS_DIR, APP_ICON, FAVICON
 
+# Asset paths
 # Asset paths
 ASSETS_DIR = Path(__file__).parent.parent / 'assets'
 APP_ICON = ASSETS_DIR / 'logo' / 'app-icon' / 'app-icon-android.png'

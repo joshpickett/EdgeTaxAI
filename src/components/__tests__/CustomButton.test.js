@@ -1,6 +1,8 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
+import { setupSrcPath } from '../../setup_path';
 import CustomButton from '../CustomButton';
+setupSrcPath();
 
 describe('CustomButton', () => {
   it('renders correctly with title', () => {

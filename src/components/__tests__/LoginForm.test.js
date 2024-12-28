@@ -4,6 +4,7 @@ import { Provider } from 'react-redux';
 import configureStore from 'redux-mock-store';
 import LoginForm from '../LoginForm';
 import { authService } from '../../services/authService';
+import { colors, spacing } from '../../styles/tokens';
 
 jest.mock('../../services/authService');
 
@@ -27,7 +28,10 @@ describe('LoginForm', () => {
       </Provider>
     );
 
-    expect(getByPlaceholderText('Email')).toBeTruthy();
+    const emailInput = getByPlaceholderText('Email');
+    expect(emailInput.props.style).toContainEqual(
+      expect.objectContaining({ padding: spacing.sm })
+    );
     expect(getByPlaceholderText('Password')).toBeTruthy();
     expect(getByText('Login')).toBeTruthy();
   });

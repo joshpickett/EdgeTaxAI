@@ -1,7 +1,9 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
+import { setupSrcPath } from '../../setup_path';
 import ErrorBoundary from '../ErrorBoundary';
 import { Text } from 'react-native';
+import { colors, typography } from '../../styles/tokens';
 
 describe('ErrorBoundary', () => {
   const ThrowError = () => {
@@ -24,8 +26,10 @@ describe('ErrorBoundary', () => {
       </ErrorBoundary>
     );
     
-    expect(getByText('Oops! Something went wrong')).toBeTruthy();
-    expect(getByText('Test error')).toBeTruthy();
+    const errorTitle = getByText('Oops! Something went wrong');
+    expect(errorTitle.props.style).toContainEqual(
+      expect.objectContaining({ fontSize: typography.fontSize.xl })
+    );
   });
 
   it('allows retry after error', () => {

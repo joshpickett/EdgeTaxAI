@@ -1,7 +1,10 @@
-import config from '../config';
-import { handleApiError } from '../utils/errorHandler';
+import { setupSharedPath } from './setup_path';
+setupSharedPath();
+
+import config from 'config';
+import { handleApiError } from 'utils/errorHandler';
 import ApiClient from './apiClient';
-import { PLATFORMS } from '../constants';
+import { PLATFORMS } from 'constants';
 
 class PlatformService {
     constructor() {

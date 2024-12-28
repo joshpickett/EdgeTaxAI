@@ -1,7 +1,8 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
+import { setupSrcPath } from '../../setup_path';
 import ExpenseSummaryCard from '../ExpenseSummaryCard';
-import ErrorMessage from '../ErrorMessage';
+import { colors, typography } from '../../styles/tokens';
 
 jest.mock('victory-native', () => ({
   VictoryPie: 'VictoryPie'
@@ -32,6 +33,14 @@ describe('ExpenseSummaryCard', () => {
     expect(getByText('Food: $100')).toBeTruthy();
     expect(getByText('Transport: $50')).toBeTruthy();
     expect(getByText('Entertainment: $30')).toBeTruthy();
+  });
+
+  it('renders amount correctly', () => {
+    const { getByText } = render(<ExpenseSummaryCard data={mockData} />);
+    const amountElement = getByText('$180');
+    expect(amountElement.props.style).toContainEqual(
+      expect.objectContaining({ color: colors.text.primary })
+    );
   });
 
   it('renders pie chart', () => {

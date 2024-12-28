@@ -1,22 +1,25 @@
 import os
 import sys
 from api.setup_path import setup_python_path
-
-# Set up path for both package and direct execution
-if __name__ == "__main__":
-    setup_python_path(__file__)
-else:
-    setup_python_path()
+setup_python_path(__file__)
 
 from flask import Blueprint, request, jsonify
 import logging
 from datetime import datetime
+from api.utils.tax_calculator import TaxCalculator
+from api.utils.error_handler import handle_api_error
+from api.utils.session_manager import SessionManager
+from api.utils.token_manager import TokenManager
 from utils.shared_tax_service import TaxService
 from utils.analytics_helper import analyze_optimization_opportunities
 from decimal import Decimal
 
 tax_optimization_bp = Blueprint('tax_optimization', __name__)
 tax_service = TaxService()
+
+# Initialize managers
+session_manager = SessionManager()
+token_manager = TokenManager()
 
 @tax_optimization_bp.route("/tax/optimize", methods=["POST"])
 def optimize_tax_strategy():

@@ -1,14 +1,14 @@
+from desktop.setup_path import setup_desktop_path
+setup_desktop_path()
+
 import tkinter as tk
 from tkinter import messagebox, simpledialog
 from pathlib import Path
 import requests
 import matplotlib.pyplot as plt
+from desktop.config import ASSETS_DIR, API_BASE_URL
 
-# Asset paths
-ASSETS_DIR = Path(__file__).parent.parent / 'assets'
 DASHBOARD_LOGO = ASSETS_DIR / 'logo' / 'primary' / 'edgetaxai-horizontal-color.svg'
-
-API_BASE_URL = "http://localhost:5000"  # Replace with your backend URL
 
 # Dashboard Window
 class ExpenseDashboard(tk.Tk):

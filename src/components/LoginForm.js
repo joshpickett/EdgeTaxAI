@@ -1,58 +1,48 @@
 import React, { useState } from 'react';
-import AuthService from '../../shared/services/authService';
-import { AUTH_STATES, ERROR_TYPES } from '../../shared/constants';
+import { View, StyleSheet } from 'react-native';
+import { setupSrcPath } from '../setup_path';
+setupSrcPath();
+import InputField from './InputField';
+import Button from './CustomButton';
+import { colors, spacing, typography } from '../styles/tokens';
 
-const LoginForm = () => {
-  const [identifier, setIdentifier] = useState('');
-  const [otp, setOtp] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+const LoginForm = ({ onSubmit }) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
-  const handleLogin = async (event) => {
-    event.preventDefault();
-    setLoading(true);
-    setError('');
-
-    try {
-      const response = await AuthService.login({ identifier, otp });
-      if (response.token) {
-        // Handle successful login (e.g., redirect or update state)
-      }
-    } catch (error) {
-      setError(error.message);
-    } finally {
-      setLoading(false);
-    }
+  const handleSubmit = () => {
+    onSubmit({ email, password });
   };
 
   return (
-    <form onSubmit={handleLogin}>
-      <div>
-        <label htmlFor="identifier">Identifier</label>
-        <input
-          type="text"
-          id="identifier"
-          value={identifier}
-          onChange={(e) => setIdentifier(e.target.value)}
-          required
-        />
-      </div>
-      <div>
-        <label htmlFor="otp">One-Time Password</label>
-        <input
-          type="text"
-          id="otp"
-          value={otp}
-          onChange={(e) => setOtp(e.target.value)}
-          required
-        />
-      </div>
-      {error && <div className="error">{error}</div>}
-      <button type="submit" disabled={loading}>
-        {loading ? 'Logging in...' : 'Login'}
-      </button>
-    </form>
+    <View style={styles.container}>
+      <InputField
+        label="Email"
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+        keyboardType="email-address"
+      />
+      <InputField
+        label="Password"
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+      />
+      <Button title="Login" onPress={handleSubmit} style={styles.button} />
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    padding: spacing.lg,
+    width: '100%',
+  },
+  button: {
+    marginTop: spacing.lg,
+    backgroundColor: colors.primary.main,
+  }
+});
 
 export default LoginForm;

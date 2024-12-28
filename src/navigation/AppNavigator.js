@@ -1,23 +1,25 @@
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { useSelector } from 'react-redux';
-import { Alert } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Alert, View } from "react-native";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Auth Screens
-import LoginScreen from "../screens/LoginScreen";
-import SignupScreen from "../screens/SignupScreen";
-import DashboardScreen from "../screens/DashboardScreen";
+import LoginScreen from 'screens/auth/LoginScreen';
+import SignupScreen from 'screens/auth/SignupScreen';
+
+// Main Screens
+import DashboardScreen from 'screens/dashboard/DashboardScreen';
 import MileageTrackingScreen from "../screens/MileageTrackingScreen";
 import ReportsScreen from "../screens/ReportsScreen";
-import ExpensesScreen from "../screens/ExpensesScreen";
+import ExpensesScreen from 'screens/expenses/ExpensesScreen';
 import BankIntegrationScreen from "../screens/BankIntegrationScreen";
 import TaxReminderScreen from "../screens/TaxReminderScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import GigPlatformScreen from "../screens/GigPlatformScreen";
 
 // Services
-import { logoutUser } from "../services/api";
+import { logoutUser } from 'services/api';
 
 const Stack = createNativeStackNavigator();
 

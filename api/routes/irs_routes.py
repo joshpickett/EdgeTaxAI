@@ -1,19 +1,20 @@
 import os
 import sys
 from api.setup_path import setup_python_path
-
-# Set up path for both package and direct execution
-if __name__ == "__main__":
-    setup_python_path(__file__)
-else:
-    setup_python_path()
+setup_python_path(__file__)
 
 from flask import Blueprint, request, jsonify, send_file
 import logging
 from datetime import datetime
-from utils.db_utils import get_db_connection
-from utils.tax_calculator import TaxCalculator
-from utils.irs_compliance import IRSCompliance
+from api.utils.db_utils import get_db_connection
+from api.utils.tax_calculator import TaxCalculator
+from api.utils.irs_compliance import IRSCompliance
+from api.utils.session_manager import SessionManager
+from api.utils.token_manager import TokenManager
+
+# Initialize managers
+session_manager = SessionManager()
+token_manager = TokenManager()
 
 irs_calculator = TaxCalculator()
 irs_compliance = IRSCompliance()

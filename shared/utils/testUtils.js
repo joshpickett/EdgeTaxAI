@@ -1,4 +1,7 @@
+import { setupUtilsPath } from './setup_path';
 import { TripData, MileageRecord } from '../types/interfaces';
+
+setupUtilsPath();
 
 export const mockTripData: TripData = {
   startLocation: '123 Start St',
@@ -12,7 +15,8 @@ export const mockMileageRecord: MileageRecord = {
   userId: 'test-user',
   distance: 10.5,
   taxDeduction: 6.87,
-  date: '2023-01-01'
+  date: '2023-01-01',
+  status: 'pending'
 };
 
 export const createMockTripData = (overrides = {}): TripData => ({

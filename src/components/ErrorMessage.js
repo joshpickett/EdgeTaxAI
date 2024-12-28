@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { colors, typography, spacing } from '../styles/tokens';
+import { setupSrcPath } from '../setup_path';
 
 const ErrorMessage = ({ message, type = 'error' }) => {
   const getStyle = () => {
@@ -24,9 +25,21 @@ const ErrorMessage = ({ message, type = 'error' }) => {
 const styles = StyleSheet.create({
   container: {
     padding: spacing.md,
-    borderRadius: 4,
+    borderRadius: spacing.xs,
     borderWidth: 1,
     marginVertical: spacing.sm
+  },
+  success: {
+    borderColor: colors.success.main,
+    backgroundColor: colors.success.light
+  },
+  warning: {
+    borderColor: colors.warning.main,
+    backgroundColor: colors.warning.light
+  },
+  error: {
+    borderColor: colors.error.main,
+    backgroundColor: colors.error.light
   },
   text: {
     fontFamily: typography.fontFamily.primary,

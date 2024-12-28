@@ -1,9 +1,12 @@
+from desktop.setup_path import setup_desktop_path
+setup_desktop_path()
+
 import streamlit as st
 import requests
 from datetime import datetime
 from typing import Dict, Any
 from pathlib import Path
-from shared.services.mileageService import mileageService
+from desktop.shared.services.mileageService import mileageService
 
 # Asset paths
 ASSETS_DIR = Path(__file__).parent.parent / 'assets'
@@ -92,7 +95,7 @@ def view_trip_history(mileage_service):
                 for trip in trips:
                     trip_data.append({
                         "Date": trip['date'],
-                        "Route": f"{trip['start']} → {trip['end']}",
+                        "Route": f"{trip['start']} â {trip['end']}",
                         "Distance": f"{trip['distance']} mi",
                         "Purpose": trip['purpose'],
                         "Deduction": f"${trip['tax_deduction']:.2f}"

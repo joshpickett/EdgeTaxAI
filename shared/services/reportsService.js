@@ -1,7 +1,9 @@
+import { setupSharedPath } from './setup_path';
+setupSharedPath();
+
 import { apiClient } from './apiClient';
-import { offlineManager } from './offlineManager';
-import { cacheManager } from './cacheManager';
-import { validateReportData } from '../utils/validation';
+import { offlineManager } from 'utils/offlineManager';
+import { validateReportData } from 'utils/validation';
 
 class ReportsService {
   constructor() {

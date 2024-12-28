@@ -1,6 +1,9 @@
 """
 Error handling utilities for desktop application
 """
+from desktop.setup_path import setup_desktop_path
+setup_desktop_path()
+
 import logging
 from typing import Optional, Dict, Any
 from requests.exceptions import RequestException

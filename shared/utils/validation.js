@@ -1,4 +1,7 @@
+import { setupUtilsPath } from './setup_path';
 import { TripData, MileageRecord } from '../types/interfaces';
+
+setupUtilsPath();
 
 // Report validation rules
 export const REPORT_VALIDATION_RULES = {
@@ -12,7 +15,8 @@ export const REPORT_VALIDATION_RULES = {
   },
   category: {
     required: true,
-    allowedValues: ['business', 'personal', 'mixed']
+    allowedValues: ['business', 'personal', 'mixed'],
+    validateFormat: true
   }
 };
 
@@ -54,7 +58,7 @@ export const validateTripData = (tripData: TripData) => {
   };
 };
 
-export const validateMileageRecord = (record: MileageRecord) => {
+export const validateMileageRecord = (record: MileageRecord): ValidationResult => {
   const errors = [];
   
   if (!record.userId) {

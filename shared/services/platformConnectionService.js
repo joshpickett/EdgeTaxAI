@@ -1,6 +1,9 @@
+import { setupSharedPath } from './setup_path';
+setupSharedPath();
+
 import { apiClient } from './apiClient';
-import { handleApiError } from '../utils/errorHandler';
-import { PLATFORMS } from '../constants';
+import { handleApiError } from 'utils/errorHandler';
+import { PLATFORMS } from 'constants';
 
 class PlatformConnectionService {
     constructor() {

@@ -3,10 +3,13 @@ import { render, fireEvent } from '@testing-library/react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { Provider } from 'react-redux';
 import configureStore from 'redux-mock-store';
-import AppNavigator from '../AppNavigator';
-import { logoutUser } from '../../services/api';
+import AppNavigator from 'navigation/AppNavigator';
+import { logoutUser } from 'services/api';
+import { setupSrcPath } from 'setup_path';
 
-jest.mock('../../services/api');
+setupSrcPath();
+
+jest.mock('services/api');
 jest.mock('@react-native-async-storage/async-storage', () => ({
   removeItem: jest.fn()
 }));

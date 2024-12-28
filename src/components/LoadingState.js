@@ -1,40 +1,14 @@
 import React from 'react';
-import { View, ActivityIndicator, Platform, StyleSheet, Text } from 'react-native';
-import { colors, spacing } from '../styles/tokens';
+import { View, ActivityIndicator, Text, StyleSheet } from 'react-native';
+import { setupSrcPath } from '../setup_path';
+setupSrcPath();
+import { colors, typography, spacing } from '../styles/tokens';
 
-const LoadingState = ({ 
-  size = 'large', 
-  color = colors.primary.main,
-  message = 'Loading...',
-  fullScreen = false 
-}) => {
-  const getLoadingIndicator = () => {
-    if (Platform.OS === 'ios') {
-      return (
-        <ActivityIndicator
-          size={size}
-          color={color}
-          style={styles.indicator}
-        />
-      );
-    }
-
-    // Android-specific loading indicator
-    return (
-      <ActivityIndicator
-        size={size}
-        color={color}
-        style={[styles.indicator, styles.androidIndicator]}
-      />
-    );
-  };
-
+const LoadingState = ({ message = 'Loading...' }) => {
   return (
-    <View style={[styles.container, fullScreen && styles.fullScreen]}>
-      {getLoadingIndicator()}
-      {message && (
-        <Text style={styles.message}>{message}</Text>
-      )}
+    <View style={styles.container}>
+      <ActivityIndicator size="large" color={colors.primary.main} />
+      <Text style={styles.message}>{message}</Text>
     </View>
   );
 };
@@ -42,29 +16,15 @@ const LoadingState = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: colors.background.default,
     justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.lg,
-    backgroundColor: 'transparent'
-  },
-  fullScreen: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)'
-  },
-  indicator: {
-    margin: spacing.md
-  },
-  androidIndicator: {
-    transform: [{ scale: 1.2 }] // Slightly larger on Android
+    alignItems: 'center'
   },
   message: {
     marginTop: spacing.md,
+    fontSize: typography.fontSize.md,
     color: colors.text.secondary
   }
 });
 
-export default LoadingState;
+// ...rest of the code...

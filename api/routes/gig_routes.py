@@ -1,16 +1,17 @@
 import os
 import sys
 from api.setup_path import setup_python_path
+setup_python_path(__file__)
 
-# Set up path for both package and direct execution
-if __name__ == "__main__":
-    setup_python_path(__file__)
-else:
-    setup_python_path()
-
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, g
 from api.utils.gig_platform_processor import GigPlatformProcessor
 from api.utils.error_handler import handle_api_error
+from api.utils.session_manager import SessionManager
+from api.utils.token_manager import TokenManager
+
+# Initialize managers
+session_manager = SessionManager()
+token_manager = TokenManager()
 
 # ...rest of the code...
 

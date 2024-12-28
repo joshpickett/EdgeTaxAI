@@ -15,10 +15,16 @@ from typing import Dict, Any, Optional, Tuple
 from datetime import datetime
 import io
 import pandas as pd
-from utils.error_handler import handle_api_error
-from utils.db_utils import get_db_connection
-from utils.trip_analyzer import TripAnalyzer
+from api.utils.error_handler import handle_api_error
+from api.utils.db_utils import get_db_connection
+from api.utils.trip_analyzer import TripAnalyzer
 from ..config import IRS_MILEAGE_RATE
+from api.utils.session_manager import SessionManager
+from api.utils.token_manager import TokenManager
+
+# Initialize managers
+session_manager = SessionManager()
+token_manager = TokenManager()
 
 # Configure Logging
 logging.basicConfig(

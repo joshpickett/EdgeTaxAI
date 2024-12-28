@@ -1,75 +1,42 @@
-import os
-import sys
-from api.setup_path import setup_python_path
-
-# Set up path for both package and direct execution
-if __name__ == "__main__":
-    setup_python_path(__file__)
-else:
-    setup_python_path()
-
 from functools import wraps
 from datetime import datetime, timedelta
-from typing import Dict, Tuple, Optional
-import logging
-from flask import request, jsonify, current_app
-import redis
-import os
+from flask import request, jsonify
+from collections import defaultdict
 
-# Initialize Redis client
-redis_client = redis.Redis(
-    host=os.getenv('REDIS_HOST', 'localhost'),
-    port=int(os.getenv('REDIS_PORT', 6379)),
-    db=0,
-    decode_responses=True
-)
+# Store login attempts in memory (could be moved to Redis/database for production)
+login_attempts = defaultdict(list)
 
-def rate_limit(requests_per_minute: int = 30):
-    """
-    Rate limiting decorator that restricts the number of requests per minute per IP
-    """
+def check_login_attempts(ip_address):
+    """Check if IP has exceeded login attempts"""
+    now = datetime.now()
+    # Clean old attempts
+    login_attempts[ip_address] = [
+        attempt for attempt in login_attempts[ip_address]
+        if now - attempt < timedelta(minutes=15)
+    ]
+    # Check if too many attempts
+    if len(login_attempts[ip_address]) >= 5:
+        return False
+    login_attempts[ip_address].append(now)
+    return True
+
+def rate_limit(requests_per_minute):
     def decorator(f):
+        requests = defaultdict(list)
+        
         @wraps(f)
         def wrapper(*args, **kwargs):
+            now = datetime.now()
             ip = request.remote_addr
-            key = f"rate_limit:{ip}"
-             
-            # Get current count
-            count = redis_client.get(key)
-            if count is None:
-                redis_client.setex(key, 60, 1)  # expire in 60 seconds
-            else:
-                count = int(count)
-                if count >= requests_per_minute:
-                    return jsonify({'error': 'Rate limit exceeded'}), 429
-                redis_client.incr(key)
-             
+            
+            # Clean old requests
+            requests[ip] = [req for req in requests[ip] 
+                          if now - req < timedelta(minutes=1)]
+            
+            if len(requests[ip]) >= requests_per_minute:
+                return jsonify({"error": "Rate limit exceeded"}), 429
+                
+            requests[ip].append(now)
             return f(*args, **kwargs)
         return wrapper
     return decorator
-
-def check_login_attempts(identifier: str) -> bool:
-    """
-    Check if user has exceeded maximum login attempts
-    Returns True if allowed to proceed, False if too many attempts
-    """
-    key = f"login_attempts:{identifier}"
-     
-    # Get current attempts
-    attempts = redis_client.get(key)
-     
-    if attempts is None:
-        redis_client.setex(key, 3600, 1)  # expire in 1 hour
-        return True
-    
-    attempts = int(attempts)
-    if attempts >= 5:
-        return False
-    
-    redis_client.incr(key)
-    return True
-
-def reset_login_attempts(identifier: str) -> None:
-    """Reset login attempts for a user after successful login"""
-    key = f"login_attempts:{identifier}"
-    redis_client.delete(key)

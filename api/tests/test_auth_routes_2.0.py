@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import patch, Mock
 from flask import Flask, json
+from ..services.auth_service import AuthenticationError
 from ..routes.auth_routes import auth_blueprint
 from ..utils.otp_manager import OTPManager
 from ..utils.token_storage import TokenStorage
@@ -39,6 +40,20 @@ class TestAuthRoutes:
         )
         assert response.status_code == 201
         assert b'OTP sent for verification' in response.data
+
+    def test_signup_internal_error(self, client, mock_otp_manager):
+        data = {
+            'email': 'test@example.com',
+            'phone_number': '+1234567890'
+        }
+        mock_otp_manager.generate_otp.side_effect = Exception("Database error")
+        response = client.post(
+            '/api/auth/signup',
+            data=json.dumps(data),
+            content_type='application/json'
+        )
+        assert response.status_code == 500
+        assert b'Internal server error' in response.data
 
     def test_signup_invalid_email(self, client):
         data = {
@@ -83,6 +98,19 @@ class TestAuthRoutes:
         assert response.status_code == 401
         assert b'Invalid or expired OTP' in response.data
 
+    def test_verify_otp_invalid_format(self, client):
+        data = {
+            'email': 'test@example.com',
+            'otp_code': '123'  # Invalid length
+        }
+        response = client.post(
+            '/api/auth/verify-otp',
+            data=json.dumps(data),
+            content_type='application/json'
+        )
+        assert response.status_code == 400
+        assert b'Invalid OTP format' in response.data
+
     def test_login_success(self, client, mock_otp_manager):
         data = {
             'email': 'test@example.com'
@@ -94,6 +122,19 @@ class TestAuthRoutes:
         )
         assert response.status_code == 200
         assert b'OTP sent' in response.data
+
+    def test_login_authentication_error(self, client, mock_otp_manager):
+        data = {
+            'email': 'test@example.com'
+        }
+        mock_otp_manager.generate_otp.side_effect = AuthenticationError("Invalid credentials")
+        response = client.post(
+            '/api/auth/login',
+            data=json.dumps(data),
+            content_type='application/json'
+        )
+        assert response.status_code == 400
+        assert b'Invalid credentials' in response.data
 
     def test_login_user_not_found(self, client):
         data = {
@@ -145,3 +186,15 @@ class TestAuthRoutes:
         )
         assert response.status_code == 429
         assert b'Too many login attempts' in response.data
+
+    def test_verify_otp_missing_identifier(self, client):
+        data = {
+            'otp_code': '123456'
+        }
+        response = client.post(
+            '/api/auth/verify-otp',
+            data=json.dumps(data),
+            content_type='application/json'
+        )
+        assert response.status_code == 400
+        assert b'Email/Phone and OTP code are required' in response.data

@@ -1,12 +1,7 @@
 import os
 import sys
 from api.setup_path import setup_python_path
-
-# Set up path for both package and direct execution
-if __name__ == "__main__":
-    setup_python_path(__file__)
-else:
-    setup_python_path()
+setup_python_path(__file__)
 
 from flask import Blueprint, request, jsonify, send_file
 from datetime import datetime
@@ -18,9 +13,15 @@ from reportlab.pdfgen import canvas
 from openpyxl import Workbook
 from sklearn.linear_model import LinearRegression
 from typing import Dict, Any, List, Union
-from utils.db_utils import get_db_connection
-from utils.error_handler import handle_api_error
-from utils.report_generator import generate_report, ReportGenerator
+from api.utils.db_utils import get_db_connection
+from api.utils.error_handler import handle_api_error
+from api.utils.report_generator import generate_report, ReportGenerator
+from api.utils.session_manager import SessionManager
+from api.utils.token_manager import TokenManager
+
+# Initialize managers
+session_manager = SessionManager()
+token_manager = TokenManager()
 
 reports_bp = Blueprint('reports', __name__)
 

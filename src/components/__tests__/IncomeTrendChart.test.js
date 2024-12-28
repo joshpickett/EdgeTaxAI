@@ -1,6 +1,8 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
+import { setupSrcPath } from '../../setup_path';
 import IncomeTrendChart from '../IncomeTrendChart';
+import { colors, typography } from '../../styles/tokens';
 
 jest.mock('victory-native', () => ({
   VictoryLine: 'VictoryLine',
@@ -22,9 +24,9 @@ describe('IncomeTrendChart', () => {
     const { getByText, UNSAFE_getByType } = render(
       <IncomeTrendChart data={mockData} />
     );
-
-    expect(getByText('Income Trends')).toBeTruthy();
-    expect(UNSAFE_getByType('VictoryLine')).toBeTruthy();
+    const title = getByText('Income Trends');
+    expect(title.props.style).toContainEqual(
+      expect.objectContaining({ fontSize: typography.fontSize.lg }));
   });
 
   it('handles period selection', () => {

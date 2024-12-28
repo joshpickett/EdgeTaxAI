@@ -1,6 +1,8 @@
 import React from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { setupSrcPath } from '../setup_path';
 import { colors } from '../styles/tokens';
+setupSrcPath();
 
 interface LoadingOverlayProps {
   color?: string;
@@ -23,9 +25,10 @@ const LoadingOverlay: React.FC<LoadingOverlayProps> = ({
 const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.overlay,
+    zIndex: 1000,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 1000,
   },
   overlay: {
     position: 'absolute',

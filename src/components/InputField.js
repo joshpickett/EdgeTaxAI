@@ -1,5 +1,7 @@
 import React from 'react';
 import { View, TextInput, StyleSheet, Text } from 'react-native';
+import { setupSrcPath } from '../setup_path';
+setupSrcPath();
 import { colors, typography, spacing } from '../styles/tokens';
 
 const InputField = ({ label, placeholder, value, onChangeText, secureTextEntry, keyboardType, error }) => {

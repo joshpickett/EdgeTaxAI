@@ -1,7 +1,11 @@
 import { renderHook, act } from '@testing-library/react-hooks';
 import { useDispatch, useSelector } from 'react-redux';
-import { useAuth } from '../useAuth';
-import { loginUser, verifyOTP, logout } from '../../store/slices/authSlice';
+import { useAuth } from 'hooks/useAuth';
+import { loginUser, verifyOTP, logout } from 'store/slices/authSlice';
+import { setupSrcPath } from 'setup_path';
+
+// Initialize path setup for tests
+setupSrcPath();
 
 jest.mock('react-redux', () => ({
   useDispatch: jest.fn(),

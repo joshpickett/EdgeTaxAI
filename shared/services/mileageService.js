@@ -1,6 +1,9 @@
+import { setupSharedPath } from './setup_path';
+setupSharedPath();
+
 import { apiClient } from './apiClient';
-import config from '../config';
-import { handleApiError } from '../utils/errorHandler';
+import config from 'config';
+import { handleApiError } from 'utils/errorHandler';
 import { TripData, MileageRecord } from '../types/interfaces';
 
 class MileageService {

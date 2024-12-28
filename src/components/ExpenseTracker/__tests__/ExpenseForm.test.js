@@ -1,6 +1,8 @@
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { setupSrcPath } from '../../../setup_path';
 import { Provider } from 'react-redux';
+import { colors, typography } from '../../../styles/tokens';
 import configureStore from 'redux-mock-store';
 import ExpenseForm from '../ExpenseForm';
 
@@ -37,7 +39,8 @@ describe('ExpenseForm', () => {
     fireEvent.press(addButton);
 
     await waitFor(() => {
-      expect(component.getByText('Description is required')).toBeTruthy();
+      const errorMessage = component.getByText('Description is required');
+      expect(errorMessage.props.style.color).toBe(colors.error.main);
     });
   });
 

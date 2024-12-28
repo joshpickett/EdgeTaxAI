@@ -1,6 +1,8 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
+import { setupSrcPath } from '../../setup_path';
 import InputField from '../InputField';
+import { colors, spacing } from '../../styles/tokens';
 
 describe('InputField', () => {
   const defaultProps = {
@@ -39,15 +41,12 @@ describe('InputField', () => {
 
   it('applies error styles when error prop is provided', () => {
     const { getByPlaceholderText } = render(
-      <InputField {...defaultProps} error="Test error message" />
+      <InputField {...defaultProps} error="Test error" />
     );
 
     const input = getByPlaceholderText('Test Placeholder');
     expect(input.props.style).toContainEqual(
-      expect.objectContaining({
-        borderColor: expect.any(String)
-      })
-    );
+      expect.objectContaining({ borderColor: colors.error.main }));
   });
 
   it('handles secure text entry', () => {

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { View, Image, StyleSheet, Alert, Text } from 'react-native';
+import { setupSrcPath } from '../../setup_path';
 import { Camera } from 'expo-camera';
 import CustomButton from '../CustomButton';
+import { colors, typography, spacing } from '../../styles/tokens';
 import { receiptScanner } from '../../services/receiptScanner';
-import { colors, spacing } from '../../styles/tokens';
 import { handleError } from '../../utils/errorHandler';
 
 const ReceiptScannerView = ({ onScanComplete }) => {
@@ -63,6 +64,7 @@ const ReceiptScannerView = ({ onScanComplete }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    padding: spacing.md,
   },
   camera: {
     flex: 1,
@@ -70,6 +72,7 @@ const styles = StyleSheet.create({
   preview: {
     width: '100%',
     height: 300,
+    borderRadius: spacing.sm,
     resizeMode: 'contain',
   },
   button: {
