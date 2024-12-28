@@ -1,16 +1,15 @@
-import sys
-import os
 import logging
-from ..setup_path import setup_python_path
-setup_python_path(__file__)
-
+import os
 from flask import Blueprint, request, jsonify
-from ..services.auth_service import AuthService
-from ..services.db_service import DatabaseService
-from ..utils.otp_manager import OTPManager
-from ..utils.token_storage import TokenStorage
-from ..utils.rate_limit import rate_limit
-from ..exceptions.auth_exceptions import AuthenticationError
+from api.setup_path import setup_python_path
+from api.services.auth_service import AuthService
+from api.services.db_service import DatabaseService
+from api.utils.token_manager import TokenManager
+from api.utils.session_manager import SessionManager
+from api.utils.rate_limit import rate_limit
+from api.exceptions.auth_exceptions import AuthenticationError
+
+setup_python_path(__file__)
 
 db_service = DatabaseService()
 auth_service = AuthService()
@@ -41,6 +40,16 @@ def verify_otp():
     """
     try:
         data = request.json
+        if auth_service.verify_otp(data):
+            # Generate tokens after successful verification
+            access_token = TokenManager.generate_access_token(data)
+            refresh_token = TokenManager.generate_refresh_token(data)
+            # Create session
+            SessionManager.create_session(data, request.headers.get('User-Agent'))
+            return jsonify({"message": "OTP verified successfully", 
+                            "access_token": access_token,
+                            "refresh_token": refresh_token}), 200
+
         identifier = data.get("email") or data.get("phone_number")
         otp_code = data.get("otp_code")
 
@@ -50,17 +59,6 @@ def verify_otp():
         if not otp_code or len(otp_code) != 6:
             return jsonify({"error": "Invalid OTP format"}), 400
 
-        if auth_service.verify_otp(data):
-            conn = db_service.get_connection()
-            cursor = conn.cursor()
-            cursor.execute("BEGIN TRANSACTION")
-            cursor.execute(
-                "UPDATE users SET is_verified = 1, otp_code = NULL, otp_expiry = NULL WHERE email = ? OR phone_number = ?",
-                (identifier, identifier),
-            )
-            conn.commit()
-            logging.info(f"User verified successfully: {identifier}")
-            return jsonify({"message": "OTP verified successfully"}), 200
         return jsonify({"error": "Invalid or expired OTP."}), 401
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -73,17 +71,20 @@ def login():
     Handles OTP-based login using email or phone number.
     """
     try:
-        if not check_login_attempts(request.remote_addr):
-            return jsonify({"error": "Too many login attempts"}), 429
-            
         data = request.json
-        identifier = data.get("email") or data.get("phone_number")
-        
-        # Check if user exists first
-        if not identifier or not auth_service.user_exists(identifier):
-            return jsonify({"error": "User not found"}), 404
+        response = auth_service.handle_login(data)
+        if response.get('success'):
+            # Generate tokens
+            access_token = TokenManager.generate_access_token(data)
+            refresh_token = TokenManager.generate_refresh_token(data)
+            # Create session
+            SessionManager.create_session(data, request.headers.get('User-Agent'))
+            return jsonify({"message": "Login successful",
+                            "access_token": access_token,
+                            "refresh_token": refresh_token}), 200
             
-        return auth_service.handle_login(request.json)
+        return jsonify({"error": "User not found"}), 404
+            
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
