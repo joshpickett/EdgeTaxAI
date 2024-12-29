@@ -15,11 +15,13 @@ from datetime import datetime
 from api.utils.cache_utils import CacheManager
 from api.utils.error_handler import handle_api_error
 from api.utils.monitoring import monitor_api_calls
+from api.utils.document_manager import DocumentManager
 
 class BatchProcessor:
     def __init__(self):
         self.cache = CacheManager()
         self.status_cache = {}
+        self.document_manager = DocumentManager()
         self.processing_queue = asyncio.Queue()
         
     async def process_batch(self, files: List[Dict[str, Any]], user_id: str) -> str:
@@ -56,6 +58,15 @@ class BatchProcessor:
     async def process_single_file(self, file: Dict[str, Any], batch_id: str) -> Dict[str, Any]:
         """Process a single file in the batch"""
         try:
+            # Store document first
+            doc_result = self.document_manager.store_document({
+                'user_id': file['user_id'],
+                'type': 'receipt',
+                'content': file['content'],
+                'filename': file['filename'],
+                'metadata': {}
+            })
+
             start_time = datetime.now()
             
             # Process file and extract data

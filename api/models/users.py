@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Enum
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Enum, ForeignKey, CheckConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func, text
 import enum
@@ -24,9 +24,13 @@ class Users(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     # Relationships
-    personal_info = relationship("PersonalInformation", back_populates="user", uselist=False)
+    personal_info = relationship("PersonalInformation", back_populates="user", 
+                               uselist=False, cascade="all, delete-orphan")
     income = relationship("Income", back_populates="user")
     expenses = relationship("Expenses", back_populates="user")
     tax_payments = relationship("TaxPayments", back_populates="user")
     bank_accounts = relationship("BankAccounts", back_populates="user", cascade="all, delete-orphan")
     gig_platforms = relationship("GigPlatform", back_populates="user")
+    documents = relationship("Document", back_populates="user", cascade="all, delete-orphan")
+    deductions = relationship("Deductions", back_populates="user")
+    tax_forms = relationship("TaxForms", back_populates="user")

@@ -1,13 +1,6 @@
-from api.models.users import Users
-from api.models.personal_information import PersonalInformation
-from api.models.income import Income
-from api.models.expenses import Expenses
-from api.models.tax_payments import TaxPayments
+from .users import Users
+from .expenses import Expenses
+from .income import Income
+from .tax_code import TaxCode
 
-__all__ = [
-    "Users",
-    "PersonalInformation",
-    "Income",
-    "Expenses",
-    "TaxPayments"
-]
+...rest of the code...

@@ -20,6 +20,12 @@ from api.utils.ai_utils import extract_receipt_data, analyze_receipt_text
 from api.utils.monitoring import monitor_api_calls
 from api.utils.rate_limit import rate_limit
 from api.config import Config
+from api.utils.ocr_processor import OCRProcessor
+from api.utils.ai_document_classifier import DocumentClassifier
+from api.utils.document_manager import DocumentManager
+from api.utils.income_service import IncomeService
+from api.utils.expense_service import ExpenseService
+from decimal import Decimal
 
 # Create upload folder
 os.makedirs(Config.OCR_UPLOAD_FOLDER, exist_ok=True)
@@ -33,9 +39,11 @@ logging.basicConfig(
 
 # Initialize components
 ocr_bp = Blueprint("ocr", __name__)
-batch_processor = BatchProcessor()
+ocr_processor = OCRProcessor()
+document_classifier = DocumentClassifier()
 document_manager = DocumentManager()
-expense_integration = ExpenseIntegration()
+income_service = IncomeService()
+expense_service = ExpenseService()
 
 # Initialize session and token managers
 session_manager = SessionManager()  # Initialize at module level
@@ -152,32 +160,70 @@ def process_receipt():
         except Exception as e:
             logging.error(f"Cache storage error: {e}")
 
-        # Create expense entry
-        expense_id = expense_integration.create_expense_entry({
-            'description': extracted_text,
-            'amount': None,  # Placeholder for amount extraction
-            'category': None,  # Placeholder for category extraction
-            'date': None,  # Placeholder for date extraction
-            'receipt_url': file_path,
-            'confidence_score': None  # Placeholder for confidence score extraction
-        }, user_id)
+        # Classify document
+        doc_type, confidence, metadata = document_classifier.classify_document(
+            extracted_text
+        )
+        
+        # Extract financial data
+        financial_data = document_classifier.extract_financial_data(
+            extracted_text,
+            doc_type
+        )
+        
+        # Combine all metadata
+        combined_metadata = {
+            **metadata,
+            **financial_data
+        }
+        
+        user_id = request.headers.get('X-User-ID')
+        
+        # Determine if document is income or expense related
+        if document_classifier.should_store_as_income(doc_type, combined_metadata):
+            # Create income record
+            income_data = {
+                'user_id': user_id,
+                'gross_income': Decimal(str(financial_data.get('total_amount', 0))),
+                'payer_name': financial_data.get('payer_name', ''),
+                'date': financial_data.get('date'),
+                'document_id': None  # Will be updated after document storage
+            }
+            income_record = income_service.create_income(income_data)
+            
+        elif document_classifier.should_store_as_expense(doc_type, combined_metadata):
+            # Create expense record
+            expense_data = {
+                'user_id': user_id,
+                'amount': Decimal(str(financial_data.get('total_amount', 0))),
+                'description': financial_data.get('description', ''),
+                'date': financial_data.get('date'),
+                'category': financial_data.get('category', 'OTHER'),
+                'document_id': None  # Will be updated after document storage
+            }
+            expense_record = expense_service.create_expense(expense_data)
 
-        # Store document
+        # Store document with classification
         doc_result = document_manager.store_document({
             'user_id': user_id,
-            'type': 'receipt',
+            'type': doc_type,
             'content': file_content,
-            'metadata': {
-                'description': extracted_text,
-                'expense_id': expense_id
-            }
+            'filename': filename,
+            'metadata': combined_metadata
         })
 
-        # Return the extracted text
+        # Update income/expense record with document ID
+        if 'income_record' in locals():
+            income_service.update_income(income_record.id, {'document_id': doc_result['document_id']})
+        elif 'expense_record' in locals():
+            expense_service.update_expense(expense_record.id, {'document_id': doc_result['document_id']})
+
         return jsonify({
-            "text": extracted_text,
-            "expense_id": expense_id,
-            "document_id": doc_result.get('document_id')
+            'status': 'success',
+            'document_id': doc_result['document_id'],
+            'document_type': doc_type,
+            'confidence_score': confidence,
+            'extracted_data': combined_metadata
         }), 200
 
     except Exception as e:
