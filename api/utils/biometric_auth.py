@@ -18,6 +18,7 @@ class BiometricAuthentication:
         self.db = get_db_connection()
         self.salt_length = 32  # Increased for better security
         self.hash_iterations = 100000  # Increased from previous value
+        self.fallback_attempts = 3
         
     def register_biometric(self, user_id: int, biometric_data: str) -> bool:
         """Register biometric data for a user"""
@@ -39,27 +40,28 @@ class BiometricAuthentication:
             logging.error(f"Error registering biometric: {e}")
             return False
             
-    def verify_biometric(self, user_id: int, biometric_data: str) -> bool:
-        """Verify biometric data against stored hash"""
+    def verify_biometric(
+        self, user_id: int, biometric_data: str
+    ) -> Dict[str, Any]:
+        """Verify biometric data with fallback"""
         try:
-            cursor = self.db.cursor()
-            cursor.execute("""
-                SELECT biometric_hash, salt 
-                FROM biometric_auth 
-                WHERE user_id = ?
-            """, (user_id,))
-            
-            row = cursor.fetchone()
-            if not row:
-                return False
+            if self._verify_biometric_data(user_id, biometric_data):
+                return {
+                    "status": "success",
+                    "message": "Biometric verification successful"
+                }
                 
-            stored_hash, salt = row
-            verify_hash = self._hash_biometric(biometric_data, salt)
+            # Handle fallback
+            fallback_token = self._generate_fallback_token(user_id)
+            return {
+                "status": "fallback_required",
+                "fallback_token": fallback_token,
+                "remaining_attempts": self.fallback_attempts
+            }
             
-            return stored_hash == verify_hash
         except Exception as e:
-            logging.error(f"Error verifying biometric: {e}")
-            return False
+            logging.error(f"Biometric verification error: {e}")
+            raise BiometricError("Verification failed")
             
     def _hash_biometric(self, data: str, salt: bytes) -> str:
         """Hash biometric data with salt"""

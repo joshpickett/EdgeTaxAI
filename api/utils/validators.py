@@ -1,12 +1,15 @@
-import os
-import sys
-from api.setup_path import setup_python_path
+from typing import Dict, Any
 
-# Set up path for both package and direct execution
-if __name__ == "__main__":
-    setup_python_path(__file__)
-else:
-    setup_python_path()
+class ValidationError(Exception):
+    pass
 
-from utils.db_utils import get_db_connection
-from utils.error_handler import handle_api_error
+def validate_login_input(data: Dict[str, Any]) -> None:
+    """Validate login input data"""
+    if not data.get("email") and not data.get("phone_number"):
+        raise ValidationError("Either email or phone number is required")
+    
+    if data.get("email") and not is_valid_email(data["email"]):
+        raise ValidationError("Invalid email format")
+        
+    if data.get("phone_number") and not is_valid_phone(data["phone_number"]):
+        raise ValidationError("Invalid phone number format")

@@ -2,10 +2,14 @@ import os
 import sys
 from sqlalchemy.orm import Session
 from api.models.users import Users, UserRole
+from api.models.trusted_devices import TrustedDevices
 from api.setup_path import setup_python_path
 from api.utils.biometric_auth import BiometricAuthentication
 from api.exceptions.auth_exceptions import AuthenticationError, APIError
 from api.utils.audit_trail import AuditLogger
+from api.utils.device_fingerprint import DeviceFingerprint
+from api.utils.otp_service import generate_otp, send_otp
+from api.utils.validators import validate_login_input
 
 # Set up path for both package and direct execution
 setup_python_path()
@@ -17,7 +21,6 @@ from api.config.database import SessionLocal
 from api.utils.session_manager import SessionManager
 from api.utils.token_manager import TokenManager
 from api.utils.password_utils import hash_password, verify_password
-from api.utils.otp_service import generate_otp, send_otp
 
 session_manager = SessionManager()
 
@@ -27,6 +30,9 @@ class AuthService:
         self.db = SessionLocal()
         self.biometric_auth = BiometricAuthentication()
         self.audit_logger = AuditLogger()
+        self.device_fingerprint = DeviceFingerprint()
+        self.max_login_attempts = 5
+        self.lockout_duration = 30  # minutes
 
     def handle_signup(self, data: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
         try:
@@ -113,16 +119,33 @@ class AuthService:
             logging.error(f"Biometric registration error: {str(e)}")
             raise AuthenticationError("Failed to register biometric data")
 
-    def verify_biometric(self, user_id: int, biometric_data: str) -> bool:
+    def verify_biometric(self, user_id: int, biometric_data: str) -> Dict[str, Any]:
         """Verify biometric data"""
         try:
             user = self.db.query(Users).filter(Users.id == user_id).first()
             if not user or not user.biometric_data:
-                return False
-            return user.biometric_data == biometric_data
+                return {
+                    "status": "failure",
+                    "message": "Biometric data not found"
+                }
+            if self.biometric_auth.verify_biometric_data(user_id, biometric_data):
+                return {
+                    "status": "success",
+                    "message": "Biometric verification successful"
+                }
+            else:
+                fallback_token = self.biometric_auth.generate_fallback_token(user_id)
+                return {
+                    "status": "fallback_required",
+                    "fallback_token": fallback_token,
+                    "remaining_attempts": self.biometric_auth.fallback_attempts
+                }
         except Exception as e:
             logging.error(f"Biometric verification error: {str(e)}")
-            return False
+            return {
+                "status": "error",
+                "message": "Verification failed"
+            }
 
     def update_last_login(self, user_id: int) -> None:
         """Update user's last login timestamp"""
@@ -133,3 +156,50 @@ class AuthService:
                 self.db.commit()
         except Exception as e:
             logging.error(f"Error updating last login: {str(e)}")
+
+    def handle_login(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        try:
+            validate_login_input(data)
+            identifier = data.get("email") or data.get("phone_number")
+            remember_device = data.get("remember_device", False)
+            
+            # Check for account lockout
+            if self.is_account_locked(identifier):
+                raise AuthenticationError("Account temporarily locked. Please try again later.")
+            
+            # Generate device fingerprint
+            device_fingerprint = self.device_fingerprint.generate_fingerprint()
+            
+            user = self.get_user_by_identifier(identifier)
+             
+            if not user:
+                return {"error": "User not found"}
+            
+            # Handle remembered devices
+            if remember_device:
+                device_token = self.register_trusted_device(
+                    user.id, device_fingerprint
+                )
+
+            # Additional login logic here...
+
+        except Exception as e:
+            logging.error(f"Login error: {str(e)}")
+            raise AuthenticationError("Login failed")
+             
+    def register_trusted_device(
+        self, user_id: int, device_fingerprint: str
+    ) -> str:
+        """Register a trusted device"""
+        try:
+            device_token = generate_device_token()
+            self.db.execute(
+                """INSERT INTO trusted_devices 
+                   (user_id, device_fingerprint, device_token)
+                   VALUES (?, ?, ?)""",
+                (user_id, device_fingerprint, device_token)
+            )
+            return device_token
+        except Exception as e:
+            logging.error(f"Error registering trusted device: {str(e)}")
+            raise
