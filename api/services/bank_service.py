@@ -1,23 +1,33 @@
 import os
 import sys
 from api.setup_path import setup_python_path
-
-# Set up path for both package and direct execution
-if __name__ == "__main__":
-    setup_python_path(__file__)
-else:
-    setup_python_path()
-
-from typing import Dict, Any, Optional
+from api.utils.ai_utils import AITransactionAnalyzer
+from typing import Dict, Any, Optional, List
+from sqlalchemy.orm import Session
+from api.models.bank_accounts import BankAccounts
+from api.models.expenses import Expenses
+from api.models.income import Income
+from api.models.bank_transaction import BankTransaction
+from api.schemas.bank_schemas import bank_account_schema, bank_accounts_schema
 from utils.api_config import APIConfig
 from utils.cache_utils import CacheManager
 from utils.analytics_helper import AnalyticsHelper
 from utils.analytics_integration import AnalyticsIntegration
+from utils.bank_audit_logger import BankAuditLogger
+from utils.encryption_utils import EncryptionManager
+from utils.rate_limit import RateLimiter
+from utils.monitoring import MonitoringSystem
 from datetime import datetime, timedelta
 import logging
 
 class BankService:
-    def __init__(self):
+    def __init__(self, db: Session):
+        self.db = db
+        self.monitoring = MonitoringSystem()
+        self.ai_analyzer = AITransactionAnalyzer()
+        self.audit_logger = BankAuditLogger(db)
+        self.encryption_manager = EncryptionManager()
+        self.rate_limiter = RateLimiter()
         self.cache_manager = CacheManager()
         self.analytics_helper = AnalyticsHelper()
         self.analytics_integration = AnalyticsIntegration()
@@ -66,9 +76,43 @@ class BankService:
                 public_token=public_token
             )
             
-            response = client.item_public_token_exchange(request_data)
-            self.user_tokens[user_id] = response.access_token
+            exchange_response = client.item_public_token_exchange(request_data)
             
+            # Get accounts associated with this item
+            accounts_response = client.accounts_get({
+                "access_token": exchange_response.access_token
+            })
+            
+            # Store each account in the database
+            stored_accounts = []
+            for account in accounts_response.accounts:
+                bank_account = BankAccounts(
+                    user_id=user_id,
+                    plaid_access_token=exchange_response.access_token,
+                    plaid_item_id=exchange_response.item_id,
+                    plaid_account_id=account.account_id,
+                    plaid_institution_id=account.institution_id,
+                    account_name=account.name,
+                    official_name=account.official_name,
+                    account_mask=account.mask,
+                    account_type=account.type,
+                    account_subtype=account.subtype
+                )
+                self.db.add(bank_account)
+                stored_accounts.append(bank_account)
+            
+            self.db.commit()
+            
+            # Start initial transaction sync
+            self._sync_transactions(user_id, exchange_response.access_token)
+
+            # Log the successful exchange
+            self.audit_logger.log_connection_attempt(
+                user_id=user_id,
+                bank_name="plaid",
+                status="success"
+            )
+
             return {"message": "Bank account connected successfully."}, 200
             
         except Exception as e:
@@ -79,32 +123,64 @@ class BankService:
                         end_date: Optional[str] = None) -> tuple[Dict[str, Any], int]:
         """Get user's transactions"""
         try:
-            if user_id not in self.user_tokens:
-                return {"error": "No connected bank account."}, 400
-                
-            # Check cache
-            cache_key = f"transactions:{user_id}:{start_date}:{end_date}"
-            cached_data = self.cache_manager.get(cache_key)
-            if cached_data:
-                return cached_data, 200
-                
-            client = self.get_plaid_client()
-            request_data = plaid_api.TransactionsGetRequest(
-                access_token=self.user_tokens[user_id],
-                start_date=start_date or (datetime.now() - timedelta(days=30)).date(),
-                end_date=end_date or datetime.now().date()
+            # Rate limiting check
+            if not self.rate_limiter.check_rate(f"transactions:{user_id}"):
+                return {"error": "Rate limit exceeded"}, 429
+
+            # Monitor request
+            self.monitoring.log_performance_metric(
+                "transaction_fetch",
+                start_time=datetime.now()
             )
             
-            response = client.transactions_get(request_data)
+            transactions = self._fetch_transactions(user_id)
+            self.audit_logger.log_transaction_sync(
+                user_id=user_id,
+                transaction_count=len(transactions)
+            )
             
-            # Cache response
-            self.cache_manager.set(cache_key, {"transactions": response.transactions}, 300)
-            
-            return {"transactions": response.transactions}, 200
+            return {"transactions": transactions}, 200
             
         except Exception as e:
             logging.error(f"Transaction fetch error: {e}")
             return {"error": str(e)}, 500
+
+    def _fetch_transactions(self, user_id: int) -> List[Dict[str, Any]]:
+        """Fetch and process transactions"""
+        try:
+            transactions = self._get_raw_transactions(user_id)
+            processed_transactions = []
+            
+            for transaction in transactions:
+                # Use AI to analyze transaction
+                analysis = self.ai_analyzer.analyze_transaction(transaction)
+                
+                if analysis.get('is_business_expense'):
+                    # Save as business expense
+                    expense = Expenses(
+                        user_id=user_id,
+                        amount=transaction['amount'],
+                        description=transaction['description'],
+                        category=analysis['category'],
+                        date=transaction['date']
+                    )
+                    self.db.add(expense)
+                
+                elif analysis.get('is_business_income'):
+                    # Save as business income
+                    income = Income(
+                        user_id=user_id,
+                        platform_name='bank_transfer',
+                        gross_income=transaction['amount'],
+                        payer_name=transaction.get('merchant_name', 'Unknown'),
+                        total_compensation=transaction['amount']
+                    )
+                    self.db.add(income)
+                
+                processed_transactions.append({**transaction, **analysis})
+            
+            self.db.commit()
+            return processed_transactions
 
     def get_accounts(self, user_id: int) -> tuple[Dict[str, Any], int]:
         """Get user's connected bank accounts"""
@@ -206,3 +282,55 @@ class BankService:
         except Exception as e:
             logging.error(f"Analysis error: {e}")
             return {"error": str(e)}, 500
+
+    def _sync_transactions(self, user_id: int, access_token: str) -> None:
+        """Sync transactions for a given access token"""
+        try:
+            client = self.get_plaid_client()
+            
+            # Get transactions for the last 30 days
+            start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
+            end_date = datetime.now().strftime('%Y-%m-%d')
+            
+            request = plaid_api.TransactionsGetRequest(
+                access_token=access_token,
+                start_date=start_date,
+                end_date=end_date
+            )
+            
+            response = client.transactions_get(request)
+            transactions = response.transactions
+            
+            # Store transactions in database
+            for transaction in transactions:
+                bank_account = self.db.query(BankAccounts).filter(
+                    BankAccounts.plaid_account_id == transaction.account_id,
+                    BankAccounts.user_id == user_id
+                ).first()
+                
+                if bank_account:
+                    new_transaction = BankTransaction(
+                        bank_account_id=bank_account.id,
+                        plaid_transaction_id=transaction.transaction_id,
+                        amount=transaction.amount,
+                        date=transaction.date,
+                        description=transaction.name,
+                        merchant_name=transaction.merchant_name,
+                        categories=transaction.category,
+                        pending=transaction.pending
+                    )
+                    self.db.add(new_transaction)
+            
+            self.db.commit()
+            
+            # Update last sync time
+            self.db.query(BankAccounts).filter(
+                BankAccounts.plaid_access_token == access_token
+            ).update({
+                "last_sync": datetime.now()
+            })
+            self.db.commit()
+            
+        except Exception as e:
+            logging.error(f"Error syncing transactions: {e}")
+            raise

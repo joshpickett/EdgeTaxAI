@@ -12,6 +12,7 @@ import logging
 from flask import jsonify
 from plaid.exceptions import PlaidError
 from typing import Dict, Any, Tuple
+from api.utils.audit_logger import AuditLogger
 
 class APIError(Exception):
     """Custom API Exception class"""
@@ -21,6 +22,24 @@ class APIError(Exception):
         self.status_code = status_code
         self.payload = payload or {}
         logging.error(f"API Error: {message}")
+
+class SessionError(APIError):
+    """Session-related errors"""
+    def __init__(self, message: str, session_id: str = None):
+        super().__init__(message, status_code=401)
+        self.session_id = session_id
+
+class RateLimitError(APIError):
+    """Rate limit exceeded errors"""
+    def __init__(self, message: str, limit: int, window: int):
+        super().__init__(
+            message, 
+            status_code=429,
+            payload={
+                "limit": limit,
+                "window_seconds": window
+            }
+        )
 
 class ReportGenerationError(APIError):
     """Specific error class for report generation failures"""

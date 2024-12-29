@@ -24,7 +24,16 @@ DATABASE_FILE = os.getenv("DB_PATH", "database.db")
 def signup():
     """Handle user signup with email or phone number verification."""
     try:
-        return jsonify({"message": "OTP sent for verification"}), 201
+        data = request.json
+        if not data.get("email") and not data.get("phone_number"):
+            return jsonify({"error": "Email or phone number required"}), 400
+
+        # Apply rate limiting
+        if not check_login_attempts(request.remote_addr):
+            return jsonify({"error": "Too many attempts. Please try again later"}), 429
+
+        response = auth_service.handle_signup(data)
+        return jsonify(response[0]), response[1]
     except AuthenticationError as e:
         return jsonify({"error": str(e)}), 400
     except Exception as e:
@@ -41,6 +50,13 @@ def verify_otp():
     try:
         data = request.json
         if auth_service.verify_otp(data):
+            user = auth_service.get_user_by_identifier(
+                data.get("email") or data.get("phone_number")
+            )
+            if not user:
+                return jsonify({"error": "User not found"}), 404
+
+            auth_service.update_last_login(user.id)
             # Generate tokens after successful verification
             access_token = TokenManager.generate_access_token(data)
             refresh_token = TokenManager.generate_refresh_token(data)
@@ -89,6 +105,7 @@ def login():
         return jsonify({"error": str(e)}), 500
 
 @auth_blueprint.route("/biometric/register", methods=["POST"])
+@rate_limit(requests_per_minute=3)
 def register_biometric():
     """Register biometric data for mobile authentication"""
     try:
@@ -106,6 +123,24 @@ def register_biometric():
             }), 200
         return jsonify({"error": "Failed to register biometric data"}), 400
         
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@auth_blueprint.route("/biometric/verify", methods=["POST"])
+def verify_biometric():
+    """Verify biometric data for authentication"""
+    try:
+        data = request.json
+        user_id = data.get('user_id')
+        biometric_data = data.get('biometric_data')
+        
+        if not all([user_id, biometric_data]):
+            return jsonify({"error": "Missing required data"}), 400
+            
+        if auth_service.verify_biometric(user_id, biometric_data):
+            auth_service.update_last_login(user_id)
+            return jsonify({"message": "Biometric verification successful"}), 200
+        return jsonify({"error": "Biometric verification failed"}), 401
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

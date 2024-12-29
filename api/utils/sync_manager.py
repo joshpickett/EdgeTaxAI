@@ -13,6 +13,8 @@ from typing import Dict, List, Any
 from datetime import datetime
 from api.utils.db_utils import get_db_connection
 from api.utils.error_handler import handle_sync_error
+from api.models.gig_data_model import GigPlatform
+from sqlalchemy.orm import Session
 
 class SyncManager:
     def __init__(self):
@@ -91,15 +93,21 @@ class SyncManager:
     async def sync_platform_data(self, user_id: str) -> Dict[str, Any]:
         """Sync platform-specific data"""
         try:
-            platforms = ['uber', 'lyft', 'doordash', 'instacart']
-            platform_results = {}
+            cursor = self.db.cursor()
+            platforms = self.db.query(GigPlatform).filter(
+                GigPlatform.user_id == user_id
+            ).all()
 
+            platform_results = {}
             for platform in platforms:
-                platform_results[platform] = await self._sync_platform(user_id, platform)
+                platform_results[platform.platform.value] = {
+                    'last_sync': platform.last_sync,
+                    'status': 'synced'
+                }
 
             return {
                 'status': 'success',
-                'platform_results': platform_results
+                'platforms': platform_results
             }
 
         except Exception as e:

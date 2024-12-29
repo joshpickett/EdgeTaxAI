@@ -1,21 +1,23 @@
 from functools import wraps
 from flask import request, jsonify
-from typing import Callable, Any, Optional
+from typing import Callable, Any
+from api.models.users import Users
+from api.config.database import SessionLocal
 import jwt
 import logging
 from datetime import datetime, timedelta
 import os
-import json
 
 # Direct imports from utils
 from api.utils.token_manager import TokenManager
 from api.utils.session_manager import SessionManager
-from api.utils.error_handler import APIError
-from api.utils.rate_limit import rate_limit
+from api.utils.error_handler import AuthError, handle_api_error
+from api.utils.audit_trail import AuditLogger
 
 # Initialize components
 token_manager = TokenManager()
 session_manager = SessionManager()
+audit_logger = AuditLogger()
 REFRESH_THRESHOLD = 300  # 5 minutes before expiry
 
 class AuthError(APIError):
@@ -35,11 +37,21 @@ def token_required(function: Callable) -> Callable:
             except IndexError:
                 raise AuthError("Invalid token format", 401)
 
+            # Get user from database
+            db = SessionLocal()
+            claims = token_manager.verify_token(token)
+            user = db.query(Users).filter(Users.id == claims['user_id']).first()
+            if not user:
+                raise AuthError("User not found", 401)
+
             # Validate token
             try:
                 claims = token_manager.verify_token(token)
                 request.user = claims
+                audit_logger.log_auth_success(claims['user_id'], 'token_verification')
+                return function(*args, **kwargs)
             except jwt.ExpiredSignatureError:
+                audit_logger.log_auth_failure(claims.get('user_id'), 'token_expired')
                 if token_manager.can_refresh(token):
                     new_token = token_manager.refresh_token(token)
                     if new_token:

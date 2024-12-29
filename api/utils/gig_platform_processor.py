@@ -24,11 +24,14 @@ class GigPlatformProcessor:
     async def process_platform_data(self, platform: str, raw_data: Dict[str, Any]) -> Dict[str, Any]:
         """Process platform-specific data"""
         try:
-            if platform not in self.supported_platforms:
-                raise ValueError(f"Unsupported platform: {platform}")
-
+            processed_data = {
+                "platform": platform,
+                "trips": []
+            }
+ 
             processor = self.supported_platforms[platform]
-            return await processor(raw_data)
+            processed_data["trips"] = await processor(raw_data)
+            return processed_data
         except Exception as e:
             self.logger.error(f"Error processing {platform} data: {e}")
             raise
@@ -92,22 +95,35 @@ class GigPlatformProcessor:
             self.logger.error(f"Error exchanging code for token on {platform}: {e}")
             raise
 
-    async def _process_uber_data(self, raw_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _process_uber_data(self, raw_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Process Uber-specific data"""
-        # Implementation for Uber data processing
-        return {"platform": "uber", "processed_data": raw_data}
+        processed_trips = []
+        for trip in raw_data.get("trips", []):
+            processed_trip = {
+                "trip_id": trip["uuid"],
+                "start_time": datetime.fromisoformat(trip["start_time"]),
+                "end_time": datetime.fromisoformat(trip["end_time"]),
+                "earnings": float(trip["fare"]),
+                "distance": float(trip["distance"]),
+                "status": trip["status"],
+                "tips": float(trip.get("tip", 0)),
+                "platform_fees": float(trip.get("service_fee", 0)),
+                "expenses": []
+            }
+            processed_trips.append(processed_trip)
+        return processed_trips
 
-    async def _process_lyft_data(self, raw_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _process_lyft_data(self, raw_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Process Lyft-specific data"""
         # Implementation for Lyft data processing
         return {"platform": "lyft", "processed_data": raw_data}
 
-    async def _process_doordash_data(self, raw_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _process_doordash_data(self, raw_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Process DoorDash-specific data"""
         # Implementation for DoorDash data processing
         return {"platform": "doordash", "processed_data": raw_data}
 
-    async def _process_instacart_data(self, raw_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def _process_instacart_data(self, raw_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Process Instacart-specific data"""
         # Implementation for Instacart data processing
         return {"platform": "instacart", "processed_data": raw_data}

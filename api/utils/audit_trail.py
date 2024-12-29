@@ -1,66 +1,45 @@
-import os
-import sys
-from api.setup_path import setup_python_path
-
-# Set up path for both package and direct execution
-if __name__ == "__main__":
-    setup_python_path(__file__)
-else:
-    setup_python_path()
-
 import logging
 from datetime import datetime
-from typing import Dict, Any, Optional, List
-from api.utils.db_utils import get_db_connection
+from typing import Dict, Any
+from sqlalchemy.orm import Session
+from api.config.database import SessionLocal
 
-class AuditTrail:
+class AuditLogger:
     def __init__(self):
-        self.conn = get_db_connection()
-        
-    def log_category_change(self, 
-                          expense_id: int, 
-                          old_category: str, 
-                          new_category: str,
-                          user_id: int,
-                          confidence_score: float) -> None:
-        """Log category changes for audit purposes"""
-        try:
-            cursor = self.conn.cursor()
-            cursor.execute("""
-                INSERT INTO category_changes 
-                (expense_id, old_category, new_category, user_id, 
-                 confidence_score, timestamp)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (
-                expense_id,
-                old_category,
-                new_category,
-                user_id,
-                confidence_score,
-                datetime.now().isoformat()
-            ))
-            self.conn.commit()
-        except Exception as e:
-            logging.error(f"Error logging category change: {e}")
-            
-    def get_audit_trail(self, 
-                       expense_id: Optional[int] = None, 
-                       user_id: Optional[int] = None) -> List[Dict[str, Any]]:
-        """Retrieve audit trail for expenses"""
-        try:
-            cursor = self.conn.cursor()
-            query = "SELECT * FROM category_changes WHERE 1=1"
-            params = []
-            
-            if expense_id:
-                query += " AND expense_id = ?"
-                params.append(expense_id)
-            if user_id:
-                query += " AND user_id = ?"
-                params.append(user_id)
-                
-            cursor.execute(query, params)
-            return cursor.fetchall()
-        except Exception as e:
-            logging.error(f"Error retrieving audit trail: {e}")
-            return []
+        self.db = SessionLocal()
+        self._setup_logger()
+
+    def _setup_logger(self):
+        self.logger = logging.getLogger('audit_trail')
+        self.logger.setLevel(logging.INFO)
+        handler = logging.FileHandler('audit_trail.log')
+        formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        )
+        handler.setFormatter(formatter)
+        self.logger.addHandler(handler)
+
+    def log_auth_attempt(self, identifier: str, action: str) -> None:
+        """Log authentication attempts"""
+        self.logger.info(
+            f"Auth attempt - Action: {action}, Identifier: {self._mask_identifier(identifier)}"
+        )
+
+    def log_auth_failure(self, identifier: str, reason: str) -> None:
+        """Log authentication failures"""
+        self.logger.warning(
+            f"Auth failure - Reason: {reason}, Identifier: {self._mask_identifier(identifier)}"
+        )
+
+    def log_auth_success(self, identifier: str, action: str) -> None:
+        """Log successful authentication"""
+        self.logger.info(
+            f"Auth success - Action: {action}, Identifier: {self._mask_identifier(identifier)}"
+        )
+
+    def _mask_identifier(self, identifier: str) -> str:
+        """Mask sensitive information in logs"""
+        if '@' in identifier:
+            username, domain = identifier.split('@')
+            return f"{username[:2]}***@{domain}"
+        return f"{identifier[:2]}***{identifier[-2:]}"

@@ -9,116 +9,100 @@ else:
     setup_python_path()
 
 from typing import Dict, Any, Optional, List
+from sqlalchemy.orm import Session
+from api.models.gig_data_model import GigPlatform, GigTrip, PlatformType
+from api.models.income import Income
+from api.models.expenses import Expenses
 from utils.gig_platform_processor import GigPlatformProcessor
 from utils.gig_utils import PlatformAPI
-from models.gig_data import GigData
-from api.models.gig_model import init_gig_table
-from utils.cache_utils import CacheManager
+from utils.sync_manager import SyncManager
 from datetime import datetime
 import logging
 
 class GigPlatformService:
-    def __init__(self):
+    def __init__(self, db: Session):
+        self.db = db
         self.processor = GigPlatformProcessor()
-        self.cache = CacheManager()
-        self.gig_data = GigData()
-        init_gig_table()
-
-    def connect_platform(self, platform: str, user_id: int, oauth_state: str) -> Dict[str, Any]:
-        """Handle platform connection process"""
-        try:
-            oauth_url = self.processor.get_oauth_url(platform)
-            if not oauth_url:
-                return {"error": f"Failed to generate OAuth URL for {platform}"}, 400
-
-            # Store connection attempt in database
-            self.gig_data.update_sync_status(
-                user_id=user_id,
-                platform=platform,
-                status="connecting"
-            )
-
-            return {"oauth_url": oauth_url}, 200
-        except Exception as e:
-            logging.error(f"Platform connection error: {e}")
-            return {"error": str(e)}, 500
-
-    async def handle_oauth_callback(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Process OAuth callback and store platform tokens"""
-        try:
-            user_id = data.get("user_id")
-            platform = data.get("platform")
-            code = data.get("code")
-
-            if not all([user_id, platform, code]):
-                return {"error": "Missing required fields"}, 400
-
-            # Exchange code for tokens
-            token_data = await self.processor.exchange_code_for_token(platform, code)
-            
-            # Store platform connection
-            self.gig_data.store_platform_data(user_id, platform, token_data)
-
-            # Initialize platform sync
-            await self.sync_platform_data(user_id, platform)
-
-            return {"message": "Platform connected successfully"}, 200
-        except Exception as e:
-            logging.error(f"OAuth callback error: {e}")
-            return {"error": str(e)}, 500
+        self.sync_manager = SyncManager()
 
     async def sync_platform_data(self, user_id: int, platform: str) -> Dict[str, Any]:
-        """Sync data from connected platform"""
         try:
-            # Get platform API client
-            api_client = PlatformAPI(platform, self._get_access_token(user_id, platform))
+            # Get platform connection
+            platform_conn = self.db.query(GigPlatform).filter(
+                GigPlatform.user_id == user_id,
+                GigPlatform.platform == PlatformType(platform)
+            ).first()
+
+            if not platform_conn:
+                raise ValueError(f"No connected {platform} account found")
 
             # Fetch and process platform data
+            api_client = PlatformAPI(platform, platform_conn.access_token)
             raw_data = await api_client.fetch_trips()
             processed_data = await self.processor.process_platform_data(platform, raw_data)
 
-            # Store processed data
-            self.gig_data.store_trip(processed_data)
+            # Process each trip
+            for trip_data in processed_data["trips"]:
+                # Check if trip already exists
+                existing_trip = self.db.query(GigTrip).filter(
+                    GigTrip.platform_id == platform_conn.id,
+                    GigTrip.trip_id == trip_data["trip_id"]
+                ).first()
 
+                if existing_trip:
+                    continue
+
+                # Create trip record
+                trip = GigTrip(
+                    platform_id=platform_conn.id,
+                    trip_id=trip_data["trip_id"],
+                    start_time=trip_data["start_time"],
+                    end_time=trip_data["end_time"],
+                    earnings=trip_data["earnings"],
+                    distance=trip_data["distance"],
+                    status=trip_data["status"]
+                )
+                self.db.add(trip)
+
+                # Create income record
+                income = Income(
+                    user_id=user_id,
+                    platform_name=platform_conn.platform.value,
+                    gross_income=trip_data["earnings"],
+                    tips=trip_data.get("tips", 0),
+                    platform_fees=trip_data.get("platform_fees", 0),
+                    mileage=trip_data.get("distance", 0),
+                    trip=trip
+                )
+                self.db.add(income)
+
+                # Add any expenses
+                if "expenses" in trip_data:
+                    for expense_data in trip_data["expenses"]:
+                        expense = Expenses(
+                            user_id=user_id,
+                            amount=expense_data["amount"],
+                            description=expense_data["description"],
+                            category=expense_data.get("category", "TRANSPORTATION"),
+                            date=trip_data["start_time"].date(),
+                            trip=trip
+                        )
+                        self.db.add(expense)
+
+            self.db.commit()
+            
             # Update sync status
-            self.gig_data.update_sync_status(
-                user_id=user_id,
-                platform=platform,
-                status="success"
-            )
+            platform_conn.last_sync = datetime.utcnow()
+            self.db.commit()
+            
+            # Trigger sync manager
+            await self.sync_manager.sync_platform_data(user_id)
 
             return processed_data, 200
+
         except Exception as e:
             logging.error(f"Platform sync error: {e}")
-            self.gig_data.update_sync_status(
-                user_id=user_id,
-                platform=platform,
-                status="failed",
-                error=str(e)
-            )
-            return {"error": str(e)}, 500
-
-    def get_platform_earnings(self, user_id: int, platform: str, 
-                            start_date: Optional[str] = None, 
-                            end_date: Optional[str] = None) -> Dict[str, Any]:
-        """Get earnings data from platform"""
-        try:
-            # Check cache first
-            cache_key = f"earnings:{user_id}:{platform}:{start_date}:{end_date}"
-            cached_data = self.cache.get(cache_key)
-            if cached_data:
-                return cached_data, 200
-
-            # Fetch fresh data
-            api_client = PlatformAPI(platform, self._get_access_token(user_id, platform))
-            earnings_data = api_client.fetch_earnings(start_date, end_date)
-
-            # Cache the results
-            self.cache.set(cache_key, earnings_data, 3600)  # Cache for 1 hour
-
-            return earnings_data, 200
-        except Exception as e:
-            logging.error(f"Error fetching earnings: {e}")
+            self.db.rollback()
             return {"error": str(e)}, 500
 
     def _get_access_token(self, user_id: int, platform: str) -> str:

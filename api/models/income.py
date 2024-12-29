@@ -14,6 +14,8 @@ class Income(Base):
     platform_fees = Column(Numeric(10, 2))
     mileage = Column(Numeric(10, 2))
     payer_name = Column(String(100))
+    trip_id = Column(Integer, ForeignKey("gig_trips.id"))
+    trip = relationship("GigTrip", back_populates="income")
     tin = Column(String(11))
     total_compensation = Column(Numeric(10, 2))
     employer_name = Column(String(100))
