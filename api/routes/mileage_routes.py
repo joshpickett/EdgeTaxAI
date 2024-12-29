@@ -1,46 +1,15 @@
 import os
 import sys
-
-from api.setup_path import setup_python_path
-setup_python_path(__file__)
-
-from api.utils.cache_utils import CacheManager, cache_response
-from api.utils.error_handler import handle_api_error, APIError
+from flask import Blueprint, request, jsonify
+from api.services.mileage_service import MileageService
+from api.config.database import SessionLocal
+from api.utils.error_handler import handle_api_error
 from api.utils.rate_limit import rate_limit
 
-
-import requests
-import logging
-from flask import Blueprint, request, jsonify, g, send_file
-from typing import Dict, Any, Optional, Tuple
-from datetime import datetime
-import io
-import pandas as pd
-from api.utils.error_handler import handle_api_error
-from api.utils.db_utils import get_db_connection
-from api.utils.trip_analyzer import TripAnalyzer
-from api.config import IRS_MILEAGE_RATE
-from api.utils.session_manager import SessionManager
-from api.utils.token_manager import TokenManager
-
-# Initialize managers
-session_manager = SessionManager()
-token_manager = TokenManager()
-
 # Initialize cache manager
-cache_manager = CacheManager()
-
 # Configure Logging
-logging.basicConfig(
-    filename="mileage.log",
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
-)
-
 # Blueprint for mileage-related routes
 mileage_bp = Blueprint("mileage", __name__)
-
-trip_analyzer = TripAnalyzer()
 
 @mileage_bp.route("/mileage", methods=["POST"])
 @rate_limit(requests_per_minute=60)
@@ -93,27 +62,13 @@ def add_mileage_record():
         except ValueError:
             return jsonify({"error": "Invalid date format. Use YYYY-MM-DD"}), 400
 
-        # Calculate distance using Google Maps API
-        distance, error = trip_analyzer.fetch_google_directions(start_location, end_location)
-        if error:
-            return jsonify({"error": f"Failed to calculate distance: {error}"}), 500
-
-        # Save to database
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            INSERT INTO mileage (user_id, start_location, end_location, distance, date)
-            VALUES (?, ?, ?, ?, ?)
-            """,
-            (user_id, start_location, end_location, distance, date)
-        )
-        conn.commit()
-        conn.close()
+        with SessionLocal() as db:
+            service = MileageService(db)
+            mileage, expense, deduction = service.create_mileage_record(data)
 
         return jsonify({
             "message": "Mileage record added successfully",
-            "data": {"distance": distance, "date": date}
+            "data": {"distance": mileage.distance, "date": date}
         }), 201
     except Exception as e:
         logging.error(f"Error adding mileage record: {e}")

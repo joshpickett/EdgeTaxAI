@@ -6,6 +6,7 @@ setup_python_path(__file__)
 from flask import Blueprint, request, jsonify
 import logging
 from datetime import datetime
+from api.services.tax_optimization_service import TaxOptimizationService
 from api.utils.tax_calculator import TaxCalculator
 from api.utils.error_handler import handle_api_error
 from api.utils.session_manager import SessionManager
@@ -16,6 +17,7 @@ from decimal import Decimal
 
 tax_optimization_bp = Blueprint('tax_optimization', __name__)
 tax_service = TaxService()
+tax_optimization_service = TaxOptimizationService()
 
 # Initialize managers
 session_manager = SessionManager()
@@ -33,13 +35,8 @@ def optimize_tax_strategy():
         year = data.get('year', datetime.now().year)
         
         # Get comprehensive analysis
-        optimization_results = analyze_optimization_opportunities(user_id, year)
+        optimization_results = tax_optimization_service.analyze_deduction_opportunities(user_id, year)
         
-        # Calculate potential savings
-        potential_savings = tax_service.calculate_tax_savings(
-            Decimal(str(optimization_results.get('potential_deductions', 0)))
-        )
-
         return jsonify({
             "optimization_suggestions": optimization_results
         }), 200
@@ -56,7 +53,7 @@ def analyze_deductions():
         year = data.get('year', datetime.now().year)
 
         # Get expenses and analyze deduction opportunities
-        optimization_results = analyze_optimization_opportunities(user_id, year)
+        optimization_results = tax_optimization_service.analyze_deduction_opportunities(user_id, year)
         
         potential_savings = tax_service.calculate_tax_savings(
             Decimal(str(optimization_results.get('potential_deductions', 0)))

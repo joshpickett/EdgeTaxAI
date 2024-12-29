@@ -12,12 +12,17 @@ from api.schemas.tax_schemas import (
 )
 from api.config.tax_config import TAX_CONFIG
 from api.services.tax_service import TaxService
+from api.services.tax_optimization_service import TaxOptimizationService
+from api.services.export_service import ExportService
 from api.utils.error_handler import handle_api_error
 from api.utils.rate_limit import rate_limit
 from api.utils.cache_utils import cache_response
+from api.utils.audit_trail import AuditLogger
 
 # Initialize services
 tax_service = TaxService()
+audit_logger = AuditLogger()
+export_service = ExportService()
 
 tax_bp = Blueprint("tax_routes", __name__)
 
@@ -132,6 +137,30 @@ def generate_tax_document():
         return jsonify(document), 200
     except Exception as e:
         return handle_api_error(e)
+
+@tax_bp.route("/export-tax-report", methods=["POST"])
+def export_tax_report():
+    try:
+        data = request.json
+        format_type = data.get('format', 'pdf')
+        tax_data = tax_service.generate_tax_report(data)
+        
+        # Log export attempt
+        audit_logger.log_tax_analysis(
+            data['user_id'],
+            f"tax_report_export_{format_type}",
+            {"year": data.get('year')}
+        )
+        
+        if format_type == 'pdf':
+            return export_service.export_pdf(tax_data)
+        elif format_type == 'excel':
+            return export_service.export_excel(tax_data)
+        else:
+            return export_service.export_json(tax_data)
+    except Exception as e:
+        logging.error(f"Error exporting tax report: {str(e)}")
+        return jsonify({"error": "Failed to export tax report."}), 500
 
 if __name__ == "__main__":
     from flask import Flask

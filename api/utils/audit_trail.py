@@ -7,7 +7,14 @@ from api.config.database import SessionLocal
 class AuditLogger:
     def __init__(self):
         self.db = SessionLocal()
-        self._setup_logger()
+        
+    def log_tax_analysis(self, user_id: str, action: str, details: Dict[str, Any]) -> None:
+        """Log tax analysis operations"""
+        self.logger.info(
+            f"Tax Analysis - User: {self._mask_identifier(str(user_id))}, "
+            f"Action: {action}, "
+            f"Details: {details}"
+        )
 
     def _setup_logger(self):
         self.logger = logging.getLogger('audit_trail')

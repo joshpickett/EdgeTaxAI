@@ -32,6 +32,16 @@ class IRSCompliance:
     def verify_compliance(self, expense: Dict[str, Any]) -> Dict[str, Any]:
         """Verify if expense meets IRS compliance requirements"""
         category = expense.get('category', '').lower()
+        # Enhanced compliance checks
+        compliance_checks = {
+            'documentation': self._check_documentation(expense),
+            'amount_limits': self._check_amount_limits(expense),
+            'timing': self._check_timing_requirements(expense),
+            'business_purpose': self._verify_business_purpose(expense)
+        }
+        
+        compliance_score = self._calculate_compliance_score(compliance_checks)
+        
         required_docs = self.compliance_rules['documentation_required'].get(category, [])
         
         # Check required documentation

@@ -21,6 +21,7 @@ class AITransactionAnalyzer:
                 messages=[{
                     "role": "system",
                     "content": "You are a financial expert analyzing bank transactions. "
+                              "Focus on identifying tax deduction opportunities and categorizing expenses according to IRS guidelines. "
                               "Determine if each transaction is a business expense, business income, "
                               "or personal transaction. Provide category and confidence score."
                 },
@@ -84,6 +85,10 @@ class AITransactionAnalyzer:
             category = 'UNKNOWN'
             if 'category: ' in response.lower():
                 category = response.lower().split('category: ')[1].split('\n')[0].upper()
+            
+            # Enhanced tax-specific analysis
+            tax_category = self._determine_tax_category(category, response)
+            deduction_potential = self._assess_deduction_potential(response)
             
             return {
                 'is_business_expense': is_expense,

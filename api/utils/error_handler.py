@@ -1,6 +1,7 @@
 import os
 import sys
 from api.setup_path import setup_python_path
+from datetime import datetime
 
 # Set up path for both package and direct execution
 if __name__ == "__main__":
@@ -21,7 +22,13 @@ class APIError(Exception):
         self.message = message
         self.status_code = status_code
         self.payload = payload or {}
-        logging.error(f"API Error: {message}")
+        
+        # Enhanced error logging
+        logging.error(f"API Error: {message}", extra={
+            'status_code': status_code,
+            'payload': payload,
+            'timestamp': datetime.now().isoformat()
+        })
 
 class SessionError(APIError):
     """Session-related errors"""
@@ -72,9 +79,20 @@ def handle_plaid_error(error: PlaidError) -> Tuple[Dict[str, Any], int]:
 
 def handle_api_error(error: APIError) -> Tuple[Dict[str, Any], int]:
     """Handle custom API errors"""
+    audit_logger = AuditLogger()
+    
+    # Log error details
+    audit_logger.log_error(
+        error_type="api_error",
+        message=error.message,
+        details=error.payload
+    )
+    
     response = {
         "error": {
             "message": error.message,
+            "code": error.status_code,
+            "timestamp": datetime.now().isoformat(),
             **error.payload
         },
         "status": "error"
