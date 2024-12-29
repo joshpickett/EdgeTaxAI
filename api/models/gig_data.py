@@ -1,3 +1,5 @@
+#deprecated not used
+
 import sqlite3
 import logging
 from typing import Dict, Any, Optional

@@ -30,7 +30,7 @@ class Users(Base):
     expenses = relationship("Expenses", back_populates="user")
     tax_payments = relationship("TaxPayments", back_populates="user")
     bank_accounts = relationship("BankAccounts", back_populates="user", cascade="all, delete-orphan")
-    gig_platforms = relationship("GigPlatform", back_populates="user")
+    gig_platforms = relationship("GigPlatform", back_populates="user", cascade="all, delete-orphan")
     documents = relationship("Document", back_populates="user", cascade="all, delete-orphan")
     deductions = relationship("Deductions", back_populates="user")
     tax_forms = relationship("TaxForms", back_populates="user")

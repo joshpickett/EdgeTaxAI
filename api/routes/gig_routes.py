@@ -12,6 +12,8 @@ from api.utils.error_handler import handle_api_error, handle_platform_error, API
 from api.utils.rate_limit import rate_limit
 from api.utils.cache_utils import CacheManager
 from api.services.gig_platform_service import GigPlatformService
+from api.models.gig_platform import GigPlatform, GigTrip, GigEarnings, PlatformType, GigPlatformStatus
+from api.schemas.gig_schemas import GigPlatformCreate, GigPlatformResponse
 import logging
 import requests
 from typing import Dict, Any, Optional
@@ -54,17 +56,11 @@ OAUTH_CONFIG = {
 
 @with_retry(max_attempts=3, initial_delay=1.0)
 @rate_limit(requests_per_minute=30)
-@gig_routes.route("/connect/<platform>", methods=["GET"])
+@gig_routes.route("/connect/<platform>", methods=["POST"])
 def connect_platform(platform):
-    cache_key = f"oauth_state:{platform}"
     try:
-        # Generate and cache OAuth state
-        oauth_state = os.urandom(16).hex()
-        cache_manager.set(cache_key, oauth_state, timeout=600)  # 10 minutes timeout
-        
-        return gig_platform_service.connect_platform(platform.lower(), 
-                                                   request.args.get("user_id"),
-                                                   oauth_state)
+        platform_data = GigPlatformCreate(**request.json)
+        return GigPlatformResponse.from_orm(gig_platform_service.connect_platform(platform, platform_data))
     except Exception as e:
         return handle_platform_error(e)
 
@@ -241,17 +237,14 @@ def sync_platform_data(platform):
 @rate_limit(requests_per_minute=60)
 @gig_routes.route("/earnings", methods=["GET"])
 def get_earnings():
-    cache_key = f"earnings:{request.args.get('user_id')}:{request.args.get('start_date')}:{request.args.get('end_date')}"
-    try:
-        # Check cache first
-        cached_data = cache_manager.get(cache_key)
-        if cached_data:
-            return jsonify(cached_data), 200
-         
-        # If not in cache, fetch fresh data
-        earnings_data = {}
-        cache_manager.set(cache_key, earnings_data, timeout=3600)  # Cache for 1 hour
-        return jsonify(earnings_data), 200
-    except Exception as e:
-        logging.error(f"Error fetching earnings: {e}")
-        return jsonify({"error": str(e)}), 500
+    platform_id = request.args.get("platform_id")
+    start_date = request.args.get("start_date")
+    end_date = request.args.get("end_date")
+    
+    earnings = db.query(GigEarnings).filter(
+        GigEarnings.platform_id == platform_id,
+        GigEarnings.period_start >= start_date,
+        GigEarnings.period_end <= end_date
+    )
+    
+    return jsonify(earnings)

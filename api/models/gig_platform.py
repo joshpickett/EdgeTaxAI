@@ -1,6 +1,4 @@
-#deprecated
-
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Enum, Boolean, Index, JSON
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Enum, Boolean, Index, JSON, Float
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from api.config.database import Base
@@ -44,13 +42,13 @@ class GigPlatform(Base):
     # Encrypted fields
     access_token = Column(String(1024))
     refresh_token = Column(String(1024))
-     
+    
     # Platform details
     account_status = Column(Enum(GigPlatformStatus), default=GigPlatformStatus.PENDING)
     is_active = Column(Boolean, default=True)
     last_sync = Column(DateTime(timezone=True))
     error_message = Column(String)
-     
+    
     # Metadata and audit
     metadata = Column(JSON)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
