@@ -4,6 +4,7 @@ from api.setup_path import setup_python_path
 setup_python_path(__file__)
 
 from flask import Blueprint, request, jsonify
+from shared.types.tax import TaxCalculationResult, TaxDeduction
 from api.schemas.tax_schemas import (
     QuarterlyTaxSchema,
     TaxSavingsSchema,
@@ -83,7 +84,7 @@ def quarterly_tax_estimate():
         income = Decimal(str(data.get("income", 0)))
         expenses = Decimal(str(data.get("expenses", 0)))
 
-        tax_result = tax_service.calculate_quarterly_tax(income, expenses)
+        tax_result: TaxCalculationResult = tax_service.calculate_quarterly_tax(income, expenses)
 
         return jsonify({
             "quarter": quarter,

@@ -1,4 +1,4 @@
-from typing import Dict, Any, List
+from typing import Dict, Any
 from decimal import Decimal
 import logging
 from datetime import datetime
@@ -6,11 +6,13 @@ from api.config.tax_config import TAX_CONFIG
 from api.utils.tax_calculator import TaxCalculator
 from api.utils.cache_utils import CacheManager
 from api.exceptions.tax_exceptions import TaxCalculationError
+from shared.types.tax import TaxCalculationResult, TaxDeduction, TaxForm
 
 class TaxService:
     def __init__(self):
         self.calculator = TaxCalculator()
         self.cache = CacheManager()
+        self.validator = ValidationRules()
 
     def estimate_quarterly_taxes(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Calculate quarterly estimated taxes"""
@@ -22,7 +24,14 @@ class TaxService:
             if not quarter or quarter not in TAX_CONFIG['QUARTERLY_DEADLINES']:
                 raise ValueError("Invalid quarter specified")
                 
-            return self.calculator.calculate_quarterly_tax(income, expenses, quarter)
+            # Enhanced implementation using shared types
+            result = TaxCalculationResult(
+                quarterlyAmount=float(calculated['quarterly_amount']),
+                annualEstimate=float(calculated['annual_estimate']),
+                effectiveRate=float(calculated['effective_rate']),
+                dueDate=calculated['due_date']
+            )
+            return result
         except Exception as e:
             logging.error(f"Error calculating quarterly taxes: {str(e)}")
             raise TaxCalculationError(str(e))
