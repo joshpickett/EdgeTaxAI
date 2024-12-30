@@ -14,6 +14,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Optional, Any, Dict
 from functools import wraps
+import time
 
 # Configure Redis client
 redis_client = redis.Redis(
@@ -35,6 +36,22 @@ class CacheManager:
         self.default_timeout = default_timeout
         self.report_timeout = 7200  # 2 hours for reports
         self.analytics_timeout = 3600  # 1 hour for analytics
+        self.compression_threshold = 1024 * 100  # 100KB
+        self.max_retries = 3
+
+    async def get_with_fallback(self, key: str, fallback_func: callable) -> Optional[Any]:
+        """Get cached value with fallback function"""
+        try:
+            value = await self.get(key)
+            if value is not None:
+                return value
+                
+            value = await fallback_func()
+            await self.set(key, value)
+            return value
+        except Exception as e:
+            logging.error(f"Cache fallback error: {e}")
+            return await fallback_func()
 
     def get(self, key: str) -> Optional[Any]:
         """Retrieve value from cache."""
@@ -75,12 +92,25 @@ class CacheManager:
     def set(self, key: str, value: Any, timeout: Optional[int] = None) -> bool:
         """Store value in cache."""
         try:
+            # Compress large values
+            if sys.getsizeof(str(value)) > self.compression_threshold:
+                value = self._compress_value(value)
+                key = f"compressed:{key}"
+
             timeout = timeout or self.default_timeout
-            return redis_client.setex(
-                key,
-                timeout,
-                json.dumps(value)
-            )
+            
+            for attempt in range(self.max_retries):
+                try:
+                    return redis_client.setex(
+                        key,
+                        timeout,
+                        json.dumps(value)
+                    )
+                except redis.ConnectionError:
+                    if attempt == self.max_retries - 1:
+                        raise
+                    time.sleep(0.1 * (attempt + 1))
+                    
         except Exception as e:
             logging.error(f"Cache set error: {str(e)}")
             return False
@@ -131,6 +161,11 @@ class CacheManager:
         pattern = f"report:{user_id}:*"
         keys = redis_client.keys(pattern)
         return all(redis_client.delete(key) for key in keys)
+
+    def _compress_value(self, value: Any) -> bytes:
+        """Compress the value for storage."""
+        import zlib
+        return zlib.compress(json.dumps(value).encode('utf-8'))
 
 def cache_response(timeout: int = 3600):
     """Decorator for caching API responses."""

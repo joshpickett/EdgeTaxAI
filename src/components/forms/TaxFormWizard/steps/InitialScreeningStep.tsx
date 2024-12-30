@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Form1040Data } from 'shared/types/form1040';
+import { FormDocumentService } from 'api/services/form/form_document_service';
 import { FilingStatus } from 'shared/types/tax';
 import { expenseService } from 'shared/services/expenseService';
 import { platformService } from 'shared/services/platformService';
@@ -24,12 +25,15 @@ interface InitialScreeningStepProps {
   onUpdate: (data: Partial<Form1040Data>) => void;
 }
 
+const documentService = new FormDocumentService();
+
 export const InitialScreeningStep: React.FC<InitialScreeningStepProps> = ({
   formData,
   onUpdate
 }) => {
   const [platformData, setPlatformData] = useState<any>(null);
   const [expenseData, setExpenseData] = useState<any>(null);
+  const [documentRequirements, setDocumentRequirements] = useState(null);
 
   useEffect(() => {
     const fetchExistingData = async () => {
@@ -44,6 +48,22 @@ export const InitialScreeningStep: React.FC<InitialScreeningStepProps> = ({
     };
 
     fetchExistingData();
+  }, []);
+
+  useEffect(() => {
+    const fetchRequirements = async () => {
+      try {
+        const requirements = await documentService.get_required_documents(
+          formData.userId,
+          'Form1040',
+          new Date().getFullYear()
+        );
+        setDocumentRequirements(requirements);
+      } catch (error) {
+        console.error('Error fetching requirements:', error);
+      }
+    };
+    fetchRequirements();
   }, []);
 
   const handleFilingStatusChange = (status: string) => {

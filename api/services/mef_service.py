@@ -5,6 +5,8 @@ from xml.etree import ElementTree
 from api.config.mef_config import MEF_CONFIG
 from api.services.mef.templates.form_1099nec import Form1099NECTemplate
 from api.services.mef.templates.form_1099k import Form1099KTemplate
+from api.services.mef.templates.form_1116 import Form1116Template
+from api.services.mef.templates.form_2555 import Form2555Template
 from api.services.mef.validation_rules import ValidationRules
 from api.utils.mef_validator import MeFValidator
 from api.models.mef_submissions import MeFSubmission, SubmissionStatus
@@ -43,6 +45,7 @@ class MeFService:
         self.schema_manager = SchemaManager()
         self.xml_signer = XMLSigner()
         self.schedule_manager = ScheduleAttachmentManager()
+        self.pki_manager = PKIManager()
         self.logger = logging.getLogger(__name__)
 
     @with_retry(max_attempts=3, initial_delay=1.0)
@@ -192,6 +195,78 @@ class MeFService:
             
         except Exception as e:
             self.logger.error(f"Error submitting 1099-K: {str(e)}")
+            raise
+
+    async def submit_form_1116(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Submit Form 1116 (Foreign Tax Credit)"""
+        try:
+            # Validate form data
+            errors = self.validation_rules.validate_form_1116(data)
+            if errors:
+                return {
+                    'success': False,
+                    'errors': errors
+                }
+                
+            # Generate XML
+            template = Form1116Template()
+            xml_content = template.generate(data)
+            
+            # Validate schema
+            schema_validation = self.schema_manager.validate_schema(
+                xml_content, 'FORM_1116')
+            if not schema_validation['is_valid']:
+                return {'success': False, 'errors': schema_validation['errors']}
+                
+            # Optimize XML
+            optimized_xml = self.xml_optimizer.optimize(xml_content)
+            
+            # Sign XML
+            signed_xml = self.xml_signer.sign_xml(optimized_xml)
+            
+            # Submit signed XML
+            submission_result = await self._submit_to_irs(signed_xml, 'FORM_1116', data)
+            
+            return submission_result
+            
+        except Exception as e:
+            self.logger.error(f"Error submitting Form 1116: {str(e)}")
+            raise
+
+    async def submit_form_2555(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Submit Form 2555 (Foreign Earned Income)"""
+        try:
+            # Validate form data
+            errors = self.validation_rules.validate_form_2555(data)
+            if errors:
+                return {
+                    'success': False,
+                    'errors': errors
+                }
+                
+            # Generate XML
+            template = Form2555Template()
+            xml_content = template.generate(data)
+            
+            # Validate schema
+            schema_validation = self.schema_manager.validate_schema(
+                xml_content, 'FORM_2555')
+            if not schema_validation['is_valid']:
+                return {'success': False, 'errors': schema_validation['errors']}
+                
+            # Optimize XML
+            optimized_xml = self.xml_optimizer.optimize(xml_content)
+            
+            # Sign XML
+            signed_xml = self.xml_signer.sign_xml(optimized_xml)
+            
+            # Submit signed XML
+            submission_result = await self._submit_to_irs(signed_xml, 'FORM_2555', data)
+            
+            return submission_result
+            
+        except Exception as e:
+            self.logger.error(f"Error submitting Form 2555: {str(e)}")
             raise
 
     async def check_submission_status(self, submission_id: str) -> Dict[str, Any]:

@@ -1,7 +1,7 @@
 from typing import Dict, Any, List, Optional
 import logging
-from datetime import datetime
-from api.models.documents import Document, DocumentType
+from datetime import datetime, timedelta
+from api.models.documents import Document, DocumentType, DocumentStatus
 from api.services.document_checklist_service import DocumentChecklistService
 
 class FormDocumentService:
@@ -10,6 +10,7 @@ class FormDocumentService:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.checklist_service = DocumentChecklistService()
+        self.validation_rules = self._load_validation_rules()
 
     async def get_required_documents(
         self,
@@ -49,7 +50,7 @@ class FormDocumentService:
     ) -> Dict[str, Any]:
         """Validate document for form requirements"""
         try:
-            document = await self._get_document(document_id)
+            document = await self._get_document_with_metadata(document_id)
             if not document:
                 raise ValueError("Document not found")
                 
@@ -57,15 +58,46 @@ class FormDocumentService:
                 document, form_type
             )
             
-            return {
-                'is_valid': validation_result['is_valid'],
-                'errors': validation_result['errors'],
-                'warnings': validation_result['warnings']
-            }
+            # Add detailed validation feedback
+            validation_result['feedback'] = self._generate_validation_feedback(
+                validation_result, document.type
+            )
             
+            return validation_result
+
         except Exception as e:
             self.logger.error(f"Error validating document: {str(e)}")
             raise
+
+    def _generate_validation_feedback(
+        self,
+        validation_result: Dict[str, Any],
+        document_type: str
+    ) -> Dict[str, Any]:
+        """Generate detailed validation feedback"""
+        feedback = {
+            'quality_score': self._calculate_quality_score(validation_result),
+            'suggestions': [],
+            'required_actions': []
+        }
+        
+        if not validation_result['is_valid']:
+            for error in validation_result['errors']:
+                feedback['required_actions'].append({
+                    'action': self._get_action_for_error(error),
+                    'priority': 'high',
+                    'details': error['message']
+                })
+        
+        if validation_result['warnings']:
+            for warning in validation_result['warnings']:
+                feedback['suggestions'].append({
+                    'suggestion': self._get_suggestion_for_warning(warning),
+                    'priority': 'medium',
+                    'details': warning['message']
+                })
+        
+        return feedback
 
     def _filter_requirements(
         self,
@@ -201,3 +233,16 @@ class FormDocumentService:
         """Get document by ID"""
         # Implementation would fetch actual document
         return None
+
+    async def _get_document_with_metadata(
+        self,
+        document_id: int
+    ) -> Optional[Document]:
+        """Get document by ID with metadata"""
+        # Implementation would fetch actual document with metadata
+        return None
+
+    def _load_validation_rules(self):
+        """Load validation rules for documents"""
+        # Implementation would load rules from a configuration or database
+        return {}

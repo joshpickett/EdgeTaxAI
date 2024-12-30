@@ -31,6 +31,25 @@ class DocumentChecklistService:
                 'optional': [
                     {'type': 'invoice_records', 'priority': 'low'}
                 ]
+            },
+            'FORM_1116': {
+                'required': [
+                    {'type': 'foreign_tax_receipts', 'priority': 'high'},
+                    {'type': 'foreign_income_statements', 'priority': 'high'}
+                ],
+                'optional': [
+                    {'type': 'treaty_documentation', 'priority': 'medium'}
+                ]
+            },
+            'SCHEDULE_C': {
+                'required': [
+                    {'type': 'foreign_bank_statements', 'priority': 'high'},
+                    {'type': 'foreign_tax_returns', 'priority': 'high'},
+                    {'type': 'foreign_income_docs', 'priority': 'high'}
+                ],
+                'optional': [
+                    {'type': 'foreign_currency_docs', 'priority': 'medium'}
+                ]
             }
         }
 
@@ -70,21 +89,33 @@ class DocumentChecklistService:
         user_id: int,
         required_documents: List[Dict[str, Any]]
     ) -> Dict[str, Any]:
-        """Get status of required documents"""
+        """Enhanced document status check with international document support"""
         submitted_documents = await self._get_submitted_documents(user_id)
         
         status = {
             'total': len(required_documents),
             'submitted': 0,
             'missing': [],
-            'incomplete': []
+            'incomplete': [],
+            'international': {
+                'required': [],
+                'submitted': [],
+                'missing': []
+            }
         }
         
         for doc in required_documents:
-            if doc['type'] in submitted_documents:
-                status['submitted'] += 1
+            if self._is_international_document(doc['type']):
+                status['international']['required'].append(doc['type'])
+                if doc['type'] in submitted_documents:
+                    status['international']['submitted'].append(doc['type'])
+                else:
+                    status['international']['missing'].append(doc['type'])
             else:
-                status['missing'].append(doc['type'])
+                if doc['type'] in submitted_documents:
+                    status['submitted'] += 1
+                else:
+                    status['missing'].append(doc['type'])
                 
         return status
 
@@ -99,3 +130,16 @@ class DocumentChecklistService:
         # Implementation would fetch actual submitted documents
         # This is a placeholder
         return []
+
+    def _is_international_document(self, document_type: str) -> bool:
+        """Check if the document type is international"""
+        international_documents = [
+            'foreign_bank_statements',
+            'foreign_tax_returns',
+            'foreign_income_docs',
+            'foreign_tax_receipts',
+            'foreign_income_statements',
+            'foreign_currency_docs',
+            'treaty_documentation'
+        ]
+        return document_type in international_documents

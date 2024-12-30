@@ -1,13 +1,16 @@
 from typing import Dict, Any
 import logging
 from decimal import Decimal
+from datetime import datetime
+from api.services.mef.validation_rules import ValidationRules
 
 class CrossScheduleCalculator:
     """Handle calculations across multiple schedules"""
     
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-
+        self.validator = ValidationRules()
+ 
     async def calculate_totals(self, schedules: Dict[str, Any]) -> Dict[str, Any]:
         """Calculate totals across all schedules"""
         try:
@@ -15,7 +18,10 @@ class CrossScheduleCalculator:
                 'total_income': Decimal('0'),
                 'total_expenses': Decimal('0'),
                 'total_deductions': Decimal('0'),
-                'net_profit_loss': Decimal('0')
+                'net_profit_loss': Decimal('0'),
+                'foreign_income': Decimal('0'),
+                'foreign_tax_credit': Decimal('0'),
+                'treaty_benefits': Decimal('0')
             }
 
             # Process Schedule C
@@ -28,7 +34,14 @@ class CrossScheduleCalculator:
             if 'SCHEDULE_E' in schedules:
                 schedule_e = schedules['SCHEDULE_E']
                 totals['total_income'] += self._calculate_schedule_e_income(schedule_e)
-                totals['total_expenses'] += self._calculate_schedule_e_expenses(schedule_e)
+                
+            # Process Form 1116 (Foreign Tax Credit)
+            if 'FORM_1116' in schedules:
+                form_1116 = schedules['FORM_1116']
+                foreign_results = self._calculate_foreign_income(form_1116)
+                totals['foreign_income'] += foreign_results['income']
+                totals['foreign_tax_credit'] += foreign_results['tax_credit']
+                totals['treaty_benefits'] += foreign_results['treaty_benefits']
 
             # Calculate net profit/loss
             totals['net_profit_loss'] = totals['total_income'] - totals['total_expenses']
@@ -133,3 +146,116 @@ class CrossScheduleCalculator:
         """Validate individual property data in Schedule E"""
         required_fields = ['address', 'type', 'income', 'expenses']
         return all(field in property_data for field in required_fields)
+
+    def _calculate_foreign_income(self, form_1116: Dict[str, Any]) -> Dict[str, Any]:
+        """Calculate foreign income and related items"""
+        try:
+            results = {
+                'income': Decimal('0'),
+                'tax_credit': Decimal('0'),
+                'treaty_benefits': Decimal('0')
+            }
+            
+            for country, data in form_1116.get('income_sources', {}).items():
+                # Convert foreign currency to USD
+                income_usd = self._convert_currency(
+                    data.get('amount', 0),
+                    data.get('currency'),
+                    data.get('exchange_rate')
+                )
+                
+                # Apply treaty benefits if applicable
+                treaty_benefit = self._calculate_treaty_benefit(
+                    country,
+                    income_usd,
+                    data.get('treaty_data', {})
+                )
+                
+                results['income'] += income_usd
+                results['treaty_benefits'] += treaty_benefit
+                
+                # Calculate foreign tax credit
+                if data.get('foreign_taxes'):
+                    tax_credit = self._calculate_foreign_tax_credit(
+                        country,
+                        income_usd,
+                        data['foreign_taxes']
+                    )
+                    results['tax_credit'] += tax_credit
+                    
+            return results
+            
+        except Exception as e:
+            self.logger.error(f"Error calculating foreign income: {str(e)}")
+            raise
+
+    def _convert_currency(
+        self,
+        amount: Decimal,
+        currency_code: str,
+        exchange_rate: Dict[str, Any]
+    ) -> Decimal:
+        """Convert foreign currency to USD"""
+        if not currency_code or currency_code == 'USD':
+            return Decimal(str(amount))
+            
+        # Validate exchange rate
+        validation_result = self.validator.validate_currency(
+            amount,
+            currency_code,
+            exchange_rate
+        )
+        
+        if validation_result:
+            raise ValueError(f"Invalid currency data: {validation_result}")
+            
+        rate = Decimal(str(exchange_rate.get('rate', 0)))
+        return amount * rate
+
+    def _calculate_treaty_benefit(
+        self,
+        country: str,
+        income: Decimal,
+        treaty_data: Dict[str, Any]
+    ) -> Decimal:
+        """Calculate treaty benefits"""
+        if not treaty_data or not treaty_data.get('applies'):
+            return Decimal('0')
+            
+        # Validate treaty benefits
+        validation_result = self.validator.validate_treaty_benefits({
+            'treaty_country': country,
+            'benefit_amount': income,
+            'treaty_data': treaty_data
+        })
+        
+        if validation_result:
+            raise ValueError(f"Invalid treaty data: {validation_result}")
+            
+        benefit_rate = Decimal(str(treaty_data.get('benefit_rate', 0)))
+        return income * benefit_rate
+
+    def _calculate_foreign_tax_credit(
+        self,
+        country: str,
+        income: Decimal,
+        foreign_taxes: Dict[str, Any]
+    ) -> Decimal:
+        """Calculate foreign tax credit"""
+        # Validate foreign tax credit
+        validation_result = self.validator.validate_foreign_tax_credit({
+            'foreign_tax_paid': foreign_taxes.get('amount'),
+            'foreign_income': income,
+            'country': country
+        })
+        
+        if validation_result:
+            raise ValueError(f"Invalid foreign tax credit data: {validation_result}")
+            
+        tax_paid = self._convert_currency(
+            Decimal(str(foreign_taxes.get('amount', 0))),
+            foreign_taxes.get('currency'),
+            foreign_taxes.get('exchange_rate')
+        )
+        
+        return min(tax_paid, income * Decimal('0.35'))  # 35% limitation

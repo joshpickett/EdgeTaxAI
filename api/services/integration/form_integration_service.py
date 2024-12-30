@@ -14,6 +14,8 @@ from api.services.payment.estimated_tax_tracker import EstimatedTaxTracker
 from api.services.tax_review_service import TaxReviewService
 from api.services.tax_optimization_service import TaxOptimizationService
 from api.services.schedule_trigger_service import ScheduleTriggerService
+from api.services.form.form_progress_service import FormProgressManager
+from .payment_integration_service import PaymentIntegrationService
 
 class FormIntegrationService:
     """Service for integrating various form-related components"""
@@ -21,6 +23,7 @@ class FormIntegrationService:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.document_service = FormDocumentService()
+        self.progress_manager = FormProgressManager()
         self.schedule_service = FormScheduleService()
         self.validation_service = FormValidationService()
         self.optimization_service = FormOptimizationService()
@@ -33,6 +36,7 @@ class FormIntegrationService:
         self.tax_review = TaxReviewService()
         self.tax_optimizer = TaxOptimizationService()
         self.schedule_trigger = ScheduleTriggerService()
+        self.payment_service = PaymentIntegrationService()
 
     async def initialize_form_wizard(
         self,
@@ -43,12 +47,11 @@ class FormIntegrationService:
     ) -> Dict[str, Any]:
         """Initialize form wizard with all required data"""
         try:
-            # Get document checklist
+            # Enhanced wizard initialization
             checklist = await self.document_service.get_required_documents(
                 user_id, form_type, tax_year
             )
             
-            # Get schedule summaries
             schedules = await self.schedule_service.generate_summary(
                 user_id, tax_year
             )
@@ -64,7 +67,7 @@ class FormIntegrationService:
             schedule_requirements = await self.schedule_trigger.analyze_schedule_requirements(
                 user_id, tax_year)
             
-            return {
+            init_data = {
                 'checklist': checklist,
                 'schedules': schedules,
                 'schedule_requirements': schedule_requirements,
@@ -74,9 +77,22 @@ class FormIntegrationService:
                 'validation_rules': self._get_validation_rules(form_type)
             }
             
+            # Initialize payment options if form requires payment
+            if data.get('requires_payment'):
+                payment_options = await self.payment_service.initialize_payment_options(
+                    user_id, form_type, data
+                )
+                init_data['payment_options'] = payment_options
+            
+            return init_data
+            
         except Exception as e:
             self.logger.error(f"Error initializing form wizard: {str(e)}")
             raise
+
+    async def restore_progress(self, user_id: int, form_type: str) -> Dict[str, Any]:
+        """Restore saved progress"""
+        return await self.progress_manager.get_progress(user_id, form_type)
 
     async def validate_form_section(
         self,
@@ -86,15 +102,21 @@ class FormIntegrationService:
     ) -> Dict[str, Any]:
         """Validate form section with real-time feedback"""
         try:
+            # Enhanced section validation
             validation_result = await self.validation_service.validate_section(
                 form_type, section, data
+            )
+            
+            optimization_result = await self.optimization_service.analyze_optimization_opportunities(
+                data['user_id'], form_type, data
             )
             
             return {
                 'is_valid': validation_result['is_valid'],
                 'errors': validation_result['errors'],
                 'warnings': validation_result['warnings'],
-                'suggestions': self._generate_suggestions(validation_result)
+                'suggestions': self._generate_suggestions(validation_result),
+                'optimization_suggestions': optimization_result
             }
             
         except Exception as e:
@@ -128,6 +150,15 @@ class FormIntegrationService:
         except Exception as e:
             self.logger.error(f"Error updating progress: {str(e)}")
             raise
+
+    async def save_progress(
+        self,
+        user_id: int,
+        form_type: str,
+        progress_data: Dict[str, Any]
+    ) -> None:
+        """Save form progress"""
+        await self.progress_manager.save_progress(user_id, form_type, progress_data)
 
     def _initialize_progress_tracking(self, form_type: str) -> Dict[str, Any]:
         """Initialize progress tracking for form"""
@@ -278,35 +309,18 @@ class FormIntegrationService:
             self.logger.error(f"Error reviewing form submission: {str(e)}")
             raise
 
-    async def process_payment(
+    async def process_form_payment(
         self,
         user_id: int,
+        form_type: str,
         payment_data: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Process form payment"""
         try:
-            payment_type = payment_data.get('payment_type')
-            
-            if payment_type == 'plan':
-                return await self.payment_plan_manager.create_payment_plan(
-                    user_id, payment_data
-                )
-            elif payment_type == 'estimated':
-                return await self.estimated_tax_tracker.track_payment(
-                    user_id, payment_data
-                )
-            
-            # Calculate payment amount
-            payment_calculation = await self.payment_calculator.calculate_payment(
-                payment_data
+            payment_result = await self.payment_service.process_payment(
+                user_id, payment_data
             )
-            
-            return {
-                'payment_id': payment_calculation['payment_id'],
-                'status': 'processed',
-                'amount': payment_calculation['amount'],
-                'timestamp': datetime.utcnow().isoformat()
-            }
+            return payment_result
         except Exception as e:
-            self.logger.error(f"Error processing payment: {str(e)}")
+            self.logger.error(f"Error processing form payment: {str(e)}")
             raise

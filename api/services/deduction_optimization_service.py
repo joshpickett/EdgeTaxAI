@@ -28,6 +28,18 @@ class DeductionOptimizationService:
             'travel': {
                 'documentation_required': ['receipts', 'business_purpose'],
                 'meal_percentage': Decimal('0.50')  # 50% meal deduction
+            },
+            'foreign_housing': {
+                'calculation_methods': ['actual', 'safe_harbor'],
+                'documentation_required': ['lease', 'utility_bills', 'receipts'],
+                'thresholds': {
+                    'base_amount': Decimal('15000.00'),
+                    'maximum_amount': Decimal('35000.00')
+                }
+            },
+            'foreign_tax': {
+                'documentation_required': ['tax_returns', 'payment_receipts'],
+                'calculation_methods': ['credit', 'deduction']
             }
         }
 
@@ -139,6 +151,29 @@ class DeductionOptimizationService:
             self.logger.error(f"Error optimizing home office deduction: {str(e)}")
             raise
 
+    async def optimize_deductions(self, user_id: int, tax_year: int) -> Dict[str, Any]:
+        """Enhanced deduction optimization with international support"""
+        try:
+            foreign_income = await self._get_foreign_income(user_id, tax_year)
+            foreign_housing = await self._get_foreign_housing_expenses(user_id, tax_year)
+            foreign_tax_paid = await self._get_foreign_tax_paid(user_id, tax_year)
+            
+            optimizations = {
+                'foreign_housing_deduction': self._optimize_foreign_housing(foreign_housing),
+                'foreign_tax_credit': self._optimize_foreign_tax_credit(foreign_tax_paid),
+                'treaty_benefits': self._analyze_treaty_benefits(foreign_income)
+            }
+            
+            return {
+                'optimizations': optimizations,
+                'total_savings': self._calculate_total_savings(optimizations),
+                'recommendations': self._generate_recommendations(optimizations)
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error optimizing deductions: {str(e)}")
+            raise
+
     def _calculate_standard_mileage(self, mileage_records: List[Dict[str, Any]]) -> Decimal:
         """Calculate standard mileage deduction"""
         total_miles = sum(record['distance'] for record in mileage_records)
@@ -159,6 +194,36 @@ class DeductionOptimizationService:
         business_percentage = Decimal(str(data['office_square_footage'])) / \
                             Decimal(str(data['total_square_footage']))
         return total_home_expenses * business_percentage
+
+    def _optimize_foreign_housing(self, housing_expenses: Dict[str, Any]) -> Dict[str, Any]:
+        """Optimize foreign housing deduction"""
+        try:
+            base_amount = self.deduction_categories['foreign_housing']['thresholds']['base_amount']
+            max_amount = self.deduction_categories['foreign_housing']['thresholds']['maximum_amount']
+            
+            qualified_expenses = sum(Decimal(str(amount)) 
+                                  for amount in housing_expenses.values())
+            
+            # Calculate housing deduction
+            if qualified_expenses <= base_amount:
+                return {
+                    'deduction_amount': Decimal('0'),
+                    'method': 'none',
+                    'explanation': 'Expenses below base amount'
+                }
+            
+            deduction = min(qualified_expenses - base_amount, max_amount)
+            
+            return {
+                'deduction_amount': deduction,
+                'method': 'actual',
+                'qualified_expenses': qualified_expenses,
+                'explanation': 'Qualified foreign housing expenses exceed base amount'
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error optimizing foreign housing: {str(e)}")
+            raise
 
     def _recommend_home_office_method(
         self,

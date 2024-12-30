@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Form1040Data } from 'shared/types/form1040';
+import { FormIntegrationService } from 'api/services/integration/form_integration_service';
+import { FormValidationService } from 'api/services/form/form_validation_service';
 import { W2Form } from '../components/W2Form';
 import { Form1099Section } from '../components/Form1099Section';
 import { formFieldStyles } from '../styles/FormFieldStyles';
 import { formSectionStyles } from '../styles/FormSectionStyles';
-import { platformService } from 'shared/services/platformService';
+
+const formIntegrationService = new FormIntegrationService();
+const formValidationService = new FormValidationService();
 
 interface IncomeStepProps {
   formData: Partial<Form1040Data>;
@@ -20,6 +24,8 @@ export const IncomeStep: React.FC<IncomeStepProps> = ({
   const [show1099Section, setShow1099Section] = useState(false);
   const [w2Forms, setW2Forms] = useState([]);
   const [form1099s, setForm1099s] = useState([]);
+  const [validationResults, setValidationResults] = useState(null);
+  const [optimizationSuggestions, setOptimizationSuggestions] = useState([]);
 
   useEffect(() => {
     const fetchPlatformIncome = async () => {
@@ -35,6 +41,30 @@ export const IncomeStep: React.FC<IncomeStepProps> = ({
 
     fetchPlatformIncome();
   }, [formData.includePlatformData]);
+
+  useEffect(() => {
+    const validateIncome = async () => {
+      try {
+        const validation = await formValidationService.validate_field(
+          'Form1040',
+          'income',
+          formData.income,
+          formData
+        );
+        setValidationResults(validation);
+
+        const suggestions = await formIntegrationService.getOptimizationOpportunities(
+          formData.userId,
+          'Form1040',
+          formData
+        );
+        setOptimizationSuggestions(suggestions);
+      } catch (error) {
+        console.error('Error validating income:', error);
+      }
+    };
+    validateIncome();
+  }, [formData.income]);
 
   const handleIncomeChange = (field: string, value: string) => {
     onUpdate({
@@ -198,6 +228,18 @@ export const IncomeStep: React.FC<IncomeStepProps> = ({
               })}
             </div>
           )}
+        </section>
+      )}
+
+      {optimizationSuggestions.length > 0 && (
+        <section style={formSectionStyles.container}>
+          <h3>Optimization Suggestions</h3>
+          {optimizationSuggestions.map((suggestion, index) => (
+            <div key={index} style={formFieldStyles.suggestion}>
+              <p>{suggestion.description}</p>
+              <p>Potential Savings: ${suggestion.potentialSavings}</p>
+            </div>
+          ))}
         </section>
       )}
 

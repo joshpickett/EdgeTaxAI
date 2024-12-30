@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Form1040Data } from 'shared/types/form1040';
+import { FormIntegrationService } from 'api/services/integration/form_integration_service';
+import { FormValidationService } from 'api/services/form/form_validation_service';
 import { formFieldStyles } from '../styles/FormFieldStyles';
 import { formSectionStyles } from '../styles/FormSectionStyles';
-import { taxService } from 'shared/services/taxService';
+
+const formIntegrationService = new FormIntegrationService();
+const formValidationService = new FormValidationService();
 
 interface AdjustmentsStepProps {
   formData: Partial<Form1040Data>;
@@ -14,14 +18,30 @@ export const AdjustmentsStep: React.FC<AdjustmentsStepProps> = ({
   onUpdate
 }) => {
   const [selfEmploymentTax, setSelfEmploymentTax] = useState<number>(0);
+  const [validationResults, setValidationResults] = useState(null);
+  const [optimizationSuggestions, setOptimizationSuggestions] = useState([]);
 
   useEffect(() => {
     // Calculate self-employment tax if there's business income
     const calculateSelfEmploymentTax = async () => {
       if (formData.income?.business) {
         try {
-          const result = await taxService.calculateTaxSavings(formData.income.business);
-          setSelfEmploymentTax(result);
+          const validation = await formValidationService.validate_field(
+            'Form1040',
+            'adjustments',
+            formData.adjustments,
+            formData
+          );
+          setValidationResults(validation);
+
+          // Get optimization suggestions
+          const suggestions = await formIntegrationService.getOptimizationOpportunities(
+            formData.userId,
+            'Form1040',
+            formData
+          );
+          setOptimizationSuggestions(suggestions);
+
           handleAdjustmentChange('selfEmploymentTax', result.toString());
         } catch (error) {
           console.error('Error calculating self-employment tax:', error);
@@ -137,6 +157,18 @@ export const AdjustmentsStep: React.FC<AdjustmentsStepProps> = ({
           />
         </div>
       </section>
+
+      {optimizationSuggestions.length > 0 && (
+        <section style={formSectionStyles.container}>
+          <h3>Optimization Suggestions</h3>
+          {optimizationSuggestions.map((suggestion, index) => (
+            <div key={index} style={formFieldStyles.suggestion}>
+              <p>{suggestion.description}</p>
+              <p>Potential Savings: ${suggestion.potentialSavings}</p>
+            </div>
+          ))}
+        </section>
+      )}
     </div>
   );
 };

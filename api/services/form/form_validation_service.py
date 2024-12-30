@@ -3,15 +3,19 @@ import logging
 from datetime import datetime
 from api.services.validation.real_time_validator import RealTimeValidator
 from api.services.mef.validation_rules import ValidationRules
+from api.utils.cache_utils import CacheManager
 
 class FormValidationService:
     """Service for form validation"""
     
     def __init__(self):
         self.logger = logging.getLogger(__name__)
+        self.cache = CacheManager()
         self.validation_rules = ValidationRules()
-        self.validator = RealTimeValidator()
+        self.real_time_validator = RealTimeValidator()
+        self.cross_field_validators = self._initialize_cross_field_validators()
 
+    @cache_response(timeout=3600)
     async def validate_section(
         self,
         form_type: str,
@@ -20,16 +24,17 @@ class FormValidationService:
     ) -> Dict[str, Any]:
         """Validate form section"""
         try:
-            # Perform real-time validation
+            cache_key = f"validation:{form_type}:{section}:{hash(str(data))}"
+            cached_result = await self.cache.get(cache_key)
+            
+            if cached_result:
+                return cached_result
+
             validation_result = await self.validator.validate_section(
                 form_type, section, data
             )
             
-            # Add field-specific suggestions
-            validation_result['suggestions'] = self._generate_field_suggestions(
-                validation_result['errors']
-            )
-            
+            await self.cache.set(cache_key, validation_result, timeout=3600)
             return validation_result
             
         except Exception as e:
@@ -123,11 +128,33 @@ class FormValidationService:
 
     def _get_suggestion(self, error_type: str) -> str:
         """Get suggestion based on error type"""
-        suggestions = {
+        suggestion_map = {
             'required': 'This field is required for IRS compliance',
             'format': 'Please check the format and try again',
             'range': 'The value entered is outside acceptable range',
             'dependency': 'This field is required based on other information provided',
             'calculation': 'Please verify your calculations'
         }
-        return suggestions.get(error_type, 'Please verify this field')
+        return suggestion_map.get(error_type, 'Please verify this field')
+
+    async def _validate_cross_fields(
+        self,
+        form_type: str,
+        section: str,
+        data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Validate relationships between fields"""
+        # Enhanced cross-field validation
+        validators = self.cross_field_validators.get(form_type, {})
+        section_validators = validators.get(section, [])
+        
+        results = {
+            'is_valid': True,
+            'errors': [],
+            'warnings': [],
+            'field_relationships': {}
+        }
+
+        return await self._apply_cross_field_validators(
+            section_validators, data
+        )

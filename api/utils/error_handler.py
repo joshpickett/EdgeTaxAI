@@ -2,6 +2,7 @@ import os
 import sys
 from api.setup_path import setup_python_path
 from datetime import datetime
+import uuid
 
 # Set up path for both package and direct execution
 if __name__ == "__main__":
@@ -22,12 +23,15 @@ class APIError(Exception):
         self.message = message
         self.status_code = status_code
         self.payload = payload or {}
+        self.timestamp = datetime.now().isoformat()
+        self.error_id = str(uuid.uuid4())
         
         # Enhanced error logging
-        logging.error(f"API Error: {message}", extra={
+        logging.error(f"API Error {self.error_id}: {message}", extra={
             'status_code': status_code,
             'payload': payload,
-            'timestamp': datetime.now().isoformat()
+            'timestamp': self.timestamp,
+            'error_type': self.__class__.__name__
         })
 
 class SessionError(APIError):
@@ -81,13 +85,21 @@ def handle_api_error(error: APIError) -> Tuple[Dict[str, Any], int]:
     """Handle custom API errors"""
     audit_logger = AuditLogger()
     
+    # Enhanced error tracking
+    error_context = {
+        'error_id': getattr(error, 'error_id', str(uuid.uuid4())),
+        'timestamp': getattr(error, 'timestamp', datetime.now().isoformat()),
+        'error_type': error.__class__.__name__,
+        'status_code': error.status_code
+    }
+    
     # Log error details
     audit_logger.log_error(
         error_type="api_error",
         message=error.message,
-        details=error.payload
+        details={**error.payload, **error_context}
     )
-    
+
     response = {
         "error": {
             "message": error.message,

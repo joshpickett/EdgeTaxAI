@@ -8,6 +8,7 @@ from api.models.bank_accounts import BankAccounts
 from api.models.expenses import Expenses
 from api.models.income import Income
 from api.models.bank_transaction import BankTransaction
+from api.models.tax_payments import TaxPayments
 from api.schemas.bank_schemas import bank_account_schema, bank_accounts_schema
 from utils.api_config import APIConfig
 from utils.cache_utils import CacheManager
@@ -19,6 +20,7 @@ from utils.rate_limit import RateLimiter
 from utils.monitoring import MonitoringSystem
 from datetime import datetime, timedelta
 import logging
+from decimal import Decimal
 
 class BankService:
     def __init__(self, db: Session):
@@ -333,4 +335,41 @@ class BankService:
             
         except Exception as e:
             logging.error(f"Error syncing transactions: {e}")
+            raise
+
+    async def initiate_ach_payment(
+        self,
+        user_id: int,
+        bank_account_id: str,
+        amount: Decimal,
+        payment_type: str
+    ) -> Dict[str, Any]:
+        """Initiate ACH payment"""
+        try:
+            # Verify bank account
+            bank_account = self.db.query(BankAccounts).filter(
+                BankAccounts.id == bank_account_id,
+                BankAccounts.user_id == user_id,
+                BankAccounts.is_active == True
+            ).first()
+            
+            if not bank_account:
+                raise ValueError("Invalid bank account")
+
+            # Create ACH payment record
+            payment = TaxPayments(
+                user_id=user_id,
+                bank_account_id=bank_account_id,
+                amount=amount,
+                payment_type=payment_type,
+                status='pending'
+            )
+            
+            self.db.add(payment)
+            self.db.commit()
+            
+            return {"payment_id": payment.id, "status": "pending"}
+            
+        except Exception as e:
+            logging.error(f"ACH payment error: {e}")
             raise

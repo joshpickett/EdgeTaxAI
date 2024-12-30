@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Form1040Data } from 'shared/types/form1040';
+import { FormIntegrationService } from 'api/services/integration/form_integration_service';
+import { FormValidationService } from 'api/services/form/form_validation_service';
 import { formFieldStyles } from '../styles/FormFieldStyles';
 import { formSectionStyles } from '../styles/FormSectionStyles';
-import { taxService } from 'shared/services/taxService';
+
+const formIntegrationService = new FormIntegrationService();
+const formValidationService = new FormValidationService();
 
 interface CreditsStepProps {
   formData: Partial<Form1040Data>;
@@ -15,6 +19,8 @@ export const CreditsStep: React.FC<CreditsStepProps> = ({
 }) => {
   const [hasQualifyingChildren, setHasQualifyingChildren] = useState(false);
   const [hasEducationExpenses, setHasEducationExpenses] = useState(false);
+  const [validationResults, setValidationResults] = useState(null);
+  const [optimizationSuggestions, setOptimizationSuggestions] = useState([]);
 
   useEffect(() => {
     // Reset credits when qualifying conditions change
@@ -26,6 +32,30 @@ export const CreditsStep: React.FC<CreditsStepProps> = ({
       handleCreditChange('educationCredit', '0');
     }
   }, [hasQualifyingChildren, hasEducationExpenses]);
+
+  useEffect(() => {
+    const validateCredits = async () => {
+      try {
+        const validation = await formValidationService.validate_field(
+          'Form1040',
+          'credits',
+          formData.credits,
+          formData
+        );
+        setValidationResults(validation);
+
+        const suggestions = await formIntegrationService.getOptimizationOpportunities(
+          formData.userId,
+          'Form1040',
+          formData
+        );
+        setOptimizationSuggestions(suggestions);
+      } catch (error) {
+        console.error('Error validating credits:', error);
+      }
+    };
+    validateCredits();
+  }, [formData.credits]);
 
   const handleCreditChange = (field: string, value: string) => {
     onUpdate({
@@ -160,6 +190,18 @@ export const CreditsStep: React.FC<CreditsStepProps> = ({
           />
         </div>
       </section>
+
+      {optimizationSuggestions.length > 0 && (
+        <section style={formSectionStyles.container}>
+          <h3>Credit Optimization Suggestions</h3>
+          {optimizationSuggestions.map((suggestion, index) => (
+            <div key={index} style={formFieldStyles.suggestion}>
+              <p>{suggestion.description}</p>
+              <p>Potential Additional Credits: ${suggestion.potentialSavings}</p>
+            </div>
+          ))}
+        </section>
+      )}
     </div>
   );
 };

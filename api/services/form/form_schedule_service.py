@@ -3,6 +3,8 @@ import logging
 from datetime import datetime
 from api.services.mef.cross_schedule_calculator import CrossScheduleCalculator
 from api.services.mef.schedule_management_service import ScheduleManagementService
+from api.services.mef.schedule_optimizer import ScheduleOptimizer
+from api.services.mef.validation_rules import ValidationRules
 
 class FormScheduleService:
     """Service for managing form schedules"""
@@ -10,7 +12,8 @@ class FormScheduleService:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.cross_calculator = CrossScheduleCalculator()
-        self.schedule_manager = ScheduleManagementService()
+        self.schedule_optimizer = ScheduleOptimizer()
+        self.validation_rules = ValidationRules()
 
     async def generate_summary(
         self,
@@ -95,7 +98,8 @@ class FormScheduleService:
             
             return {
                 'dependencies': dependencies.get('missing_dependencies', []),
-                'invalid_combinations': dependencies.get('invalid_combinations', [])
+                'invalid_combinations': dependencies.get('invalid_combinations', []),
+                'optimization_suggestions': []
             }
             
         except Exception as e:

@@ -1,27 +1,26 @@
 from typing import Dict, Any, List
 from decimal import Decimal
+from datetime import datetime
 from api.services.error_handling_service import ErrorHandlingService
 
 class BusinessRules:
     """Business rules for tax forms"""
+    # Existing thresholds
     NEC_THRESHOLD = Decimal('600.00')
     K_THRESHOLD = Decimal('20000.00')
     EZ_INCOME_THRESHOLD = Decimal('100000.00')
-
-    @staticmethod
-    def validate_monthly_amounts(monthly_amounts: Dict[str, Decimal], total: Decimal) -> bool:
-        """Validate that monthly amounts sum to total"""
-        sum_monthly = sum(Decimal(str(amt)) for amt in monthly_amounts.values())
-        return abs(sum_monthly - total) < Decimal('0.01')
-
-    @staticmethod
-    def validate_state_withholding(state_data: Dict[str, Any]) -> List[str]:
-        """Validate state tax withholding information"""
-        errors = []
-        if state_data.get('state_tax_withheld', 0) > 0:
-            if not state_data.get('state_id'):
-                errors.append("State identification number is required when state tax is withheld")
-        return errors
+    
+    # International thresholds
+    FBAR_THRESHOLD = Decimal('10000.00')
+    FOREIGN_EARNED_INCOME_EXCLUSION = Decimal('120000.00')
+    FOREIGN_HOUSING_EXCLUSION = Decimal('15000.00')
+    
+    # Currency validation thresholds
+    MAX_CURRENCY_RATE_AGE = 1  # Max age of exchange rate in days
+    
+    # Treaty benefit thresholds
+    MIN_FOREIGN_TAX_RATE = Decimal('0.10')  # 10% minimum foreign tax rate
+    MAX_TREATY_BENEFIT = Decimal('1000000.00')
 
 def validate_tin_format(tin: str) -> bool:
     """Validate TIN format (SSN or EIN)"""
@@ -30,10 +29,104 @@ def validate_tin_format(tin: str) -> bool:
     clean_tin = tin.replace('-', '').replace(' ', '')
     if not clean_tin.isdigit():
         return False
-    # Check for invalid SSN patterns
-    if clean_tin.startswith('000') or clean_tin.startswith('666'):
-        return False
     return True
+        
+@staticmethod
+def validate_foreign_address(address: Dict[str, Any]) -> List[str]:
+    """Validate foreign address format"""
+    errors = []
+    required_fields = ['street', 'city', 'country']
+    
+    for field in required_fields:
+        if not address.get(field):
+            errors.append(f"{field} is required for foreign address")
+            
+    # Validate country code format
+    if address.get('country') and len(address['country']) != 2:
+        errors.append("Country must be a valid 2-letter ISO code")
+        
+    # Validate postal code format if present
+    if address.get('postal_code') and not BusinessRules._validate_postal_code(
+        address['postal_code'], 
+        address.get('country')
+    ):
+        errors.append("Invalid postal code format for country")
+        
+    return errors
+        
+@staticmethod
+def validate_currency(amount: Decimal, currency_code: str, exchange_rate: Dict[str, Any]) -> List[str]:
+    """Validate currency and exchange rate"""
+    errors = []
+    
+    if not currency_code or len(currency_code) != 3:
+        errors.append("Invalid currency code")
+        
+    if not exchange_rate.get('rate'):
+        errors.append("Exchange rate is required")
+    
+    # Validate exchange rate age
+    if exchange_rate.get('date'):
+        rate_date = datetime.fromisoformat(exchange_rate['date'])
+        age_days = (datetime.now() - rate_date).days
+        if age_days > BusinessRules.MAX_CURRENCY_RATE_AGE:
+            errors.append("Exchange rate is too old")
+            
+    return errors
+        
+@staticmethod
+def validate_treaty_benefits(data: Dict[str, Any]) -> List[str]:
+    """Validate treaty benefit claims"""
+    errors = []
+    
+    if not data.get('treaty_country'):
+        errors.append("Treaty country is required")
+        
+    if not data.get('article_number'):
+        errors.append("Treaty article number is required")
+        
+    benefit_amount = Decimal(str(data.get('benefit_amount', 0)))
+    if benefit_amount > BusinessRules.MAX_TREATY_BENEFIT:
+        errors.append("Treaty benefit amount exceeds maximum allowed")
+        
+    # Validate foreign tax rate
+    foreign_tax_rate = Decimal(str(data.get('foreign_tax_rate', 0)))
+    if foreign_tax_rate < BusinessRules.MIN_FOREIGN_TAX_RATE:
+        errors.append("Foreign tax rate below minimum required for treaty benefits")
+        
+    return errors
+        
+@staticmethod
+def validate_foreign_tax_credit(data: Dict[str, Any]) -> List[str]:
+    """Validate foreign tax credit claims"""
+    errors = []
+    
+    if not data.get('foreign_tax_paid'):
+        errors.append("Foreign tax paid amount is required")
+        
+    if not data.get('foreign_income'):
+        errors.append("Foreign source income is required")
+        
+    # Validate foreign tax documentation
+    if not data.get('tax_documentation'):
+        errors.append("Foreign tax documentation is required")
+        
+    return errors
+        
+@staticmethod
+def _validate_postal_code(postal_code: str, country_code: str) -> bool:
+    """Validate postal code format for specific country"""
+    postal_formats = {
+        'GB': r'^[A-Z]{1,2}[0-9][A-Z0-9]? ?[0-9][A-Z]{2}$',
+        'CA': r'^[ABCEGHJKLMNPRSTVXY][0-9][ABCEGHJKLMNPRSTVWXYZ] ?[0-9][ABCEGHJKLMNPRSTVWXYZ][0-9]$',
+        'JP': r'^[0-9]{3}-[0-9]{4}$'
+    }
+    
+    if country_code not in postal_formats:
+        return True  # Skip validation for countries without defined formats
+        
+    import re
+    return bool(re.match(postal_formats[country_code], postal_code))
 
 class ValidationRules:
     """Validation rules for tax forms"""
@@ -279,4 +372,31 @@ class ValidationRules:
                 
         # Additional farm-specific validations can be added here
         
+        return errors
+
+    def validate_form_1116(self, data: Dict[str, Any]) -> List[str]:
+        """Validate Form 1116 (Foreign Tax Credit)"""
+        errors = []
+        
+        # Validate foreign income
+        if not data.get('foreign_income'):
+            errors.append("Foreign source income is required")
+            
+        # Validate foreign taxes
+        foreign_taxes = data.get('foreign_taxes', {})
+        for country, tax_data in foreign_taxes.items():
+            # Validate currency
+            currency_errors = BusinessRules.validate_currency(
+                Decimal(str(tax_data.get('amount', 0))),
+                tax_data.get('currency'),
+                tax_data.get('exchange_rate', {})
+            )
+            errors.extend(currency_errors)
+            
+            # Validate foreign address
+            address_errors = BusinessRules.validate_foreign_address(
+                tax_data.get('address', {})
+            )
+            errors.extend(address_errors)
+            
         return errors

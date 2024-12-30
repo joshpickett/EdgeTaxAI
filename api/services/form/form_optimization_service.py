@@ -3,6 +3,7 @@ import logging
 from datetime import datetime
 from api.services.credit_optimization_service import CreditOptimizationService
 from api.services.deduction_optimization_service import DeductionOptimizationService
+from api.services.schedule_optimizer import ScheduleOptimizer
 
 class FormOptimizationService:
     """Service for optimizing form completion"""
@@ -11,6 +12,7 @@ class FormOptimizationService:
         self.logger = logging.getLogger(__name__)
         self.credit_optimizer = CreditOptimizationService()
         self.deduction_optimizer = DeductionOptimizationService()
+        self.schedule_optimizer = ScheduleOptimizer()
 
     async def analyze_optimization_opportunities(
         self,
@@ -20,26 +22,32 @@ class FormOptimizationService:
     ) -> Dict[str, Any]:
         """Analyze form for optimization opportunities"""
         try:
-            # Analyze credits
-            credit_opportunities = await self.credit_optimizer.analyze_credit_opportunities(
+            # Add enhanced optimization analysis
+            deduction_opportunities = await self.deduction_optimizer.analyze_deduction_opportunities(
                 user_id, data.get('tax_year')
             )
             
-            # Analyze deductions
-            deduction_opportunities = await self.deduction_optimizer.analyze_deduction_opportunities(
+            schedule_opportunities = await self.schedule_optimizer.optimize(
+                data.get('schedules', [])
+            )
+            
+            # Calculate credit opportunities
+            credit_opportunities = await self.credit_optimizer.analyze_credit_opportunities(
                 user_id, data.get('tax_year')
             )
             
             return {
                 'credit_opportunities': credit_opportunities,
                 'deduction_opportunities': deduction_opportunities,
+                'schedule_opportunities': schedule_opportunities,
                 'total_potential_savings': self._calculate_total_savings(
                     credit_opportunities,
                     deduction_opportunities
                 ),
                 'recommendations': self._generate_recommendations(
                     credit_opportunities,
-                    deduction_opportunities
+                    deduction_opportunities,
+                    schedule_opportunities
                 )
             }
             
@@ -60,29 +68,22 @@ class FormOptimizationService:
     def _generate_recommendations(
         self,
         credit_opportunities: Dict[str, Any],
-        deduction_opportunities: Dict[str, Any]
+        deduction_opportunities: Dict[str, Any],
+        schedule_opportunities: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
-        """Generate optimization recommendations"""
+        """Generate specific recommendations"""
+        # Enhanced recommendation generation
         recommendations = []
         
-        # Add credit recommendations
-        for opportunity in credit_opportunities.get('opportunities', []):
+        for opportunity in credit_opportunities.get('opportunities', []) + \
+                          deduction_opportunities.get('opportunities', []) + \
+                          schedule_opportunities.get('opportunities', []):
             recommendations.append({
-                'type': 'credit',
+                'type': opportunity['type'],
                 'description': opportunity['description'],
-                'potential_savings': opportunity['potential_amount'],
-                'priority': self._calculate_priority(opportunity['potential_amount']),
-                'action_items': opportunity.get('action_items', [])
-            })
-        
-        # Add deduction recommendations
-        for opportunity in deduction_opportunities.get('opportunities', []):
-            recommendations.append({
-                'type': 'deduction',
-                'description': opportunity['description'],
-                'potential_savings': opportunity['potential_amount'],
-                'priority': self._calculate_priority(opportunity['potential_amount']),
-                'action_items': opportunity.get('action_items', [])
+                'potential_savings': opportunity['potential_savings'],
+                'priority': self._calculate_priority(opportunity['potential_savings']),
+                'implementation_difficulty': opportunity['difficulty']
             })
         
         return sorted(
@@ -98,3 +99,9 @@ class FormOptimizationService:
         elif amount >= 500:
             return 'medium'
         return 'low'
+
+    def _prioritize_opportunities(self, opportunities: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Prioritize opportunities based on potential savings"""
+        for opportunity in opportunities:
+            opportunity['priority'] = self._calculate_priority(opportunity['potential_savings'])
+        return opportunities

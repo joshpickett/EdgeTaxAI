@@ -4,25 +4,28 @@ import { TYPOGRAPHY } from '../../../../assets/config/typography';
 
 export const wizardStyles = {
   container: {
-    maxWidth: '1200px',
+    width: '100%',
+    maxWidth: '960px',
     margin: '0 auto',
-    padding: `${SPACING.lg}px`,
-    backgroundColor: COLORS.background,
+    padding: SPACING.lg
   },
-
+  
   progressBar: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: `${SPACING.xl}px`,
+    marginBottom: SPACING.xl,
+    position: 'relative' as const
   },
-
+  
   step: {
     display: 'flex',
+    flexDirection: 'column' as const,
     alignItems: 'center',
-    flex: 1,
+    position: 'relative' as const,
+    flex: 1
   },
-
+  
   stepNumber: {
     width: '32px',
     height: '32px',
@@ -32,70 +35,73 @@ export const wizardStyles = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: `${SPACING.sm}px`,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
     fontSize: TYPOGRAPHY.fontSize.md,
+    marginBottom: SPACING.xs
   },
-
+  
   stepTitle: {
-    color: COLORS.text.primary,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    fontSize: TYPOGRAPHY.fontSize.md,
+    fontSize: TYPOGRAPHY.fontSize.sm,
+    color: COLORS.text.secondary,
+    textAlign: 'center' as const
   },
-
+  
   stepConnector: {
-    flex: 1,
+    position: 'absolute' as const,
+    top: '16px',
+    left: '50%',
+    right: '-50%',
     height: '2px',
-    backgroundColor: COLORS.border,
-    margin: `0 ${SPACING.md}px`,
+    backgroundColor: COLORS.border
   },
-
+  
   content: {
-    backgroundColor: COLORS.surface,
-    padding: `${SPACING.xl}px`,
+    backgroundColor: COLORS.background,
     borderRadius: '8px',
-    marginBottom: `${SPACING.xl}px`,
+    padding: SPACING.xl,
+    marginBottom: SPACING.xl,
+    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
   },
-
+  
   navigation: {
     display: 'flex',
     justifyContent: 'space-between',
-    padding: `${SPACING.lg}px 0`,
+    alignItems: 'center',
+    padding: SPACING.md
   },
-
+  
   button: {
     base: {
-      padding: `${SPACING.sm}px ${SPACING.lg}px`,
+      padding: `${SPACING.sm}px ${SPACING.md}px`,
       borderRadius: '4px',
-      fontFamily: TYPOGRAPHY.fontFamily.medium,
       fontSize: TYPOGRAPHY.fontSize.md,
+      fontFamily: TYPOGRAPHY.fontFamily.medium,
       cursor: 'pointer',
-      transition: 'all 0.2s ease',
+      border: 'none',
+      transition: 'all 0.2s ease'
     },
     primary: {
       backgroundColor: COLORS.primary,
       color: COLORS.background,
-      border: 'none',
       '&:hover': {
-        backgroundColor: COLORS.secondary,
+        backgroundColor: COLORS.secondary
       },
       '&:disabled': {
         backgroundColor: COLORS.text.disabled,
-        cursor: 'not-allowed',
-      },
+        cursor: 'not-allowed'
+      }
     },
     secondary: {
-      backgroundColor: COLORS.background,
-      color: COLORS.primary,
-      border: `1px solid ${COLORS.primary}`,
+      backgroundColor: COLORS.surface,
+      color: COLORS.text.primary,
+      border: `1px solid ${COLORS.border}`,
       '&:hover': {
-        backgroundColor: COLORS.surface,
+        backgroundColor: COLORS.divider
       },
       '&:disabled': {
-        borderColor: COLORS.text.disabled,
         color: COLORS.text.disabled,
-        cursor: 'not-allowed',
-      },
-    },
-  },
+        cursor: 'not-allowed'
+      }
+    }
+  }
 };

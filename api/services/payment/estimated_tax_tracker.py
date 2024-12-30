@@ -11,9 +11,9 @@ class EstimatedTaxTracker:
     def __init__(self, db: Session):
         self.db = db
         self.quarterly_deadlines = TAX_CONFIG['QUARTERLY_DEADLINES']
-        self.quarterly_periods = TAX_CONFIG['QUARTERLY_PERIODS']
+        self.safe_harbor_percentage = Decimal('0.90')  # 90% of current year tax
 
-    def calculate_estimated_payment(self, income_data: Dict[str, Any], quarter: int) -> Dict[str, Any]:
+    async def calculate_estimated_payment(self, income_data: Dict[str, Any], quarter: int) -> Dict[str, Any]:
         """Calculate estimated quarterly payment"""
         total_income = Decimal(str(income_data.get('projected_income', 0)))
         total_deductions = Decimal(str(income_data.get('projected_deductions', 0)))
@@ -27,6 +27,15 @@ class EstimatedTaxTracker:
         quarterly_amount = (estimated_tax - previous_payments) / (5 - quarter)
         
         return {
+            'safe_harbor_amount': self._calculate_safe_harbor(
+                estimated_tax,
+                income_data.get('prior_year_tax', 0)
+            ),
+            'minimum_required': self._calculate_minimum_required(
+                estimated_tax,
+                income_data.get('prior_year_tax', 0),
+                quarter
+            ),
             'quarter': quarter,
             'payment_amount': float(max(quarterly_amount, Decimal('0'))),
             'due_date': self._get_due_date(quarter),
@@ -116,3 +125,24 @@ class EstimatedTaxTracker:
         if quarter == 4:
             return f"{current_year + 1}-{month_day}"
         return f"{current_year}-{month_day}"
+
+    def _calculate_safe_harbor(
+        self,
+        current_year_tax: Decimal,
+        prior_year_tax: Decimal
+    ) -> float:
+        """Calculate safe harbor amount"""
+        return float(min(
+            current_year_tax * self.safe_harbor_percentage,
+            prior_year_tax
+        ))
+        
+    def _calculate_minimum_required(
+        self,
+        estimated_tax: Decimal,
+        prior_year_tax: Decimal,
+        quarter: int
+    ) -> float:
+        """Calculate minimum required payment"""
+        safe_harbor = self._calculate_safe_harbor(estimated_tax, prior_year_tax)
+        return float(safe_harbor / (5 - quarter))
