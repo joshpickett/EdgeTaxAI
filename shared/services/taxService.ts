@@ -1,7 +1,9 @@
 import { TaxCalculationResult, TaxDeduction, TaxForm } from '../types/tax';
+import { IRSFormData, IRSSubmissionResult } from '../types/irs';
 import { ApiClient } from './apiClient';
 import { OfflineQueueManager } from './offlineQueueManager';
 import { coreTaxService } from './coreTaxService';
+import { irsComplianceService } from './irsComplianceService';
 
 export class TaxService {
   private apiClient: ApiClient;
@@ -72,6 +74,25 @@ export class TaxService {
   private getCurrentQuarter(): number {
     const month = new Date().getMonth() + 1; // Months are 0-indexed
     return Math.ceil(month / 3);
+  }
+
+  async submitToIRS(formData: IRSFormData): Promise<IRSSubmissionResult> {
+    try {
+      return await irsComplianceService.submitForm(formData);
+    } catch (error) {
+      if (!navigator.onLine) {
+        await this.offlineQueue.addToQueue('submitToIRS', { formData });
+      }
+      throw error;
+    }
+  }
+
+  async checkIRSSubmissionStatus(submissionId: string): Promise<IRSSubmissionResult> {
+    try {
+      return await irsComplianceService.checkSubmissionStatus(submissionId);
+    } catch (error) {
+      throw error;
+    }
   }
 }
 

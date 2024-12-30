@@ -1,15 +1,23 @@
 from typing import Dict, Any
 import xml.etree.ElementTree as ElementTree
 from decimal import Decimal
-from .base_template import BaseMeFTemplate
+from .base_template import BaseMeFTemplate 
+from shared.types.tax_forms import Form1099KECData
 
 class Form1099KTemplate(BaseMeFTemplate):
     """Template for Form 1099-K XML generation"""
     
+    def __init__(self):
+        super().__init__()
+        self.form_type = 'Form1099K'
+
     def generate(self, data: Dict[str, Any]) -> str:
         """Generate Form 1099-K XML"""
         root = self.create_base_xml()
         self.add_header(root, data)
+        
+        # Add form metadata
+        self._add_form_metadata(root, data.get('formMetadata', {}))
         
         # Add Form1099K
         form_1099k = ElementTree.SubElement(root, 'Form1099K')
@@ -55,6 +63,19 @@ class Form1099KTemplate(BaseMeFTemplate):
         phone = ElementTree.SubElement(parent, 'PSEPhone')
         phone.text = payment_settlement_entity_data.get('phone', '')
     
+    def _add_form_metadata(self, parent: ElementTree.Element, metadata: Dict[str, Any]) -> None:
+        """Add form metadata"""
+        if not metadata:
+            return
+            
+        form_meta = ElementTree.SubElement(parent, 'FormMetadata')
+        
+        tax_year = ElementTree.SubElement(form_meta, 'TaxYear')
+        tax_year.text = str(metadata.get('taxYear', ''))
+        
+        corrected = ElementTree.SubElement(form_meta, 'Corrected')
+        corrected.text = str(metadata.get('corrected', False)).lower()
+    
     def _add_payee_info(self, parent: ElementTree.Element, data: Dict[str, Any]) -> None:
         """Add payee information"""
         payee_data = data.get('payee', {})
@@ -75,20 +96,27 @@ class Form1099KTemplate(BaseMeFTemplate):
         """Add transaction information"""
         transaction_data = data.get('transactions', {})
         
-        # Add monthly amounts
-        for month in range(1, 13):
-            month_amount = ElementTree.SubElement(parent, f'Month{month:02d}Amount')
-            month_amount.text = str(transaction_data.get(f'month_{month}', '0.00'))
-        
-        # Add totals
+        # Add transaction totals
         gross_amount = ElementTree.SubElement(parent, 'GrossAmount')
-        gross_amount.text = str(transaction_data.get('gross_amount', '0.00'))
+        gross_amount.text = str(transaction_data.get('grossAmount', '0.00'))
         
-        card_transactions = ElementTree.SubElement(parent, 'CardTransactions')
-        card_transactions.text = str(transaction_data.get('card_transactions', '0'))
+        card_not_present = ElementTree.SubElement(parent, 'CardNotPresent')
+        card_not_present.text = str(transaction_data.get('cardNotPresent', '0.00'))
+        
+        payment_card = ElementTree.SubElement(parent, 'PaymentCardTransactions')
+        payment_card.text = str(transaction_data.get('paymentCardTransactions', '0.00'))
+        
+        third_party = ElementTree.SubElement(parent, 'ThirdPartyNetwork')
+        third_party.text = str(transaction_data.get('thirdPartyNetwork', '0.00'))
+        
+        # Add monthly amounts
+        monthly = ElementTree.SubElement(parent, 'MonthlyAmounts')
+        for month, amount in transaction_data.get('monthlyAmounts', {}).items():
+            month_elem = ElementTree.SubElement(monthly, month)
+            month_elem.text = str(amount)
         
         federal_tax_withheld = ElementTree.SubElement(parent, 'FederalTaxWithheld')
-        federal_tax_withheld.text = str(transaction_data.get('federal_tax_withheld', '0.00'))
+        federal_tax_withheld.text = str(transaction_data.get('federalTaxWithheld', '0.00'))
     
     def _add_state_tax_info(self, parent: ElementTree.Element, data: Dict[str, Any]) -> None:
         """Add state tax information"""

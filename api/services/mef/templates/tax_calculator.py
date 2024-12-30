@@ -47,3 +47,24 @@ class TaxCalculationEngine:
             'amt_liability': max(amt_tax - regular_tax, Decimal('0')),
             'amt_rate': amt_rate
         }
+
+    def calculate_farm_tax(self, income: Decimal, expenses: Decimal) -> Dict[str, Any]:
+        """Calculate tax for farm income"""
+        try:
+            net_farm_income = income - expenses
+            
+            # Calculate self-employment tax for farmers
+            self_employment_tax = self._calculate_self_employment_tax(net_farm_income)
+            
+            # Calculate regular income tax
+            income_tax = self._calculate_income_tax(net_farm_income)
+            
+            return {
+                'net_farm_income': float(net_farm_income),
+                'self_employment_tax': float(self_employment_tax),
+                'income_tax': float(income_tax),
+                'total_tax': float(self_employment_tax + income_tax)
+            }
+        except Exception as e:
+            self.logger.error(f"Error calculating farm tax: {str(e)}")
+            raise

@@ -1,90 +1,55 @@
-export interface TaxFormData {
-  id: string;
-  type: TaxFormType;
-  year: number;
-  status: FormStatus;
-  data: Record<string, any>;
-  submittedAt?: string;
-  lastModified?: string;
-}
-
-export interface TaxFormValidation {
-  isValid: boolean;
-  errors: ValidationError[];
-  warnings: ValidationWarning[];
-}
-
-export interface ValidationError {
-  field: string;
-  message: string;
-  code: string;
-}
-
-export interface ValidationWarning {
-  field: string;
-  message: string;
-  suggestion?: string;
-}
-
-export interface TaxFormTemplate {
-  id: string;
-  type: TaxFormType;
-  fields: FormField[];
-  validations: FormValidation[];
-  calculations: FormCalculation[];
-}
-
-export interface FormField {
-  id: string;
-  name: string;
-  type: FieldType;
-  required: boolean;
-  validation?: string;
-  defaultValue?: any;
-  dependsOn?: string[];
-}
-
-export interface FormValidation {
-  field: string;
-  type: ValidationType;
-  params: Record<string, any>;
-  message: string;
-}
-
-export interface FormCalculation {
-  target: string;
-  dependencies: string[];
-  formula: string;
-}
-
-export enum FieldType {
-  TEXT = 'text',
-  NUMBER = 'number',
-  DATE = 'date',
-  BOOLEAN = 'boolean',
-  SELECT = 'select',
-  MULTI_SELECT = 'multi_select'
-}
-
-export enum ValidationType {
-  REQUIRED = 'required',
-  MIN = 'min',
-  MAX = 'max',
-  PATTERN = 'pattern',
-  CUSTOM = 'custom'
-}
-
-export enum TaxFormType {
-  FORM_1040 = '1040',
-  SCHEDULE_C = 'schedule_c',
-  SCHEDULE_SE = 'schedule_se'
-}
-
-export enum FormStatus {
-  DRAFT = 'draft',
-  IN_PROGRESS = 'in_progress',
-  READY = 'ready',
-  SUBMITTED = 'submitted',
-  ACCEPTED = 'accepted',
-  REJECTED = 'rejected'
+export interface Form1099KECData {
+    // Payment Settlement Entity (PSE) Information
+    pse: {
+        name: string;
+        tin: string;
+        phone: string;
+        address: {
+            street: string;
+            city: string;
+            state: string;
+            zipCode: string;
+        };
+    };
+    
+    // Payee Information
+    payee: {
+        name: string;
+        tin: string;
+        accountNumber?: string;
+        address: {
+            street: string;
+            city: string;
+            state: string;
+            zipCode: string;
+        };
+    };
+    
+    // Transaction Information
+    transactions: {
+        grossAmount: number;
+        cardNotPresent: number;
+        paymentCardTransactions: number;
+        thirdPartyNetwork: number;
+        federalTaxWithheld: number;
+        monthlyAmounts: {
+            [key: string]: number; // month1 through month12
+        };
+    };
+    
+    // State Tax Information (Optional)
+    stateTaxInfo?: {
+        state: string;
+        stateId: string;
+        stateIncome: number;
+        stateTaxWithheld: number;
+    }[];
+    
+    // Form Metadata
+    formMetadata: {
+        taxYear: number;
+        corrected: boolean;
+        void: boolean;
+        filerCategory: 'PSE' | 'EPF';
+    };
 }

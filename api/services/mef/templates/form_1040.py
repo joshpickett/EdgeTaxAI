@@ -1,6 +1,7 @@
 from typing import Dict, Any
 import xml.etree.ElementTree as ElementTree
 from decimal import Decimal
+from shared.types.tax_forms import Form1040Data, TaxFormType
 from .base_template import BaseMeFTemplate
 from .tax_calculator import TaxCalculationEngine
 from .tax_credits import TaxCreditCalculator
@@ -8,11 +9,10 @@ from .tax_credits import TaxCreditCalculator
 class Form1040Template(BaseMeFTemplate):
     def __init__(self):
         super().__init__()
-        self.tax_calculator = TaxCalculationEngine()
-        self.credit_calculator = TaxCreditCalculator()
-
-    def generate(self, data: Dict[str, Any]) -> str:
-        """Generate Form 1040 XML"""
+        self.form_type = TaxFormType.FORM_1040
+        
+    def generate(self, data: Form1040Data) -> str:
+        """Generate Form 1040 XML using typed data"""
         # Implementation of XML generation goes here
 
     def _add_tax_and_credits(self, parent: ElementTree.Element, data: Dict[str, Any]) -> None:

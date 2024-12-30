@@ -3,23 +3,32 @@ import {
   TaxFormValidation, 
   TaxFormTemplate,
   TaxFormType,
-  FormStatus 
+  FormStatus,
+  IRSFormTemplate,
+  IRSValidationRule,
+  IRSValidationResult
 } from '../types/tax-forms';
 import { ApiClient } from './apiClient';
 import { CacheManager } from './cacheManager';
 import { OfflineQueueManager } from './offlineQueueManager';
+import { irsValidationService } from './irsValidationService';
+import { IRS_CONSTANTS } from '../constants/irs';
 
 export class TaxFormService {
   private apiClient: ApiClient;
   private cacheManager: CacheManager;
   private offlineQueue: OfflineQueueManager;
   private formTemplates: Map<TaxFormType, TaxFormTemplate>;
+  private irsValidationRules: Map<string, IRSValidationRule[]>;
+  private irsValidator: typeof irsValidationService;
 
   constructor() {
     this.apiClient = new ApiClient();
     this.cacheManager = new CacheManager();
     this.offlineQueue = new OfflineQueueManager();
     this.formTemplates = new Map();
+    this.irsValidationRules = new Map();
+    this.irsValidator = irsValidationService;
   }
 
   async loadTemplate(formType: TaxFormType): Promise<TaxFormTemplate> {
@@ -127,6 +136,41 @@ export class TaxFormService {
       errors,
       warnings
     };
+  }
+
+  async validateIRSCompliance(formData: TaxFormData): Promise<IRSValidationResult> {
+    try {
+      const template = await this.loadTemplate(formData.type);
+      const rules = await this.loadIRSRules(formData.type);
+      
+      const fieldValidation = this.irsValidator.validateForm(
+          template.fields,
+          formData.data
+      );
+      
+      const complianceValidation = this.irsValidator.validateCompliance(
+          rules,
+          formData.data
+      );
+      
+      return this.mergeValidationResults(fieldValidation, complianceValidation);
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  private mergeValidationResults(fieldValidation: IRSValidationResult, complianceValidation: IRSValidationResult): IRSValidationResult {
+    return {
+      isValid: fieldValidation.isValid && complianceValidation.isValid,
+      errors: [...fieldValidation.errors, ...complianceValidation.errors],
+      warnings: [...fieldValidation.warnings, ...complianceValidation.warnings]
+    };
+  }
+
+  private async loadIRSRules(formType: TaxFormType): Promise<IRSValidationRule[]> {
+    // Implementation for loading IRS rules based on form type
+    // This method needs to be implemented
+    return [];
   }
 }
 

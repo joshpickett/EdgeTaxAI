@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Enum as SQLEnum
 from sqlalchemy.orm import relationship
 import enum
+from sqlalchemy.dialects.postgresql import JSONB
 from datetime import datetime
 from api.config.database import Base
 
@@ -24,6 +25,13 @@ class MeFSubmission(Base):
     retry_count = Column(Integer, default=0)
     submitted_at = Column(DateTime(timezone=True))
     acknowledgment_timestamp = Column(DateTime(timezone=True))
+    audit_trail = Column(JSONB, default={})
+    ip_address = Column(String(45))
+    user_agent = Column(String(255))
+    processing_history = Column(JSONB, default=[])
+    validation_results = Column(JSONB, default={})
+    security_checks = Column(JSONB, default={})
+    error_details = Column(JSONB, default={})
     error_message = Column(String(500))
     xml_content = Column(String)  # Stored XML payload
     acknowledgment_data = Column(String)  # Stored acknowledgment XML

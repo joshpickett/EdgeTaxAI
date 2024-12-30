@@ -8,6 +8,7 @@ import { PLATFORMS } from 'constants';
 class PlatformConnectionService {
     constructor() {
         this.connections = new Map();
+        this.irsFieldMappings = new Map();
     }
 
     async connectPlatform(platform, userId) {
@@ -57,6 +58,24 @@ class PlatformConnectionService {
             const response = await apiClient.get(`/platforms/${platform}/validate`, {
                 params: { userId }
             });
+            return response.data;
+        } catch (error) {
+            throw handleApiError(error);
+        }
+    }
+
+    async getIRSFields(platform) {
+        try {
+            const response = await apiClient.get(`/platforms/${platform}/irs-fields`);
+            return response.data;
+        } catch (error) {
+            throw handleApiError(error);
+        }
+    }
+
+    async validateIRSFields(platform, data) {
+        try {
+            const response = await apiClient.post(`/platforms/${platform}/validate-irs`, data);
             return response.data;
         } catch (error) {
             throw handleApiError(error);

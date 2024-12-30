@@ -233,5 +233,43 @@ class ValidationRules:
             # Validate Schedule D
             if 'SCHEDULE_D' in schedules:
                 errors.extend(ValidationRules.validate_schedule_d(data))
- 
+                
+            # Validate Schedule F
+            if 'SCHEDULE_F' in schedules:
+                errors.extend(ValidationRules.validate_schedule_f(data))
+
+        return errors
+
+    def validate_schedule_f(data: Dict[str, Any]) -> List[str]:
+        """Validate Schedule F specific rules"""
+        errors = []
+        
+        # Validate farm information
+        farm_info = data.get('farm_info', {})
+        if not farm_info.get('name'):
+            errors.append("Farm name is required")
+        if not farm_info.get('principal_product'):
+            errors.append("Principal agricultural activity/product is required")
+            
+        # Validate accounting method
+        valid_methods = ['Cash', 'Accrual']
+        if farm_info.get('accounting_method') not in valid_methods:
+            errors.append("Invalid accounting method specified")
+        
+        # Validate income and expenses
+        if not data.get('income'):
+            errors.append("At least one income source must be reported")
+            
+        # Validate depreciation
+        depreciation = data.get('depreciation', {}).get('assets', [])
+        for asset in depreciation:
+            if not asset.get('description'):
+                errors.append("Asset description is required for depreciation")
+            if not asset.get('date_placed'):
+                errors.append("Date placed in service is required for depreciation")
+            if not asset.get('cost'):
+                errors.append("Asset cost basis is required for depreciation")
+                
+        # Additional farm-specific validations can be added here
+        
         return errors
