@@ -8,13 +8,14 @@ from api.utils.cache_utils import CacheManager
 from api.exceptions.tax_exceptions import TaxCalculationError
 from shared.types.tax import TaxCalculationResult, TaxDeduction, TaxForm
 from api.services.mef.schedule_management_service import ScheduleManagementService
+from api.services.tax_review_service import TaxReviewService
 
 class TaxService:
     def __init__(self):
         self.calculator = TaxCalculator()
         self.schedule_manager = ScheduleManagementService()
         self.cache = CacheManager()
-        self.validator = ValidationRules()
+        self.review_service = TaxReviewService()
 
     def estimate_quarterly_taxes(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Calculate quarterly estimated taxes"""
@@ -105,3 +106,14 @@ class TaxService:
                 logging.error(f"Error generating {schedule}: {str(e)}")
                 
         return schedules_data
+
+    async def review_tax_submission(self, user_id: int, tax_year: int) -> Dict[str, Any]:
+        """Perform comprehensive tax review"""
+        try:
+            review_result = await self.review_service.perform_comprehensive_review(
+                user_id, tax_year
+            )
+            return review_result
+        except Exception as e:
+            logging.error(f"Error reviewing tax submission: {str(e)}")
+            raise TaxCalculationError(str(e))

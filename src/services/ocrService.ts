@@ -1,3 +1,4 @@
+#deprecated
 import { TaxDocument, OCRResult, FieldConfidence } from '../types/ocr';
 
 export class OCRService {

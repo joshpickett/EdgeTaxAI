@@ -1,3 +1,4 @@
+//deprecated
 import { apiClient } from './apiClient';
 import { offlineManager } from './offlineManager';
 import { Platform } from 'react-native';

@@ -1,5 +1,6 @@
 from typing import Dict, Any, List
 from decimal import Decimal
+from api.services.error_handling_service import ErrorHandlingService
 
 class BusinessRules:
     """Business rules for tax forms"""
@@ -37,16 +38,11 @@ def validate_tin_format(tin: str) -> bool:
 class ValidationRules:
     """Validation rules for tax forms"""
     
-    @staticmethod
-    def _check_required_fields(data: Dict[str, Any], required_fields: List[tuple]) -> List[str]:
-        """Check required fields are present and not empty"""
-        errors = []
-        for field_path, error_message in required_fields:
-            if not ValidationRules._get_nested_value(data, field_path):
-                errors.append(error_message)
-        return errors
+    def __init__(self):
+        self.logger = logging.getLogger(__name__)
+        self.error_service = ErrorHandlingService()
 
-    def validate_1099_nec(data: Dict[str, Any]) -> List[str]:
+    async def validate_1099_nec(data: Dict[str, Any]) -> List[str]:
         """Validate 1099-NEC specific rules"""
         errors = []
         
@@ -88,6 +84,17 @@ class ValidationRules:
         
         errors.extend(ValidationRules._check_required_fields(data, required_fields))
          
+        # Use error handling service for validation errors
+        if errors:
+            await self.error_service.handle_error(
+                ValidationError(errors),
+                {
+                    'form_type': '1099_NEC',
+                    'validation_errors': errors
+                },
+                'VALIDATION'
+            )
+        
         return errors
 
     def validate_1099_k(data: Dict[str, Any]) -> List[str]:

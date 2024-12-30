@@ -1,12 +1,14 @@
 from typing import Dict, Any, Optional
 import logging
 from datetime import datetime, timedelta
+from api.services.error_handling_service import ErrorHandlingService
 from api.models.mef_submissions import MeFSubmission, SubmissionStatus
 from api.services.security.alert_manager import AlertManager
 
 class MEFErrorHandler:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
+        self.error_service = ErrorHandlingService()
         self.alert_manager = AlertManager()
         self.retry_limits = {
             'transmission': 3,
@@ -17,14 +19,21 @@ class MEFErrorHandler:
     async def handle_submission_error(self, 
                                     submission: MeFSubmission, 
                                     error: Exception) -> Dict[str, Any]:
-        """Handle submission errors with retry logic"""
+        """Enhanced submission error handling with multi-level checks"""
         try:
-            error_details = self._categorize_error(error)
-            
-            if self._should_retry(submission, error_details):
-                return await self._handle_retry(submission, error_details)
-            
-            return await self._handle_failure(submission, error_details)
+            context = {
+                'submission_id': submission.submission_id,
+                'retry_count': submission.retry_count,
+                'form_type': submission.form_type
+            }
+             
+            error_result = await self.error_service.handle_error(
+                error,
+                context,
+                'SUBMISSION'
+            )
+             
+            return await self._handle_failure(submission, error_result['error_info'])
             
         except Exception as e:
             self.logger.error(f"Error handling submission error: {str(e)}")
