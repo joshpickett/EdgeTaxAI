@@ -1,195 +1,29 @@
-import os
-import sys
-from api.setup_path import setup_python_path
-
-# Set up path for both package and direct execution
-if __name__ == "__main__":
-    setup_python_path(__file__)
-else:
-    setup_python_path()
-
-import redis
-import json
-import logging
-from datetime import datetime, timedelta
-from typing import Optional, Any, Dict
-from functools import wraps
-import time
-
-# Configure Redis client
-redis_client = redis.Redis(
-    host='localhost',
-    port=6379,
-    db=0,
-    decode_responses=True
-)
-
-# Configure logging
-logging.basicConfig(
-    filename='cache.log',
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
-
 class CacheManager:
-    def __init__(self, default_timeout: int = 3600):
-        self.default_timeout = default_timeout
-        self.report_timeout = 7200  # 2 hours for reports
-        self.analytics_timeout = 3600  # 1 hour for analytics
+    def __init__(self):
+        self.redis_client = redis.Redis()
+        self.default_timeout = 3600
         self.compression_threshold = 1024 * 100  # 100KB
-        self.max_retries = 3
+        self.retry_attempts = 3
+        self.retry_delay = 0.1
 
-    async def get_with_fallback(self, key: str, fallback_func: callable) -> Optional[Any]:
-        """Get cached value with fallback function"""
+    async def get(self, key: str) -> Optional[Any]:
+        """Get cached value"""
         try:
-            value = await self.get(key)
-            if value is not None:
-                return value
-                
-            value = await fallback_func()
-            await self.set(key, value)
-            return value
-        except Exception as e:
-            logging.error(f"Cache fallback error: {e}")
-            return await fallback_func()
-
-    def get(self, key: str) -> Optional[Any]:
-        """Retrieve value from cache."""
-        try:
-            value = redis_client.get(key)
-            if value:
-                return json.loads(value)
-            return None
-        except Exception as e:
-            logging.error(f"Cache error: {e}")
-            return None
-
-    def get_platform_data(self, user_id: int, platform: str) -> Optional[Dict[str, Any]]:
-        """Get cached platform data"""
-        try:
-            key = f"platform_data:{user_id}:{platform}"
-            data = redis_client.get(key)
-            return json.loads(data) if data else None
-        except Exception as e:
-            logging.error(f"Cache get error: {e}")
-            return None
-
-    def get_report_cache(self, user_id: int, report_type: str, params: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-        """Get cached report data"""
-        try:
-            cache_key = self._generate_report_cache_key(user_id, report_type, params)
-            data = redis_client.get(cache_key)
-            return json.loads(data) if data else None
-        except Exception as e:
-            logging.error(f"Report cache get error: {e}")
-            return None
-
-    def _generate_report_cache_key(self, user_id: int, report_type: str, params: Dict[str, Any]) -> str:
-        """Generate a unique cache key for reports"""
-        param_str = json.dumps(params, sort_keys=True)
-        return f"report:{user_id}:{report_type}:{hash(param_str)}"
+            for attempt in range(self.retry_attempts):
+                try:
+                    value = await self.redis_client.get(key)
+                    if not value:
+                        return None
+                    return self._decompress_if_needed(value)
+                except redis.ConnectionError:
+                    if attempt == self.retry_attempts - 1:
+                        raise
+                    await asyncio.sleep(self.retry_delay * (attempt + 1))
 
     def set(self, key: str, value: Any, timeout: Optional[int] = None) -> bool:
-        """Store value in cache."""
+        """Store value in cache"""
         try:
             # Compress large values
             if sys.getsizeof(str(value)) > self.compression_threshold:
                 value = self._compress_value(value)
                 key = f"compressed:{key}"
-
-            timeout = timeout or self.default_timeout
-            
-            for attempt in range(self.max_retries):
-                try:
-                    return redis_client.setex(
-                        key,
-                        timeout,
-                        json.dumps(value)
-                    )
-                except redis.ConnectionError:
-                    if attempt == self.max_retries - 1:
-                        raise
-                    time.sleep(0.1 * (attempt + 1))
-                    
-        except Exception as e:
-            logging.error(f"Cache set error: {str(e)}")
-            return False
-
-    def set_platform_data(self, user_id: int, platform: str, data: Dict[str, Any], 
-                         timeout: int = 3600) -> bool:
-        """Cache platform data with TTL"""
-        try:
-            key = f"platform_data:{user_id}:{platform}"
-            return redis_client.setex(
-                key,
-                timeout,
-                json.dumps(data)
-            )
-        except Exception as e:
-            logging.error(f"Cache set error: {e}")
-            return False
-
-    def set_report_cache(self, user_id: int, report_type: str, params: Dict[str, Any], 
-                         data: Dict[str, Any]) -> bool:
-        """Cache report data with appropriate TTL"""
-        try:
-            cache_key = self._generate_report_cache_key(user_id, report_type, params)
-            return redis_client.setex(cache_key, self.report_timeout, json.dumps(data))
-        except Exception as e:
-            logging.error(f"Report cache set error: {e}")
-            return False
-
-    def delete(self, key: str) -> bool:
-        """Remove value from cache."""
-        try:
-            return redis_client.delete(key) > 0
-        except Exception as e:
-            logging.error(f"Cache delete error: {str(e)}")
-            return False
-
-    def invalidate_platform_cache(self, user_id: int, platform: str) -> bool:
-        """Invalidate platform cache"""
-        try:
-            key = f"platform_data:{user_id}:{platform}"
-            return redis_client.delete(key) > 0
-        except Exception as e:
-            logging.error(f"Cache invalidation error: {e}")
-            return False
-
-    def invalidate_user_reports(self, user_id: int) -> bool:
-        """Invalidate all reports for a user"""
-        pattern = f"report:{user_id}:*"
-        keys = redis_client.keys(pattern)
-        return all(redis_client.delete(key) for key in keys)
-
-    def _compress_value(self, value: Any) -> bytes:
-        """Compress the value for storage."""
-        import zlib
-        return zlib.compress(json.dumps(value).encode('utf-8'))
-
-def cache_response(timeout: int = 3600):
-    """Decorator for caching API responses."""
-    def decorator(f):
-        @wraps(f)
-        def wrapper(*args, **kwargs):
-            # Generate cache key from function name and arguments
-            cache_key = f"{f.__name__}:{str(args)}:{str(kwargs)}"
-            
-            # Check cache first
-            cache_manager = CacheManager()
-            cached_response = cache_manager.get(cache_key)
-            
-            if cached_response is not None:
-                logging.info(f"Cache hit for key: {cache_key}")
-                return cached_response
-            
-            # If not in cache, execute function
-            response = f(*args, **kwargs)
-            
-            # Store in cache
-            cache_manager.set(cache_key, response, timeout)
-            logging.info(f"Cached response for key: {cache_key}")
-            
-            return response
-        return wrapper
-    return decorator

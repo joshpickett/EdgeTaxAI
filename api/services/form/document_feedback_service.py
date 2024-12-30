@@ -22,6 +22,8 @@ class DocumentFeedbackService:
             feedback = {
                 'summary': self._generate_summary(validation_result),
                 'quality_indicators': self._generate_quality_indicators(validation_result),
+                'confidence_score': self._calculate_confidence_score(validation_result),
+                'verification_status': self._get_verification_status(validation_result),
                 'improvement_suggestions': self._generate_suggestions(
                     validation_result, document_type, feedback_context
                 ),

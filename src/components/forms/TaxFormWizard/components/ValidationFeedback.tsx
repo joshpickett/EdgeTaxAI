@@ -15,6 +15,8 @@ interface ValidationFeedbackProps {
   suggestions: Array<{
     field: string;
     message: string;
+    confidence_score?: number;
+    verification_status?: string;
     potentialSavings?: number;
   }>;
 }
@@ -55,7 +57,19 @@ export const ValidationFeedback: React.FC<ValidationFeedbackProps> = ({
           <h4>Optimization Suggestions</h4>
           {suggestions.map((suggestion, index) => (
             <div key={index} style={formFieldStyles.suggestion}>
-              <span className="message">{suggestion.message}</span>
+              <div className="suggestion-header">
+                <span className="message">{suggestion.message}</span>
+                {suggestion.confidence_score && (
+                  <span className="confidence">
+                    Confidence: {(suggestion.confidence_score * 100).toFixed(1)}%
+                  </span>
+                )}
+              </div>
+              {suggestion.verification_status && (
+                <div className="verification-status">
+                  Status: {suggestion.verification_status}
+                </div>
+              )}
               {suggestion.potentialSavings && (
                 <span className="savings">
                   Potential Savings: ${suggestion.potentialSavings}
