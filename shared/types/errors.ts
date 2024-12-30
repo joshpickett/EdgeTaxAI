@@ -1,34 +1,25 @@
-export class TaxCalculationError extends Error {
-    constructor(message: string, public readonly code: string) {
-        super(message);
-        this.name = 'TaxCalculationError';
-    }
+export enum ErrorType {
+  NETWORK = 'NETWORK',
+  VALIDATION = 'VALIDATION',
+  AUTH = 'AUTH',
+  TIMEOUT = 'TIMEOUT',
+  SERVER = 'SERVER',
+  UNKNOWN = 'UNKNOWN'
 }
 
-export class IRSComplianceError extends Error {
-    constructor(message: string, public readonly code: string) {
-        super(message);
-        this.name = 'IRSComplianceError';
-    }
+export interface ErrorContext {
+  component?: string;
+  operation?: string;
+  retryCount: number;
+  maxRetries: number;
+  retryCallback?: () => Promise<void>;
+  additionalData?: Record<string, any>;
 }
 
-export class DeductionValidationError extends Error {
-    constructor(message: string, public readonly code: string) {
-        super(message);
-        this.name = 'DeductionValidationError';
-    }
-}
-
-export class ReportGenerationError extends Error {
-    constructor(message: string, public readonly code: string) {
-        super(message);
-        this.name = 'ReportGenerationError';
-    }
-}
-
-export class ReportValidationError extends Error {
-    constructor(message: string, public readonly code: string) {
-        super(message);
-        this.name = 'ReportValidationError';
-    }
+export interface ErrorDetails {
+  type: ErrorType;
+  message: string;
+  timestamp: string;
+  context: ErrorContext;
+  stack?: string;
 }

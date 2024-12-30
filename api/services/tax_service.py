@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Dict, Any, List
 from decimal import Decimal
 import logging
 from datetime import datetime
@@ -7,10 +7,12 @@ from api.utils.tax_calculator import TaxCalculator
 from api.utils.cache_utils import CacheManager
 from api.exceptions.tax_exceptions import TaxCalculationError
 from shared.types.tax import TaxCalculationResult, TaxDeduction, TaxForm
+from api.services.mef.schedule_management_service import ScheduleManagementService
 
 class TaxService:
     def __init__(self):
         self.calculator = TaxCalculator()
+        self.schedule_manager = ScheduleManagementService()
         self.cache = CacheManager()
         self.validator = ValidationRules()
 
@@ -70,3 +72,36 @@ class TaxService:
         except Exception as e:
             logging.error(f"Error generating tax document: {str(e)}")
             raise TaxCalculationError(str(e))
+
+    async def calculate_taxes(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Calculate taxes based on provided data"""
+        cache_key = f"taxes_{data.get('income')}_{data.get('quarter')}"
+        cached = await self.cache.get(cache_key)
+        
+        if cached:
+            return cached
+
+        # Determine required schedules
+        required_schedules = await self.schedule_manager.determine_required_schedules(data)
+        
+        # Generate and validate schedules
+        schedules_data = await self._generate_schedules(required_schedules, data)
+
+        # Calculate tax with schedules
+        result = self._calculate_tax_with_schedules(data, schedules_data)
+        
+        await self.cache.set(cache_key, result, 3600)
+        return result
+
+    async def _generate_schedules(self, required_schedules: List[str], data: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate all required schedules"""
+        schedules_data = {}
+        
+        for schedule in required_schedules:
+            try:
+                schedule_data = await self.schedule_manager.generate_schedule(schedule, data)
+                schedules_data[schedule] = schedule_data
+            except Exception as e:
+                logging.error(f"Error generating {schedule}: {str(e)}")
+                
+        return schedules_data

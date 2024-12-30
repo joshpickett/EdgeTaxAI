@@ -1,9 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import { Form1040Data } from 'shared/types/form1040';
+import { FilingStatus } from 'shared/types/tax';
 import { expenseService } from 'shared/services/expenseService';
 import { platformService } from 'shared/services/platformService';
 import { formFieldStyles } from '../styles/FormFieldStyles';
 import { formSectionStyles } from '../styles/FormSectionStyles';
+import { DependentsList } from '../components/DependentsList';
+
+const FILING_STATUS_INFO = {
+  single: {
+    title: 'Single',
+    description: 'Choose this if you are unmarried, divorced, or legally separated.'
+  },
+  married_joint: {
+    title: 'Married Filing Jointly',
+    description: 'For married couples who want to file together. Usually provides the most tax benefits.'
+  },
+  // ...more status definitions
+};
 
 interface InitialScreeningStepProps {
   formData: Partial<Form1040Data>;
@@ -42,22 +56,87 @@ export const InitialScreeningStep: React.FC<InitialScreeningStepProps> = ({
     });
   };
 
+  const handleDependentChange = (hasDependents: boolean) => {
+    onUpdate({
+      ...formData,
+      hasDependents
+    });
+  };
+
+  const handleDependentsUpdate = (dependents: any) => {
+    onUpdate({
+      ...formData,
+      dependents
+    });
+  };
+
+  const handleIncomeSourceChange = (id: string, checked: boolean) => {
+    onUpdate({
+      ...formData,
+      incomeSources: {
+        ...formData.incomeSources,
+        [id]: checked
+      }
+    });
+  };
+
   return (
     <div style={formSectionStyles.container}>
-      <section>
+      <section style={formSectionStyles.container}>
         <h3 style={formSectionStyles.title}>Filing Status</h3>
-        <div style={formFieldStyles.container}>
-          {['single', 'married_joint', 'married_separate', 'head_of_household'].map(status => (
-            <label key={status} style={formFieldStyles.checkbox.container}>
+        {Object.entries(FILING_STATUS_INFO).map(([status, info]) => (
+          <div key={status} style={formFieldStyles.radioGroup}>
+            <label style={formFieldStyles.radio.container}>
               <input
                 type="radio"
                 name="filingStatus"
                 value={status}
                 checked={formData.taxpayerInfo?.filingStatus === status}
                 onChange={() => handleFilingStatusChange(status)}
+                style={formFieldStyles.radio.input}
+              />
+              <div style={formFieldStyles.radio.label}>
+                <h4>{info.title}</h4>
+                <p>{info.description}</p>
+              </div>
+            </label>
+          </div>
+        ))}
+      </section>
+
+      <section style={formSectionStyles.container}>
+        <h3 style={formSectionStyles.title}>Dependents</h3>
+        <div style={formFieldStyles.container}>
+          <label style={formFieldStyles.checkbox.container}>
+            <input
+              type="checkbox"
+              checked={formData.hasDependents}
+              onChange={(e) => handleDependentChange(e.target.checked)}
+              style={formFieldStyles.checkbox.input}
+            />
+            Do you have any dependents?
+          </label>
+        </div>
+        {formData.hasDependents && (
+          <DependentsList
+            dependents={formData.dependents || []}
+            onUpdate={handleDependentsUpdate}
+          />
+        )}
+      </section>
+
+      <section style={formSectionStyles.container}>
+        <h3 style={formSectionStyles.title}>Income Sources</h3>
+        <div style={formFieldStyles.container}>
+          {INCOME_SOURCES.map(source => (
+            <label key={source.id} style={formFieldStyles.checkbox.container}>
+              <input
+                type="checkbox"
+                checked={formData.incomeSources?.[source.id] || false}
+                onChange={(e) => handleIncomeSourceChange(source.id, e.target.checked)}
                 style={formFieldStyles.checkbox.input}
               />
-              {status.replace(/_/g, ' ').toUpperCase()}
+              {source.label}
             </label>
           ))}
         </div>

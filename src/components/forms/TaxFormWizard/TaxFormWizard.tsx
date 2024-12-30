@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Form1040Data } from 'shared/types/form1040';
+import { TAX_WIZARD_CONFIG } from '../../../config/taxWizardConfig';
 import { WizardStep } from './WizardStep';
 import { WizardNavigation } from './WizardNavigation';
 import { WizardProgress } from './WizardProgress';
 import { useFormWizard } from '../../../hooks/useFormWizard';
 import { wizardStyles } from './styles/WizardStyles';
-import { InitialScreeningStep } from './steps/InitialScreeningStep';
 
 interface TaxFormWizardProps {
   initialData?: Partial<Form1040Data>;
@@ -27,41 +27,25 @@ export const TaxFormWizard: React.FC<TaxFormWizardProps> = ({
     canProceed
   } = useFormWizard(initialData);
 
-  const steps = [
-    {
-      id: 'initial-screening',
-      title: 'Basic Information',
-      component: 'InitialScreeningStep'
-    },
-    {
-      id: 'personal-info',
-      title: 'Personal Information',
-      component: 'PersonalInfoStep'
-    },
-    {
-      id: 'income',
-      title: 'Income',
-      component: 'IncomeStep'
-    },
-    {
-      id: 'adjustments',
-      title: 'Adjustments',
-      component: 'AdjustmentsStep'
-    },
-    {
-      id: 'credits',
-      title: 'Credits',
-      component: 'CreditsStep'
-    },
-    {
-      id: 'review',
-      title: 'Review & Submit',
-      component: 'ReviewStep'
-    }
-  ];
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
-  const handleNext = () => {
-    if (currentStep < steps.length - 1) {
+  const steps = Object.entries(TAX_WIZARD_CONFIG.steps).map(([id, config]) => ({
+    id,
+    title: config.title,
+    component: `${id.charAt(0).toUpperCase()}${id.slice(1)}Step`,
+    required: config.required,
+    validation: config.validation
+  }));
+
+  const handleNext = async () => {
+    const currentStepConfig = steps[currentStep];
+    const isValid = await validateStep(currentStepConfig);
+
+    if (!isValid) {
+      return;
+    }
+
+    if (currentStep < steps.length - 1 && isValid) {
       setCurrentStep(currentStep + 1);
     } else {
       onComplete(formData as Form1040Data);
