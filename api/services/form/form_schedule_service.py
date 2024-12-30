@@ -1,16 +1,16 @@
 from typing import Dict, Any, List
 import logging
 from datetime import datetime
-from api.services.mef.schedule_management_service import ScheduleManagementService
 from api.services.mef.cross_schedule_calculator import CrossScheduleCalculator
+from api.services.mef.schedule_management_service import ScheduleManagementService
 
 class FormScheduleService:
     """Service for managing form schedules"""
     
     def __init__(self):
         self.logger = logging.getLogger(__name__)
+        self.cross_calculator = CrossScheduleCalculator()
         self.schedule_manager = ScheduleManagementService()
-        self.calculator = CrossScheduleCalculator()
 
     async def generate_summary(
         self,
@@ -33,10 +33,10 @@ class FormScheduleService:
                 )
             
             # Calculate cross-schedule totals
-            totals = await self.calculator.calculate_totals(schedule_data)
+            totals = await self.cross_calculator.calculate_totals(schedule_data)
             
             # Validate consistency
-            validation = await self.calculator.validate_consistency(schedule_data)
+            validation = await self.cross_calculator.validate_consistency(schedule_data)
             
             return {
                 'required_schedules': required_schedules,
@@ -100,4 +100,26 @@ class FormScheduleService:
             
         except Exception as e:
             self.logger.error(f"Error getting schedule dependencies: {str(e)}")
+            raise
+
+    async def calculate_cross_schedule_totals(
+        self,
+        schedules: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Calculate totals across multiple schedules"""
+        try:
+            return await self.cross_calculator.calculate_totals(schedules)
+        except Exception as e:
+            self.logger.error(f"Error calculating cross-schedule totals: {str(e)}")
+            raise
+
+    async def validate_cross_schedule_consistency(
+        self,
+        schedules: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Validate consistency between related schedules"""
+        try:
+            return await self.cross_calculator.validate_consistency(schedules)
+        except Exception as e:
+            self.logger.error(f"Error validating cross-schedule consistency: {str(e)}")
             raise

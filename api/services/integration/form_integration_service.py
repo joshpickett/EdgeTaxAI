@@ -5,6 +5,15 @@ from api.services.form.form_document_service import FormDocumentService
 from api.services.form.form_schedule_service import FormScheduleService
 from api.services.form.form_validation_service import FormValidationService
 from api.services.form.form_optimization_service import FormOptimizationService
+from api.services.credit_calculation_service import CreditCalculationService
+from api.services.credit_optimization_service import CreditOptimizationService
+from api.services.deduction_optimization_service import DeductionOptimizationService
+from api.services.payment.payment_calculator import PaymentCalculator
+from api.services.payment.payment_plan_manager import PaymentPlanManager
+from api.services.payment.estimated_tax_tracker import EstimatedTaxTracker
+from api.services.tax_review_service import TaxReviewService
+from api.services.tax_optimization_service import TaxOptimizationService
+from api.services.schedule_trigger_service import ScheduleTriggerService
 
 class FormIntegrationService:
     """Service for integrating various form-related components"""
@@ -15,12 +24,22 @@ class FormIntegrationService:
         self.schedule_service = FormScheduleService()
         self.validation_service = FormValidationService()
         self.optimization_service = FormOptimizationService()
+        self.credit_calculator = CreditCalculationService()
+        self.credit_optimizer = CreditOptimizationService()
+        self.deduction_optimizer = DeductionOptimizationService()
+        self.payment_calculator = PaymentCalculator()
+        self.payment_plan_manager = PaymentPlanManager()
+        self.estimated_tax_tracker = EstimatedTaxTracker()
+        self.tax_review = TaxReviewService()
+        self.tax_optimizer = TaxOptimizationService()
+        self.schedule_trigger = ScheduleTriggerService()
 
     async def initialize_form_wizard(
         self,
         user_id: int,
         form_type: str,
-        tax_year: int
+        tax_year: int,
+        data: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Initialize form wizard with all required data"""
         try:
@@ -34,13 +53,24 @@ class FormIntegrationService:
                 user_id, tax_year
             )
             
-            # Initialize progress tracking
-            progress = self._initialize_progress_tracking(form_type)
+            # Get optimization opportunities
+            optimizations = await self._get_optimization_opportunities(
+                user_id,
+                tax_year,
+                data
+            )
+            
+            # Get schedule requirements
+            schedule_requirements = await self.schedule_trigger.analyze_schedule_requirements(
+                user_id, tax_year)
             
             return {
                 'checklist': checklist,
                 'schedules': schedules,
-                'progress': progress,
+                'schedule_requirements': schedule_requirements,
+                'payment_options': await self._get_payment_options(data),
+                'progress': self._initialize_progress_tracking(form_type),
+                'optimizations': optimizations,
                 'validation_rules': self._get_validation_rules(form_type)
             }
             
@@ -156,6 +186,59 @@ class FormIntegrationService:
         # Implementation would store progress in database
         pass
 
+    async def _get_optimization_opportunities(
+        self,
+        user_id: int,
+        tax_year: int,
+        data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Get all optimization opportunities"""
+        try:
+            credit_opportunities = await self.credit_optimizer.analyze_credit_opportunities(
+                user_id, tax_year
+            )
+            
+            deduction_opportunities = await self.deduction_optimizer.analyze_deduction_opportunities(
+                user_id, tax_year
+            )
+            
+            return {
+                'credits': credit_opportunities,
+                'deductions': deduction_opportunities
+            }
+        except Exception as e:
+            self.logger.error(f"Error getting optimization opportunities: {str(e)}")
+            raise
+
+    async def _get_payment_options(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Get available payment options"""
+        try:
+            # Calculate payment amount
+            payment_calculation = await self.payment_calculator.calculate_payment(data)
+            
+            # Get payment plan options if needed
+            payment_plans = []
+            if payment_calculation['payment_due'] > 0:
+                payment_plans = await self.payment_plan_manager.calculate_plan_options(
+                    payment_calculation['payment_due']
+                )
+            
+            # Calculate estimated tax if applicable
+            estimated_tax = None
+            if data.get('requires_estimated_tax'):
+                estimated_tax = await self.estimated_tax_tracker.calculate_estimated_payment(
+                    data, data.get('quarter', 1)
+                )
+            
+            return {
+                'payment_calculation': payment_calculation,
+                'payment_plans': payment_plans,
+                'estimated_tax': estimated_tax
+            }
+        except Exception as e:
+            self.logger.error(f"Error getting payment options: {str(e)}")
+            raise
+
     def _get_next_section(
         self,
         form_type: str,
@@ -167,3 +250,63 @@ class FormIntegrationService:
             if section not in completed_sections:
                 return section
         return None
+
+    async def review_form_submission(
+        self,
+        user_id: int,
+        tax_year: int,
+        form_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Review form submission for completeness and accuracy"""
+        try:
+            # Perform comprehensive review
+            review_result = await self.tax_review.perform_comprehensive_review(
+                user_id, tax_year
+            )
+            
+            # Get optimization suggestions
+            optimization_result = await self.tax_optimizer.analyze_deduction_opportunities(
+                user_id, tax_year
+            )
+            
+            return {
+                'review_status': review_result,
+                'optimization_suggestions': optimization_result,
+                'timestamp': datetime.utcnow().isoformat()
+            }
+        except Exception as e:
+            self.logger.error(f"Error reviewing form submission: {str(e)}")
+            raise
+
+    async def process_payment(
+        self,
+        user_id: int,
+        payment_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Process form payment"""
+        try:
+            payment_type = payment_data.get('payment_type')
+            
+            if payment_type == 'plan':
+                return await self.payment_plan_manager.create_payment_plan(
+                    user_id, payment_data
+                )
+            elif payment_type == 'estimated':
+                return await self.estimated_tax_tracker.track_payment(
+                    user_id, payment_data
+                )
+            
+            # Calculate payment amount
+            payment_calculation = await self.payment_calculator.calculate_payment(
+                payment_data
+            )
+            
+            return {
+                'payment_id': payment_calculation['payment_id'],
+                'status': 'processed',
+                'amount': payment_calculation['amount'],
+                'timestamp': datetime.utcnow().isoformat()
+            }
+        except Exception as e:
+            self.logger.error(f"Error processing payment: {str(e)}")
+            raise

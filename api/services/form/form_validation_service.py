@@ -9,8 +9,8 @@ class FormValidationService:
     
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-        self.validator = RealTimeValidator()
         self.validation_rules = ValidationRules()
+        self.validator = RealTimeValidator()
 
     async def validate_section(
         self,
@@ -82,6 +82,23 @@ class FormValidationService:
             
         except Exception as e:
             self.logger.error(f"Error validating dependencies: {str(e)}")
+            raise
+
+    async def validate_form_completeness(
+        self,
+        form_type: str,
+        data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Validate overall form completeness"""
+        try:
+            validation_result = await self.validation_rules.validate_form_completeness(
+                form_type, data
+            )
+            
+            return validation_result
+            
+        except Exception as e:
+            self.logger.error(f"Error validating form completeness: {str(e)}")
             raise
 
     def _generate_field_suggestions(
