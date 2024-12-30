@@ -1,7 +1,8 @@
 import React from 'react';
-import { TextField, Checkbox, Select, MenuItem, FormHelperText } from '@mui/material';
 import { IRSFormField } from '../../shared/types/irs-forms';
 import { useFormContext } from 'react-hook-form';
+import { formFieldStyles } from './TaxFormWizard/styles/FormFieldStyles';
+import classNames from 'classnames';
 
 interface Props {
   field: IRSFormField;
@@ -27,19 +28,21 @@ export const IRSFormFieldComponent: React.FC<Props> = ({
       case 'text':
       case 'number':
         return (
-          <TextField
-            {...register(field.name)}
-            label={field.label}
-            type={field.type}
-            required={field.required}
-            error={!!error}
-            helperText={error || field.helpText}
-            placeholder={field.placeholder}
-            fullWidth
-            InputLabelProps={{ shrink: true }}
-            onChange={(e) => onChange(e.target.value)}
-            value={value || ''}
-          />
+          <div style={formFieldStyles.container}>
+            <label style={formFieldStyles.label}>{field.label}</label>
+            <input
+              {...register(field.name)}
+              style={{
+                ...formFieldStyles.input,
+                ...(error && formFieldStyles.error)
+              }}
+              type={field.type}
+              required={field.required}
+              placeholder={field.placeholder}
+              value={value || ''}
+              onChange={(e) => onChange(e.target.value)}
+            />
+          </div>
         );
 
       case 'select':
@@ -52,6 +55,7 @@ export const IRSFormFieldComponent: React.FC<Props> = ({
               error={!!error}
               fullWidth
               displayEmpty
+              style={formFieldStyles.select}
             >
               {field.options?.map((option) => (
                 <MenuItem key={option.value} value={option.value}>
@@ -70,11 +74,16 @@ export const IRSFormFieldComponent: React.FC<Props> = ({
       case 'checkbox':
         return (
           <>
-            <Checkbox
-              {...register(field.name)}
-              checked={!!value}
-              onChange={(e) => onChange(e.target.checked)}
-            />
+            <div style={formFieldStyles.checkbox.container}>
+              <input
+                type="checkbox"
+                {...register(field.name)}
+                checked={!!value}
+                onChange={(e) => onChange(e.target.checked)}
+                style={formFieldStyles.checkbox.input}
+              />
+              <label>{field.label}</label>
+            </div>
             {(error || field.helpText) && (
               <FormHelperText error={!!error}>
                 {error || field.helpText}

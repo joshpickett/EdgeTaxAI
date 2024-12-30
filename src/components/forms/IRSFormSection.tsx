@@ -1,7 +1,6 @@
 import React from 'react';
-import { Paper, Typography, Grid } from '@mui/material';
 import { IRSFormSection } from '../../shared/types/irs-forms';
-import { IRSFormFieldComponent } from './IRSFormField';
+import { formSectionStyles } from './TaxFormWizard/styles/FormSectionStyles';
 import { useFormContext } from 'react-hook-form';
 
 interface Props {
@@ -16,27 +15,17 @@ export const IRSFormSectionComponent: React.FC<Props> = ({
   const { watch, setValue } = useFormContext();
 
   return (
-    <Paper sx={{ p: 3, mb: 2 }}>
-      <Typography variant="h6" gutterBottom>
-        {section.title}
-      </Typography>
+    <div style={formSectionStyles.container}>
+      <div style={formSectionStyles.header}>
+        <h3 style={formSectionStyles.title}>
+          {section.title}
+        </h3>
       {section.description && (
-        <Typography variant="body2" color="textSecondary" paragraph>
+        <p style={formSectionStyles.description}>
           {section.description}
-        </Typography>
+        </p>
       )}
-      <Grid container spacing={3}>
-        {section.fields.map((field) => (
-          <Grid item xs={12} sm={6} key={field.id}>
-            <IRSFormFieldComponent
-              field={field}
-              value={watch(field.name)}
-              onChange={(value) => setValue(field.name, value)}
-              error={errors[field.name]}
-            />
-          </Grid>
-        ))}
-      </Grid>
-    </Paper>
+      </div>
+    </div>
   );
 };
