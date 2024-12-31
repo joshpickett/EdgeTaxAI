@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { FormValidationService } from 'api/services/form/form_validation_service';
+import { FormIntegrationService } from 'api/services/integration/form_integration_service';
 import { formFieldStyles } from '../../../styles/FormFieldStyles';
 import { formSectionStyles } from '../../../styles/FormSectionStyles';
 import { IncomeData, ValidationResult } from '../../../types/scheduleC.types';
@@ -9,11 +11,30 @@ interface Props {
   onValidate?: (result: ValidationResult) => void;
 }
 
+const formValidationService = new FormValidationService();
+const formIntegrationService = new FormIntegrationService();
+
 export const IncomeSection: React.FC<Props> = ({
   data,
   onChange,
   onValidate
 }) => {
+  useEffect(() => {
+    const validateIncome = async () => {
+      try {
+        const validation = await formValidationService.validate_section(
+          'ScheduleC',
+          'income',
+          data
+        );
+        onValidate?.(validation);
+      } catch (error) {
+        console.error('Error validating income:', error);
+      }
+    };
+    validateIncome();
+  }, [data]);
+
   const handleChange = (field: keyof IncomeData, value: number) => {
     const updatedData = {
       ...data,

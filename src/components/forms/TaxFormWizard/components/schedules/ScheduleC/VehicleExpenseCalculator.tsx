@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { FormValidationService } from 'api/services/form/form_validation_service';
+import { FormIntegrationService } from 'api/services/integration/form_integration_service';
 import { formFieldStyles } from '../../../styles/FormFieldStyles';
 import { formSectionStyles } from '../../../styles/FormSectionStyles';
 import { VehicleExpense, ValidationResult } from '../../../types/scheduleC.types';
@@ -23,6 +25,9 @@ interface Props {
   onValidate?: (result: ValidationResult) => void;
 }
 
+const formValidationService = new FormValidationService();
+const formIntegrationService = new FormIntegrationService();
+
 export const VehicleExpenseCalculator: React.FC<Props> = ({
   data,
   onChange,
@@ -31,6 +36,22 @@ export const VehicleExpenseCalculator: React.FC<Props> = ({
   const [useActualExpenses, setUseActualExpenses] = useState(!!data.actualExpenses);
   const standardMileageRate = 0.655; // 2023 IRS standard mileage rate
 
+  useEffect(() => {
+    const validateVehicle = async () => {
+      try {
+        const validation = await formValidationService.validate_section(
+          'ScheduleC',
+          'vehicle_expense',
+          data
+        );
+        onValidate?.(validation);
+      } catch (error) {
+        console.error('Error validating vehicle expense:', error);
+      }
+    };
+    validateVehicle();
+  }, [data]);
+
   const handleChange = (field: keyof VehicleExpense, value: any) => {
     const updatedData = {
       ...data,
@@ -38,35 +59,38 @@ export const VehicleExpenseCalculator: React.FC<Props> = ({
     };
     
     onChange(updatedData);
-    onValidate?.({
-      isValid: true,
-      errors: [],
-      warnings: []
-    });
   };
 
   const handleActualExpenseChange = (field: keyof typeof data.actualExpenses, value: number) => {
-    const updatedData = {
-      ...data,
-      actualExpenses: {
-        ...data.actualExpenses,
-        [field]: value
+    const updateExpenses = async () => {
+      try {
+        const result = await formIntegrationService.calculateVehicleExpenses({
+          ...data,
+          actualExpenses: {
+            ...data.actualExpenses,
+            [field]: value
+          }
+        });
+        onChange(result);
+      } catch (error) {
+        console.error('Error calculating vehicle expenses:', error);
       }
     };
-    
-    onChange(updatedData);
-    onValidate?.({
-      isValid: true,
-      errors: [],
-      warnings: []
-    });
+    updateExpenses();
   };
 
-  const calculateTotalExpense = () => {
-    if (useActualExpenses && data.actualExpenses) {
-      return Object.values(data.actualExpenses).reduce((sum, val) => sum + val, 0);
+  const calculateTotalExpense = async () => {
+    try {
+      const result = await formIntegrationService.calculateTotalVehicleExpenses({
+        ...data,
+        useActualExpenses,
+        standardMileageRate
+      });
+      return result.totalExpense;
+    } catch (error) {
+      console.error('Error calculating total vehicle expenses:', error);
+      return 0;
     }
-    return data.mileage * standardMileageRate;
   };
 
   return (

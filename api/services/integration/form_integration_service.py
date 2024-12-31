@@ -324,3 +324,62 @@ class FormIntegrationService:
         except Exception as e:
             self.logger.error(f"Error processing form payment: {str(e)}")
             raise
+
+    async def calculateFarmTotals(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Calculate farm totals including agricultural payments and inventory"""
+        try:
+            gross_income = sum([
+                data.get('sales_livestock', 0),
+                data.get('sales_produce', 0),
+                data.get('agricultural_payments', 0),
+                data.get('commodity_payments', 0),
+                data.get('crop_insurance', 0),
+                data.get('custom_hire', 0),
+                data.get('other_income', 0)
+            ])
+
+            total_expenses = sum([
+                data.get('expenses', {}).get(expense, 0)
+                for expense in data.get('expenses', {})
+            ])
+
+            inventory_change = (
+                data.get('inventory', {}).get('ending', 0) -
+                data.get('inventory', {}).get('beginning', 0)
+            )
+
+            net_profit = gross_income - total_expenses + inventory_change
+            
+            # Calculate self-employment tax
+            self_employment_tax = self._calculate_self_employment_tax(net_profit)
+            
+            return {
+                'grossIncome': gross_income,
+                'totalExpenses': total_expenses,
+                'totalAgriculturalPayments': data.get('agricultural_payments', 0),
+                'totalCommodityPayments': data.get('commodity_payments', 0),
+                'cropInsuranceProceeds': data.get('crop_insurance', 0),
+                'inventory': {
+                    'beginning': data.get('inventory', {}).get('beginning', 0),
+                    'ending': data.get('inventory', {}).get('ending', 0)
+                },
+                'netProfit': net_profit,
+                'selfEmploymentTax': self_employment_tax
+            }
+
+        except Exception as e:
+            self.logger.error(f"Error calculating farm totals: {str(e)}")
+            raise
+
+    def _calculate_self_employment_tax(self, net_profit: float) -> float:
+        """Calculate self-employment tax for farm income"""
+        if net_profit <= 0:
+            return 0
+            
+        # 92.35% of net profit is subject to self-employment tax
+        taxable_income = net_profit * 0.9235
+        
+        # Self-employment tax rate is 15.3% (12.4% Social Security + 2.9% Medicare)
+        self_employment_tax = taxable_income * 0.153
+        
+        return round(self_employment_tax, 2)

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { FormValidationService } from 'api/services/form/form_validation_service';
 import { formFieldStyles } from '../../../styles/FormFieldStyles';
 import { formSectionStyles } from '../../../styles/FormSectionStyles';
 import { DocumentCapture } from '../../../DocumentCapture';
@@ -16,6 +17,24 @@ export const ExpenseSection: React.FC<Props> = ({
   onValidate
 }) => {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const formValidationService = new FormValidationService();
+
+  useEffect(() => {
+    const validateExpenses = async () => {
+      try {
+        const validation = await formValidationService.validate_section(
+          'ScheduleC',
+          'expenses',
+          data
+        );
+        onValidate?.(validation);
+      } catch (error) {
+        console.error('Error validating expenses:', error);
+      }
+    };
+    
+    validateExpenses();
+  }, [data]);
 
   const handleExpenseChange = (categoryId: string, amount: number) => {
     const updatedCategories = data.map(category => 

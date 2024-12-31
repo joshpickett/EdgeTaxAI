@@ -343,60 +343,47 @@ class ValidationRules:
     def validate_schedule_f(data: Dict[str, Any]) -> List[str]:
         """Validate Schedule F specific rules"""
         errors = []
+        warnings = []
         
         # Validate farm information
         farm_info = data.get('farm_info', {})
+        
+        # Enhanced validation for agricultural payments
+        agricultural_payments = data.get('agricultural_payments', 0)
+        commodity_payments = data.get('commodity_payments', 0)
+        crop_insurance = data.get('crop_insurance', 0)
+        
         if not farm_info.get('name'):
             errors.append("Farm name is required")
         if not farm_info.get('principal_product'):
             errors.append("Principal agricultural activity/product is required")
-            
-        # Validate accounting method
-        valid_methods = ['Cash', 'Accrual']
         if farm_info.get('accounting_method') not in valid_methods:
             errors.append("Invalid accounting method specified")
         
-        # Validate income and expenses
-        if not data.get('income'):
-            errors.append("At least one income source must be reported")
+        # Validate inventory calculations
+        inventory = data.get('inventory', {})
+        if inventory:
+            beginning = inventory.get('beginning', 0)
+            ending = inventory.get('ending', 0)
             
-        # Validate depreciation
-        depreciation = data.get('depreciation', {}).get('assets', [])
-        for asset in depreciation:
-            if not asset.get('description'):
-                errors.append("Asset description is required for depreciation")
-            if not asset.get('date_placed'):
-                errors.append("Date placed in service is required for depreciation")
-            if not asset.get('cost'):
-                errors.append("Asset cost basis is required for depreciation")
+            if ending < 0 or beginning < 0:
+                errors.append("Inventory values cannot be negative")
                 
-        # Additional farm-specific validations can be added here
-        
-        return errors
+            if abs(ending - beginning) > 500000:
+                warnings.append("Large inventory change detected - please verify")
 
-    def validate_form_1116(self, data: Dict[str, Any]) -> List[str]:
-        """Validate Form 1116 (Foreign Tax Credit)"""
-        errors = []
-        
-        # Validate foreign income
-        if not data.get('foreign_income'):
-            errors.append("Foreign source income is required")
-            
-        # Validate foreign taxes
-        foreign_taxes = data.get('foreign_taxes', {})
-        for country, tax_data in foreign_taxes.items():
-            # Validate currency
-            currency_errors = BusinessRules.validate_currency(
-                Decimal(str(tax_data.get('amount', 0))),
-                tax_data.get('currency'),
-                tax_data.get('exchange_rate', {})
-            )
-            errors.extend(currency_errors)
-            
-            # Validate foreign address
-            address_errors = BusinessRules.validate_foreign_address(
-                tax_data.get('address', {})
-            )
-            errors.extend(address_errors)
-            
+        # Validate agricultural payments
+        if agricultural_payments > 0:
+            if not data.get('agricultural_program_details'):
+                warnings.append("Agricultural program details should be provided")
+
+        # Validate crop insurance
+        if crop_insurance > 0:
+            if not data.get('crop_insurance_details'):
+                warnings.append("Crop insurance details should be provided")
+
+        # Validate commodity credit loans
+        if commodity_payments > 0 and not data.get('commodity_loan_details'):
+            warnings.append("Commodity loan details should be provided")
+
         return errors

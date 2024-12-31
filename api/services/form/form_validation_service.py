@@ -106,6 +106,33 @@ class FormValidationService:
             self.logger.error(f"Error validating form completeness: {str(e)}")
             raise
 
+    async def validate_schedule_e(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Validate Schedule E data"""
+        errors = []
+        warnings = []
+
+        # Validate properties
+        for index, property_data in enumerate(data.get('properties', [])):
+            if not property_data.get('address'):
+                errors.append({
+                    'field': f'property_{index}_address',
+                    'message': f'Address is required for property {index + 1}'
+                })
+
+            # Validate rental days
+            total_days = property_data.get('daysRented', 0) + property_data.get('personalUse', 0)
+            if total_days > 365:
+                errors.append({
+                    'field': f'property_{index}_days',
+                    'message': f'Total days for property {index + 1} cannot exceed 365'
+                })
+
+        return {
+            'is_valid': len(errors) == 0,
+            'errors': errors,
+            'warnings': warnings
+        }
+
     def _generate_field_suggestions(
         self,
         errors: List[Dict[str, Any]]

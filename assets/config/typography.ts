@@ -1,23 +1,23 @@
 export const TYPOGRAPHY = {
   fontFamily: {
-    regular: 'System',
-    medium: 'System-Medium',
-    bold: 'System-Bold'
+    regular: 'Nunito-Regular', // Nunito regular
+    medium: 'Nunito-SemiBold', // Nunito semi-bold
+    bold: 'Nunito-Bold' // Nunito bold
   },
   fontSize: {
-    xs: 12,
-    sm: 14,
-    md: 16,
-    lg: 18,
-    xl: 20,
-    xxl: 24
+    xs: 12, // Extra small text
+    sm: 14, // Small text
+    md: 16, // Medium text (body copy)
+    lg: 18, // Large text
+    xl: 20, // Extra large text (subheadings)
+    xxl: 28 // Double extra large text (headings)
   },
   lineHeight: {
-    xs: 16,
-    sm: 20,
-    md: 24,
-    lg: 28,
-    xl: 32,
-    xxl: 36
+    xs: 16, // Line height for extra small text
+    sm: 20, // Line height for small text
+    md: 24, // Line height for medium text
+    lg: 28, // Line height for large text
+    xl: 32, // Line height for extra large text
+    xxl: 36 // Line height for double extra large text
   }
 };

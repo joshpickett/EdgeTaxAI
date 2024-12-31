@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { FormValidationService } from 'api/services/form/form_validation_service';
+import { FormIntegrationService } from 'api/services/integration/form_integration_service';
 import { formFieldStyles } from '../../../styles/FormFieldStyles';
 import { formSectionStyles } from '../../../styles/FormSectionStyles';
 import { HomeOfficeExpense, ValidationResult } from '../../../types/scheduleC.types';
@@ -23,11 +25,30 @@ interface Props {
   onValidate?: (result: ValidationResult) => void;
 }
 
+const formValidationService = new FormValidationService();
+const formIntegrationService = new FormIntegrationService();
+
 export const HomeOfficeCalculator: React.FC<Props> = ({
   data,
   onChange,
   onValidate
 }) => {
+  useEffect(() => {
+    const validateHomeOffice = async () => {
+      try {
+        const validation = await formValidationService.validate_section(
+          'ScheduleC',
+          'home_office',
+          data
+        );
+        onValidate?.(validation);
+      } catch (error) {
+        console.error('Error validating home office:', error);
+      }
+    };
+    validateHomeOffice();
+  }, [data]);
+
   const handleChange = (field: keyof HomeOfficeExpense, value: any) => {
     const updatedData = {
       ...data,
@@ -60,13 +81,21 @@ export const HomeOfficeCalculator: React.FC<Props> = ({
   };
 
   const handleExpenseChange = (field: keyof typeof data.expenses, value: number) => {
-    onChange({
-      ...data,
-      expenses: {
-        ...data.expenses,
-        [field]: value
+    const updateExpenses = async () => {
+      try {
+        const result = await formIntegrationService.calculateHomeOfficeExpenses({
+          ...data,
+          expenses: {
+            ...data.expenses,
+            [field]: value
+          }
+        });
+        onChange(result);
+      } catch (error) {
+        console.error('Error calculating home office expenses:', error);
       }
-    });
+    };
+    updateExpenses();
   };
 
   const calculateTotalExpense = () => {

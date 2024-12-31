@@ -4,6 +4,9 @@ import { formSectionStyles } from '../../../styles/FormSectionStyles';
 import { DocumentCapture } from '../../../DocumentCapture';
 import { ValidationFeedback } from '../../../ValidationFeedback';
 import { FormValidationService } from 'api/services/form/form_validation_service';
+import { FormIntegrationService } from 'api/services/integration/form_integration_service';
+import { PropertySection } from './PropertySection';
+import { IncomeExpenseSection } from './IncomeExpenseSection';
 
 interface RentalProperty {
   address: string;
@@ -42,6 +45,7 @@ interface Props {
 }
 
 const formValidationService = new FormValidationService();
+const formIntegrationService = new FormIntegrationService();
 
 export const ScheduleE: React.FC<Props> = ({
   data,
@@ -51,49 +55,43 @@ export const ScheduleE: React.FC<Props> = ({
   const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
-    validateSchedule();
+    const validateAndCalculate = async () => {
+      try {
+        const validation = await formValidationService.validate_section(
+          'ScheduleE',
+          'rental_income',
+          data
+        );
+        setValidationResults(validation);
+
+        const calculationResult = await formIntegrationService.calculateRentalTotals(data);
+        onUpdate({
+          ...data,
+          ...calculationResult
+        });
+      } catch (error) {
+        console.error('Error validating Schedule E:', error);
+      }
+    };
+    validateAndCalculate();
   }, [data]);
 
-  const validateSchedule = async () => {
-    try {
-      const validation = await formValidationService.validate_section(
-        'ScheduleE',
-        'rental_income',
-        data
-      );
-      setValidationResults(validation);
-    } catch (error) {
-      console.error('Error validating Schedule E:', error);
-    }
-  };
-
   const handlePropertyChange = (index: number, field: string, value: any) => {
-    const updatedData = { ...data };
-    const property = updatedData.properties[index];
-
-    // Update nested property value
-    if (field.includes('.')) {
-      const [category, subfield] = field.split('.');
-      property[category][subfield] = value;
-    } else {
-      property[field] = value;
-    }
-
-    // Recalculate totals
-    property.totalIncome = property.income.rents + property.income.other;
-    property.totalExpenses = Object.values(property.expenses).reduce((sum, val) => sum + val, 0);
-    property.netIncome = property.totalIncome - property.totalExpenses;
-
-    // Update overall totals
-    updateTotals(updatedData);
-
-    onUpdate(updatedData);
-  };
-
-  const updateTotals = (data: ScheduleEData) => {
-    data.totalRentalIncome = data.properties.reduce((sum, prop) => sum + prop.totalIncome, 0);
-    data.totalRentalExpenses = data.properties.reduce((sum, prop) => sum + prop.totalExpenses, 0);
-    data.netRentalIncome = data.totalRentalIncome - data.totalRentalExpenses;
+    const updateProperty = async () => {
+      try {
+        const result = await formIntegrationService.calculatePropertyData({
+          ...data,
+          properties: data.properties.map((prop, i) => 
+            i === index ? { ...prop, [field]: value } : prop
+          )
+        });
+        
+        onUpdate(result);
+      } catch (error) {
+        console.error('Error updating property:', error);
+      }
+    };
+    updateProperty();
   };
 
   const addProperty = () => {

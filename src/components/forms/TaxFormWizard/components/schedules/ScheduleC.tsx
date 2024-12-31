@@ -1,4 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import { FormValidationService } from 'api/services/form/form_validation_service';
+import { FormIntegrationService } from 'api/services/integration/form_integration_service';
 import { BusinessInfoSection } from './ScheduleC/BusinessInfoSection';
 import { IncomeSection } from './ScheduleC/IncomeSection';
 import { ExpenseSection } from './ScheduleC/ExpenseSection';
@@ -27,31 +29,34 @@ const ScheduleC: React.FC<Props> = ({
     warnings: []
   });
 
-  const calculator = new ScheduleCCalculator();
-  const validator = new ScheduleCValidator();
+  const formValidationService = new FormValidationService();
+  const formIntegrationService = new FormIntegrationService();
 
   useEffect(() => {
-    // Recalculate totals whenever data changes
-    const totals = calculator.calculateTotals(data);
-    onUpdate({
-      ...data,
-      totals
-    });
-    
-    // Validate data
-    const validationResult = validator.validateComplete(data);
-    setValidationResult(validationResult);
-    onValidate?.(validationResult);
-    
-    // Calculate and notify parent
-    const calculations = {
-      grossIncome: totals.grossIncome,
-      totalExpenses: totals.totalExpenses,
-      netProfit: totals.netProfit,
-      selfEmploymentTax: totals.selfEmploymentTax,
-      estimatedTax: calculator.calculateEstimatedTax(totals.netProfit)
+    const calculateAndValidate = async () => {
+      try {
+        // Use backend calculation service
+        const calculationResult = await formIntegrationService.calculateScheduleTotals(
+          'ScheduleC',
+          data
+        );
+        
+        // Use backend validation service
+        const validation = await formValidationService.validate_section(
+          'ScheduleC',
+          'complete',
+          data
+        );
+        
+        setValidationResult(validation);
+        onValidate?.(validation);
+        onCalculate?.(calculationResult);
+      } catch (error) {
+        console.error('Error in Schedule C calculations:', error);
+      }
     };
-    onCalculate?.(calculations);
+    
+    calculateAndValidate();
   }, [data]);
 
   const handleIncomeChange = (incomeData: any) => {
