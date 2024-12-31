@@ -1,0 +1,21 @@
+:root {
+    --primary-color: #21CEBA;
+    --secondary-gradient-start: #2ECD70;
+    --secondary-gradient-end: #86DE94;
+    --light-grey: #F8F8F8;
+    --medium-grey: #707070;
+    --text-primary: #000000;
+    --text-secondary: #666666;
+    --text-disabled: #999999;
+    
+    /* Spacing Variables */
+    --spacing-sm: 10px;
+    --spacing-md: 20px;
+    --spacing-lg: 40px;
+    --spacing-xl: 60px;
+    
+    /* Breakpoints */
+    --mobile: 480px;
+    --tablet: 768px;
+    --desktop: 1024px;
+}
