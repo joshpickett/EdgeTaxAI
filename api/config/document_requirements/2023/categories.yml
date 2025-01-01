@@ -1,0 +1,61 @@
+# Document Categories
+PRIMARY_DOCUMENTS:
+  description: "Essential tax documents required for filing"
+  priority: high
+  retention: 7
+  validation_rules:
+    - required_fields: ["document_id", "tax_year", "amount"]
+    - format_checks: ["pdf", "jpg", "png"]
+    - max_size: 10485760  # 10MB
+
+INCOME_DOCUMENTS:
+  description: "Income-related documentation"
+  priority: high
+  retention: 7
+  subcategories:
+    W2:
+      required_fields: ["employer_id", "wages", "federal_tax_withheld"]
+      validation_rules:
+        - field_patterns:
+            employer_id: "^\d{2}-\d{7}$"
+            wages: "^\d+(\.\d{2})?$"
+    1099:
+      required_fields: ["payer_tin", "income_amount"]
+      validation_rules:
+        - field_patterns:
+            payer_tin: "^\d{2}-\d{7}$"
+
+EXPENSE_DOCUMENTS:
+  description: "Expense and deduction documentation"
+  priority: medium
+  retention: 3
+  subcategories:
+    RECEIPTS:
+      required_fields: ["date", "amount", "vendor"]
+      validation_rules:
+        - date_format: "YYYY-MM-DD"
+        - amount_format: "^\d+(\.\d{2})?$"
+    INVOICES:
+      required_fields: ["invoice_number", "date", "amount"]
+
+ASSET_DOCUMENTS:
+  description: "Asset-related documentation"
+  priority: medium
+  retention: permanent
+  subcategories:
+    PROPERTY:
+      required_fields: ["property_id", "purchase_date", "cost_basis"]
+    VEHICLE:
+      required_fields: ["vin", "purchase_date", "cost"]
+
+INTERNATIONAL_DOCUMENTS:
+  description: "International tax-related documents"
+  priority: high
+  retention: 7
+  subcategories:
+    FBAR:
+      required_fields: ["account_number", "max_value", "institution"]
+      validation_rules:
+        - threshold: 10000
+    FOREIGN_INCOME:
+      required_fields: ["source_country", "amount", "tax_paid"]

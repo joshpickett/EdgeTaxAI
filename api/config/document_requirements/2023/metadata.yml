@@ -1,0 +1,120 @@
+# Category-specific Metadata Configuration
+METADATA_FIELDS:
+  COMMON:
+    - field: tax_year
+      type: integer
+      required: true
+      validation: "current_year - 7 <= value <= current_year"
+    
+    - field: submission_date
+      type: date
+      required: true
+      validation: "value <= current_date"
+    
+    - field: document_id
+      type: string
+      required: true
+      format: "^DOC-[0-9A-Z]{8}$"
+
+  INCOME_DOCUMENTS:
+    - field: income_type
+      type: enum
+      values: ["wages", "self_employment", "rental", "investment"]
+      required: true
+    
+    - field: amount
+      type: decimal
+      required: true
+      validation: "value >= 0"
+    
+    - field: tax_withheld
+      type: decimal
+      required: false
+      validation: "value >= 0"
+
+  EXPENSE_DOCUMENTS:
+    - field: expense_category
+      type: enum
+      values: ["business", "rental", "medical", "education"]
+      required: true
+    
+    - field: payment_method
+      type: enum
+      values: ["cash", "check", "credit", "electronic"]
+      required: true
+    
+    - field: business_purpose
+      type: string
+      required: false
+      max_length: 500
+
+  ASSET_DOCUMENTS:
+    - field: asset_type
+      type: enum
+      values: ["real_estate", "vehicle", "equipment", "investment"]
+      required: true
+    
+    - field: acquisition_date
+      type: date
+      required: true
+      validation: "value <= current_date"
+    
+    - field: cost_basis
+      type: decimal
+      required: true
+      validation: "value > 0"
+
+  INTERNATIONAL_DOCUMENTS:
+    - field: country_code
+      type: string
+      required: true
+      format: "^[A-Z]{2}$"
+    
+    - field: currency_code
+      type: string
+      required: true
+      format: "^[A-Z]{3}$"
+    
+    - field: exchange_rate
+      type: decimal
+      required: true
+      validation: "value > 0"
+
+RETENTION_RULES:
+  DEFAULT:
+    duration: 7
+    unit: years
+    start_from: "tax_year_end"
+
+  PERMANENT:
+    - asset_purchase_records
+    - business_formation_documents
+    - tax_basis_documentation
+
+  CUSTOM:
+    expense_receipts:
+      duration: 3
+      unit: years
+    
+    bank_statements:
+      duration: 7
+      unit: years
+    
+    tax_returns:
+      duration: 7
+      unit: years
+
+SECURITY_CLASSIFICATION:
+  HIGH_SENSITIVITY:
+    - social_security_number_documents
+    - tax_returns
+    - bank_statements
+    
+  MEDIUM_SENSITIVITY:
+    - expense_receipts
+    - income_statements
+    - asset_records
+    
+  LOW_SENSITIVITY:
+    - public_records
+    - marketing_materials

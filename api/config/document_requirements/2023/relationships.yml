@@ -1,0 +1,54 @@
+# Document Relationships Configuration
+DEPENDENCIES:
+  W2:
+    required_by: ["FORM_1040"]
+    conflicts_with: []
+    optional_attachments: ["EXPENSE_RECEIPTS"]
+
+  1099_NEC:
+    required_by: ["FORM_1040", "SCHEDULE_C"]
+    triggers: ["SCHEDULE_SE"]
+    optional_attachments: ["EXPENSE_RECEIPTS", "CONTRACTS"]
+
+  1099_K:
+    required_by: ["FORM_1040", "SCHEDULE_C"]
+    triggers: ["SCHEDULE_SE"]
+    optional_attachments: ["PLATFORM_STATEMENTS"]
+
+  SCHEDULE_C:
+    required_by: ["FORM_1040"]
+    requires: ["EXPENSE_RECEIPTS"]
+    optional_attachments: ["VEHICLE_LOGS", "HOME_OFFICE"]
+
+  SCHEDULE_E:
+    required_by: ["FORM_1040"]
+    requires: ["PROPERTY_DOCUMENTS"]
+    optional_attachments: ["EXPENSE_RECEIPTS", "LEASE_AGREEMENTS"]
+
+CROSS_REFERENCES:
+  INCOME_DOCUMENTS:
+    - validates_against: ["W2_SUMMARY", "EMPLOYER_RECORDS"]
+    - cross_check: ["TOTAL_INCOME", "ADJUSTED_GROSS_INCOME"]
+
+  EXPENSE_DOCUMENTS:
+    - validates_against: ["BANK_STATEMENTS"]
+    - cross_check: ["TOTAL_EXPENSES", "SCHEDULE_TOTALS"]
+
+  ASSET_DOCUMENTS:
+    - validates_against: ["DEPRECIATION_SCHEDULES"]
+    - cross_check: ["COST_BASIS", "ACCUMULATED_DEPRECIATION"]
+
+VALIDATION_CHAINS:
+  INCOME_VALIDATION:
+    - sequence:
+        - W2
+        - 1099_DOCUMENTS
+        - TOTAL_INCOME
+    - cross_validate: ["ADJUSTED_GROSS_INCOME", "TAXABLE_INCOME"]
+
+  EXPENSE_VALIDATION:
+    - sequence:
+        - RECEIPTS
+        - BANK_STATEMENTS
+        - SCHEDULE_TOTALS
+    - cross_validate: ["TOTAL_EXPENSES", "NET_INCOME"]

@@ -2,6 +2,8 @@ from typing import Dict, Any, List
 from decimal import Decimal
 from datetime import datetime
 from api.services.error_handling_service import ErrorHandlingService
+import logging
+import json
 
 class BusinessRules:
     """Business rules for tax forms"""
@@ -134,29 +136,49 @@ class ValidationRules:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.error_service = ErrorHandlingService()
+        self.document_categories = {
+            'INCOME': ['W2', '1099', 'K1', 'SSA1099'],
+            'EXPENSE': ['RECEIPT', 'INVOICE', 'BILL'],
+            'ASSET': ['1098', 'PROPERTY_TAX', 'VEHICLE_REG'],
+            'INTERNATIONAL': ['FBAR', 'FOREIGN_TAX', 'FOREIGN_ACCOUNT']
+        }
+        self.validation_thresholds = {
+            'max_file_size': 10 * 1024 * 1024,  # 10MB
+            'min_image_resolution': (600, 600),
+            'max_document_age_days': 365
+        }
 
-    async def validate_1099_nec(data: Dict[str, Any]) -> List[str]:
+    async def validate_1099_nec(self, data: Dict[str, Any], document_metadata: Dict[str, Any]) -> Dict[str, Any]:
         """Validate 1099-NEC specific rules"""
-        errors = []
-        
+        validation_result = {
+            'is_valid': True,
+            'errors': [],
+            'warnings': [],
+            'metadata': {}
+        }
+
         # Check compensation threshold
         compensation = Decimal(str(data.get('payments', {}).get('nonemployee_compensation', 0)))
         if compensation < BusinessRules.NEC_THRESHOLD:
-            errors.append(f"Nonemployee compensation must be ${BusinessRules.NEC_THRESHOLD} or more")
-        
+            validation_result['warnings'].append({
+                'code': 'LOW_COMPENSATION',
+                'message': f"Nonemployee compensation below ${BusinessRules.NEC_THRESHOLD} threshold",
+                'severity': 'medium'
+            })
+
         # Validate state tax information
         state_info = data.get('state_tax_info', {})
         if state_info:
-            errors.extend(BusinessRules.validate_state_withholding(state_info))
+            validation_result['errors'].extend(BusinessRules.validate_state_withholding(state_info))
 
         # Validate TIN formats
         payer_tin = data.get('payer', {}).get('tin', '')
         recipient_tin = data.get('recipient', {}).get('tin', '')
         
         if not validate_tin_format(payer_tin):
-            errors.append("Invalid payer TIN format")
+            validation_result['errors'].append("Invalid payer TIN format")
         if not validate_tin_format(recipient_tin):
-            errors.append("Invalid recipient TIN format")
+            validation_result['errors'].append("Invalid recipient TIN format")
         
         # Required fields validation
         required_fields = [
@@ -175,22 +197,22 @@ class ValidationRules:
             ('payments.nonemployee_compensation', 'Nonemployee compensation is required')
         ]
         
-        errors.extend(ValidationRules._check_required_fields(data, required_fields))
+        validation_result['errors'].extend(ValidationRules._check_required_fields(data, required_fields))
          
         # Use error handling service for validation errors
-        if errors:
+        if validation_result['errors']:
             await self.error_service.handle_error(
-                ValidationError(errors),
+                ValidationError(validation_result['errors']),
                 {
                     'form_type': '1099_NEC',
-                    'validation_errors': errors
+                    'validation_errors': validation_result['errors']
                 },
                 'VALIDATION'
             )
         
-        return errors
+        return validation_result
 
-    def validate_1099_k(data: Dict[str, Any]) -> List[str]:
+    def validate_1099_k(self, data: Dict[str, Any]) -> List[str]:
         """Validate 1099-K specific rules"""
         errors = []
         
@@ -226,7 +248,7 @@ class ValidationRules:
 
         return errors
 
-    def validate_1040ez(data: Dict[str, Any]) -> List[str]:
+    def validate_1040ez(self, data: Dict[str, Any]) -> List[str]:
         """Validate 1040-EZ specific rules"""
         errors = []
         
@@ -253,7 +275,7 @@ class ValidationRules:
         
         return errors
 
-    def validate_schedule_b(data: Dict[str, Any]) -> List[str]:
+    def validate_schedule_b(self, data: Dict[str, Any]) -> List[str]:
         """Validate Schedule B specific rules"""
         errors = []
         
@@ -280,7 +302,7 @@ class ValidationRules:
         
         return errors
 
-    def validate_schedule_d(data: Dict[str, Any]) -> List[str]:
+    def validate_schedule_d(self, data: Dict[str, Any]) -> List[str]:
         """Validate Schedule D specific rules"""
         errors = []
         
@@ -311,7 +333,7 @@ class ValidationRules:
         errors.extend(ValidationRules._check_required_fields(transaction, required_fields))
         return errors
 
-    def validate_1040(data: Dict[str, Any]) -> List[str]:
+    def validate_1040(self, data: Dict[str, Any]) -> List[str]:
         """Validate Form 1040 specific rules"""
         errors = []
         
@@ -340,7 +362,7 @@ class ValidationRules:
 
         return errors
 
-    def validate_schedule_f(data: Dict[str, Any]) -> List[str]:
+    def validate_schedule_f(self, data: Dict[str, Any]) -> List[str]:
         """Validate Schedule F specific rules"""
         errors = []
         warnings = []

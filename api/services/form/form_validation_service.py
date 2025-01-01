@@ -1,21 +1,18 @@
 from typing import Dict, Any, List
 import logging
-from datetime import datetime
-from api.services.validation.real_time_validator import RealTimeValidator
-from api.services.mef.validation_rules import ValidationRules
+from api.services.validation.validation_rules import ValidationRules
+from api.services.validation.validation_manager import ValidationManager
 from api.utils.cache_utils import CacheManager
 
 class FormValidationService:
     """Service for form validation"""
     
     def __init__(self):
+        self.validator = ValidationRules()
+        self.validation_manager = ValidationManager()
         self.logger = logging.getLogger(__name__)
         self.cache = CacheManager()
-        self.validation_rules = ValidationRules()
-        self.real_time_validator = RealTimeValidator()
-        self.cross_field_validators = self._initialize_cross_field_validators()
 
-    @cache_response(timeout=3600)
     async def validate_section(
         self,
         form_type: str,
@@ -24,19 +21,15 @@ class FormValidationService:
     ) -> Dict[str, Any]:
         """Validate form section"""
         try:
-            cache_key = f"validation:{form_type}:{section}:{hash(str(data))}"
-            cached_result = await self.cache.get(cache_key)
+            validation_result = await self.validator.validate_section(form_type, section, data)
             
-            if cached_result:
-                return cached_result
-
-            validation_result = await self.validator.validate_section(
-                form_type, section, data
-            )
+            # Add enhanced validation using ValidationManager
+            category = self._get_section_category(form_type, section)
+            if category:
+                category_validation = await self.validation_manager.validate_document(data, category)
+                validation_result = self._merge_validation_results(validation_result, category_validation)
             
-            await self.cache.set(cache_key, validation_result, timeout=3600)
             return validation_result
-            
         except Exception as e:
             self.logger.error(f"Error validating section: {str(e)}")
             raise

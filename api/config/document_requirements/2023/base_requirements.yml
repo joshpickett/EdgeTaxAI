@@ -1,0 +1,96 @@
+FORM_1040:
+  categories:
+    primary_tax_documents:
+      - type: W2
+        priority: high
+        metadata:
+          retention_years: 7
+          irs_form_association: "Form W-2"
+      - type: SSN_CARD
+        priority: high
+        metadata:
+          retention_years: permanent
+    supporting_documents:
+      - type: BANK_STATEMENTS
+        priority: medium
+        metadata:
+          retention_years: 3
+      - type: EXPENSE_RECEIPTS
+        priority: medium
+        metadata:
+          retention_years: 3
+
+  required:
+    - type: CONDITIONAL_INCOME
+      description: Additional Income Documentation
+      priority: high
+      conditions:
+        foreign_income:
+          trigger: "has_foreign_income == true"
+          category: "international_documents"
+          required_docs:
+            - type: FOREIGN_BANK_STATEMENTS
+              metadata:
+                retention_years: 6
+                fbar_required: true
+            - type: FOREIGN_TAX_RETURNS
+              metadata:
+                retention_years: 7
+                treaty_benefits: check_required
+
+    - type: W2
+      description: W-2 Wage and Tax Statement
+      priority: high
+      metadata:
+        expiration: "tax_year_end"
+        retention_period: "7_years"
+        formats: ["pdf", "jpg", "png"]
+        max_size: 10485760  # 10MB
+        retention_years: 7
+        irs_form_association: "Form W-2"
+        purpose: "income_verification"
+        special_handling: "sensitive_personal_information"
+      validation:
+        required_fields: ["employer_id", "wages", "federal_tax_withheld"]
+        format: "standard_w2"
+        field_patterns:
+          employer_id: "^\d{2}-\d{7}$"
+          wages: "^\d+(\.\d{2})?$"
+        date_ranges:
+          tax_year: "current_year"
+        cross_validation:
+          total_withholding: ["federal_tax_withheld", "state_tax_withheld"]
+
+    - type: IDENTIFICATION
+      description: Valid government-issued ID
+      priority: high
+      metadata:
+        expiration: "id_expiration_date"
+        formats: ["pdf", "jpg", "png"]
+        max_size: 5242880  # 5MB
+        retention_years: 7
+        purpose: "identity_verification"
+        special_handling: "sensitive_personal_information"
+      validation:
+        required_fields: ["id_number", "expiration_date"]
+        format: "government_id"
+        field_patterns:
+          id_number: "^[A-Z0-9-]+$"
+          expiration_date: "^20\d{2}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])$"
+        date_ranges:
+          expiration: "future_date"
+
+    - type: SSN_CARD
+      description: Social Security Card or ITIN documentation
+      priority: high
+      validation:
+        required_fields: ["ssn_number"]
+        format: "ssn"
+
+  optional:
+    - type: DEPENDENT_SSN
+      description: Dependent Social Security Cards
+      priority: medium
+      validation:
+        required_fields: ["dependent_ssn"]
+        format: "ssn"

@@ -1,0 +1,42 @@
+FORM_8938:
+  categories:
+    foreign_accounts:
+      - type: FOREIGN_BANK_STATEMENTS
+        priority: high
+        metadata:
+          retention_years: 6
+          fbar_required: true
+      - type: FBAR_DOCUMENTATION
+        priority: high
+        metadata:
+          retention_years: 6
+    foreign_income:
+      - type: FOREIGN_TAX_RETURNS
+        priority: high
+        metadata:
+          retention_years: 7
+          treaty_verification: required
+
+  required:
+    - type: FOREIGN_ACCOUNTS
+      description: Foreign account statements
+      priority: high
+      conditions:
+        account_value:
+          trigger: "foreign_account_value > 10000"
+          category: "foreign_accounts"
+          required_docs:
+            - type: FOREIGN_BANK_STATEMENTS
+              metadata:
+                retention_years: 6
+                fbar_required: true
+            - type: FBAR_DOCUMENTATION
+              metadata:
+                retention_years: 6
+
+  optional:
+    - type: CURRENCY_CONVERSION
+      description: Currency conversion documentation
+      priority: medium
+      validation:
+        required_fields: ["exchange_rate", "date"]

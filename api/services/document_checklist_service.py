@@ -3,6 +3,7 @@ import logging
 from datetime import datetime
 from api.models.tax_forms import TaxForms, FormType
 from api.services.mef.validation_rules import ValidationRules
+from api.services.document_requirements_mapper import DocumentRequirementsMapper
 
 class DocumentChecklistService:
     """Service for managing tax document requirements and checklists"""
@@ -10,6 +11,7 @@ class DocumentChecklistService:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.validator = ValidationRules()
+        self.requirements_mapper = DocumentRequirementsMapper()
         
         self.document_requirements = {
             'SCHEDULE_C': {
@@ -56,12 +58,19 @@ class DocumentChecklistService:
     async def generate_checklist(self, user_id: int, tax_year: int) -> Dict[str, Any]:
         """Generate document checklist based on user's tax situation"""
         try:
-            tax_forms = await self._get_user_tax_forms(user_id, tax_year)
+            # Get user's answers and form types
+            answers = await self._get_user_answers(user_id, tax_year)
+            form_types = await self._get_user_form_types(user_id, tax_year)
+             
+            # Get required documents for each form type
+            all_requirements = []
+            for form_type in form_types:
+                requirements = self.requirements_mapper.get_required_documents(form_type, answers)
+                all_requirements.append(requirements)
+            
             required_documents = []
             optional_documents = []
-            
-            for form in tax_forms:
-                requirements = self.document_requirements.get(form.form_type, {})
+            for requirements in all_requirements:
                 required_documents.extend(requirements.get('required', []))
                 optional_documents.extend(requirements.get('optional', []))
             

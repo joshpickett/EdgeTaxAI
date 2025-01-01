@@ -1,0 +1,154 @@
+SCHEDULE_C:
+  categories:
+    business_documents:
+      - type: BUSINESS_LICENSE
+        priority: high
+        metadata:
+          retention_years: permanent
+      - type: EIN_DOCUMENTATION
+        priority: high
+        metadata:
+          retention_years: permanent
+    expense_documents:
+      - type: EXPENSE_RECEIPTS
+        priority: medium
+        metadata:
+          retention_years: 3
+          categorization_required: true
+
+  required:
+    - type: BUSINESS_DOCUMENTATION
+      description: Business Documentation
+      priority: high
+      conditions:
+        rental_property:
+          trigger: "has_rental_property == true"
+          category: "property_documents"
+          required_docs:
+            - type: LEASE_AGREEMENTS
+              metadata:
+                retention_years: 5
+            - type: PROPERTY_EXPENSES
+              metadata:
+                retention_years: 3
+
+    - type: INCOME_STATEMENTS
+      description: Business income statements
+      priority: high
+      metadata:
+        expiration: "tax_year_end"
+        retention_period: "7_years"
+        formats: ["pdf", "xlsx", "csv"]
+        max_size: 15728640  # 15MB
+        retention_years: 7
+        irs_form_association: "Schedule C"
+        purpose: "business_income_verification"
+        special_handling: "financial_records"
+      validation:
+        required_fields: ["gross_income", "period"]
+        field_patterns:
+          gross_income: "^\d+(\.\d{2})?$"
+          period: "^(Q[1-4]|Annual)_\d{4}$"
+        date_ranges:
+          period: "tax_year"
+        cross_validation:
+          income_total: ["gross_income", "returns_allowances"]
+          expense_categories: ["advertising", "utilities", "supplies"]
+
+    - type: EXPENSE_RECEIPTS
+      description: Business expense receipts
+      priority: high
+      metadata:
+        expiration: "receipt_date"
+        formats: ["pdf", "jpg", "png"]
+        max_size: 10485760  # 10MB
+        retention_years: 7
+        irs_form_association: "N/A"
+        purpose: "business_expense_verification"
+        special_handling: "financial_records"
+      validation:
+        required_fields: ["amount", "date", "category"]
+        field_patterns:
+          amount: "^\d+(\.\d{2})?$"
+          date: "^\d{4}-\d{2}-\d{2}$"
+        date_ranges:
+          date: "transaction_year"
+        cross_validation:
+          total_expenses: ["amount", "other_expenses"]
+
+  optional:
+    - type: ASSET_RECORDS
+      description: Business asset records
+      priority: medium
+      metadata:
+        expiration: "asset_lifespan"
+        formats: ["pdf", "xlsx"]
+        max_size: 20971520  # 20MB
+        retention_years: 7
+        irs_form_association: "N/A"
+        purpose: "asset_management"
+        special_handling: "financial_records"
+      validation:
+        required_fields: ["asset_description", "purchase_date", "cost"]
+        field_patterns:
+          cost: "^\d+(\.\d{2})?$"
+          purchase_date: "^\d{4}-\d{2}-\d{2}$"
+
+SCHEDULE_E:
+  required:
+    - type: RENTAL_INCOME
+      description: Rental income records
+      priority: high
+      metadata:
+        expiration: "tax_year_end"
+        formats: ["pdf", "xlsx", "csv"]
+        max_size: 15728640  # 15MB
+        retention_years: 7
+        irs_form_association: "Schedule E"
+        purpose: "rental_income_verification"
+        special_handling: "financial_records"
+      validation:
+        required_fields: ["property_address", "rental_amount", "period"]
+        field_patterns:
+          rental_amount: "^\d+(\.\d{2})?$"
+          period: "^(Q[1-4]|Annual)_\d{4}$"
+        date_ranges:
+          period: "tax_year"
+        cross_validation:
+          total_rental_income: ["rental_amount", "other_income"]
+
+    - type: PROPERTY_EXPENSES
+      description: Property expense records
+      priority: high
+      metadata:
+        expiration: "expense_date"
+        formats: ["pdf", "jpg", "png"]
+        max_size: 10485760  # 10MB
+        retention_years: 7
+        irs_form_association: "N/A"
+        purpose: "property_expense_verification"
+        special_handling: "financial_records"
+      validation:
+        required_fields: ["expense_type", "amount", "date"]
+        field_patterns:
+          amount: "^\d+(\.\d{2})?$"
+          date: "^\d{4}-\d{2}-\d{2}$"
+        date_ranges:
+          date: "transaction_year"
+
+  optional:
+    - type: DEPRECIATION_RECORDS
+      description: Property depreciation records
+      priority: medium
+      metadata:
+        expiration: "depreciation_period"
+        formats: ["pdf", "xlsx"]
+        max_size: 20971520  # 20MB
+        retention_years: 7
+        irs_form_association: "N/A"
+        purpose: "depreciation_management"
+        special_handling: "financial_records"
+      validation:
+        required_fields: ["asset_description", "basis", "method"]
+        field_patterns:
+          basis: "^\d+(\.\d{2})?$"
