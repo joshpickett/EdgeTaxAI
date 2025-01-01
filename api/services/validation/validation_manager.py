@@ -9,6 +9,7 @@ class ValidationManager:
     
     def __init__(self):
         self.logger = logging.getLogger(__name__)
+        self.performance_logger = PerformanceLogger()
         self.category_manager = CategoryManager()
         self.error_service = ErrorHandlingService()
         
@@ -26,6 +27,7 @@ class ValidationManager:
     ) -> Dict[str, Any]:
         """Validate document and calculate quality score"""
         try:
+            start_time = datetime.utcnow()
             # Validate against category rules
             category_validation = self.category_manager.validate_category(
                 category, document
@@ -39,8 +41,12 @@ class ValidationManager:
                 document, category
             )
             
-            # Check deadlines
-            deadline_check = self._check_deadlines(document, category)
+            # Log performance metrics
+            await self.performance_logger.log_metrics({
+                'operation': 'validate_document',
+                'duration': (datetime.utcnow() - start_time).total_seconds(),
+                'category': category
+            })
             
             validation_result = {
                 'is_valid': category_validation['is_valid'] and cross_validation['is_valid'],
@@ -53,7 +59,7 @@ class ValidationManager:
                     *category_validation.get('warnings', []),
                     *cross_validation.get('warnings', [])
                 ],
-                'deadline_status': deadline_check
+                'deadline_status': await self._check_deadlines(document, category)
             }
             
             # Handle validation errors if any

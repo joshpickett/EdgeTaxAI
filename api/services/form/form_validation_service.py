@@ -2,6 +2,7 @@ from typing import Dict, Any, List
 import logging
 from api.services.validation.validation_rules import ValidationRules
 from api.services.validation.validation_manager import ValidationManager
+from api.services.validation.category_manager import CategoryManager
 from api.utils.cache_utils import CacheManager
 
 class FormValidationService:
@@ -10,6 +11,7 @@ class FormValidationService:
     def __init__(self):
         self.validator = ValidationRules()
         self.validation_manager = ValidationManager()
+        self.category_manager = CategoryManager()
         self.logger = logging.getLogger(__name__)
         self.cache = CacheManager()
 
@@ -24,12 +26,20 @@ class FormValidationService:
             validation_result = await self.validator.validate_section(form_type, section, data)
             
             # Add enhanced validation using ValidationManager
-            category = self._get_section_category(form_type, section)
-            if category:
-                category_validation = await self.validation_manager.validate_document(data, category)
-                validation_result = self._merge_validation_results(validation_result, category_validation)
+            categories = self._get_section_categories(form_type, section)
+            for category in categories:
+                category_validation = await self.validation_manager.validate_document(
+                    data, category
+                )
+                validation_result = self._merge_validation_results(
+                    validation_result, 
+                    category_validation
+                )
             
-            return validation_result
+            # Add cross-category validation
+            cross_validation = await self._validate_cross_categories(data, categories)
+            return self._merge_validation_results(validation_result, cross_validation)
+             
         except Exception as e:
             self.logger.error(f"Error validating section: {str(e)}")
             raise
@@ -157,24 +167,85 @@ class FormValidationService:
         }
         return suggestion_map.get(error_type, 'Please verify this field')
 
-    async def _validate_cross_fields(
+    async def _validate_cross_categories(
         self,
-        form_type: str,
-        section: str,
-        data: Dict[str, Any]
+        data: Dict[str, Any],
+        categories: List[str]
     ) -> Dict[str, Any]:
-        """Validate relationships between fields"""
-        # Enhanced cross-field validation
-        validators = self.cross_field_validators.get(form_type, {})
-        section_validators = validators.get(section, [])
-        
-        results = {
-            'is_valid': True,
-            'errors': [],
-            'warnings': [],
-            'field_relationships': {}
-        }
+        """Validate relationships between categories"""
+        try:
+            validation_result = {
+                'is_valid': True,
+                'errors': [],
+                'warnings': []
+            }
 
-        return await self._apply_cross_field_validators(
-            section_validators, data
-        )
+            # Get cross-category rules
+            rules = self.category_manager.get_cross_category_rules(categories)
+            
+            # Apply each rule
+            for rule in rules:
+                rule_result = await self._apply_cross_category_rule(data, rule)
+                if not rule_result['is_valid']:
+                    validation_result['is_valid'] = False
+                    validation_result['errors'].extend(rule_result['errors'])
+                validation_result['warnings'].extend(rule_result['warnings'])
+
+            return validation_result
+
+        except Exception as e:
+            self.logger.error(f"Error in cross-category validation: {str(e)}")
+            raise
+
+    async def _apply_cross_category_rule(
+        self,
+        data: Dict[str, Any],
+        rule: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Apply individual cross-category validation rule"""
+        try:
+            rule_type = rule.get('type')
+            if rule_type == 'dependency':
+                return self._validate_category_dependency(data, rule)
+            elif rule_type == 'exclusion':
+                return self._validate_category_exclusion(data, rule)
+            elif rule_type == 'requirement':
+                return self._validate_category_requirement(data, rule)
+            
+            return {'is_valid': True, 'errors': [], 'warnings': []}
+            
+        except Exception as e:
+            self.logger.error(f"Error applying cross-category rule: {str(e)}")
+            raise
+
+    def _validate_category_dependency(
+        self,
+        data: Dict[str, Any],
+        rule: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Validate category dependency rule"""
+        try:
+            dependent_category = rule.get('dependent_category')
+            required_category = rule.get('required_category')
+            
+            if self._has_category_data(data, dependent_category) and \
+               not self._has_category_data(data, required_category):
+                return {
+                    'is_valid': False,
+                    'errors': [{
+                        'type': 'category_dependency',
+                        'message': f'{required_category} is required when {dependent_category} is present'
+                    }],
+                    'warnings': []
+                }
+            
+            return {'is_valid': True, 'errors': [], 'warnings': []}
+            
+        except Exception as e:
+            self.logger.error(f"Error validating category dependency: {str(e)}")
+            raise
+
+    def _has_category_data(self, data: Dict[str, Any], category: str) -> bool:
+        """Check if data contains information for a category"""
+        category_fields = self.category_manager.get_category_fields(category)
+        return any(field in data for field in category_fields)

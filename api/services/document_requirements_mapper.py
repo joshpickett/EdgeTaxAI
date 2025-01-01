@@ -18,6 +18,7 @@ class DocumentRequirementsMapper:
         self.condition_service = DocumentRequirementConditions()
         self.category_manager = CategoryManager()
         self.validation_manager = ValidationManager()
+        self.metadata_config = self._load_config('metadata.yml')
         
         # Load configurations
         self.base_requirements = self._load_config('base_requirements.yml')
@@ -38,25 +39,31 @@ class DocumentRequirementsMapper:
             # Get category-specific requirements
             category_requirements = self.category_manager.get_category_rules(form_type)
             if category_requirements:
+                # Enhanced category validation
+                for document in category_requirements.get('required', []):
+                    metadata = self.metadata_config.get(document.get('type', {}))
+                    if metadata:
+                        document['metadata'] = {**document.get('metadata', {}), **metadata}
+                
                 required_documents.extend(category_requirements.get('required', []))
                 optional_documents.extend(category_requirements.get('optional', []))
             
             # Process base requirements
             if form_type in self.base_requirements:
                 base = self.base_requirements[form_type]
-                for doc in base.get('required', []):
-                    if 'conditions' in doc:
-                        category = doc.get('category', 'uncategorized')
+                for document in base.get('required', []):
+                    if 'conditions' in document:
+                        category = document.get('category', 'uncategorized')
                         # Validate against category rules
-                        await self.validation_manager.validate_document(doc, category)
+                        await self.validation_manager.validate_document(document, category)
                         
                         conditional_documents = self.condition_service.evaluate_conditions(
-                            doc['conditions'],
+                            document['conditions'],
                             answers
                         )
                         required_documents.extend(conditional_documents)
                     else:
-                        required_documents.append(doc)
+                        required_documents.append(document)
             
             # Add schedule requirements based on answers
             schedule_documents = self._get_schedule_requirements(answers)
@@ -90,19 +97,50 @@ class DocumentRequirementsMapper:
             self.logger.error(f"Error getting required documents: {str(exception)}")
             raise
 
+    async def validate_category_requirements(
+        self,
+        documents: List[Dict[str, Any]],
+        category: str
+    ) -> Dict[str, Any]:
+        """Validate documents against category requirements"""
+        try:
+            validation_result = {
+                'is_valid': True,
+                'errors': [],
+                'warnings': []
+            }
+
+            category_rules = self.category_manager.get_category_rules(category)
+            for document in documents:
+                document_validation = await self.validation_manager.validate_document(
+                    document,
+                    category
+                )
+                
+                if not document_validation['is_valid']:
+                    validation_result['is_valid'] = False
+                    validation_result['errors'].extend(document_validation['errors'])
+                validation_result['warnings'].extend(document_validation['warnings'])
+            
+            return validation_result
+
+        except Exception as exception:
+            self.logger.error(f"Error validating category requirements: {str(exception)}")
+            raise
+
     def _load_config(self, filename: str) -> Dict[str, Any]:
         """Load configuration from YAML file"""
         try:
             config_file = os.path.join(self.config_path, self.tax_year, filename)
-            with open(config_file, 'r') as f:
-                return yaml.safe_load(f)
-        except Exception as e:
-            self.logger.error(f"Error loading config {filename}: {str(e)}")
+            with open(config_file, 'r') as file:
+                return yaml.safe_load(file)
+        except Exception as exception:
+            self.logger.error(f"Error loading config {filename}: {str(exception)}")
             # Fall back to previous year if current year config doesn't exist
-            prev_year = str(int(self.tax_year) - 1)
-            config_file = os.path.join(self.config_path, prev_year, filename)
-            with open(config_file, 'r') as f:
-                return yaml.safe_load(f)
+            previous_year = str(int(self.tax_year) - 1)
+            config_file = os.path.join(self.config_path, previous_year, filename)
+            with open(config_file, 'r') as file:
+                return yaml.safe_load(file)
 
     def _get_schedule_requirements(
         self,
@@ -131,12 +169,27 @@ class DocumentRequirementsMapper:
 
     def _needs_international_documents(self, answers: Dict[str, Any]) -> bool:
         """Determine if international documents are needed"""
-        return any([
-            answers.get('has_foreign_accounts'),
-            answers.get('has_foreign_income'),
-            answers.get('has_foreign_assets'),
-            Decimal(str(answers.get('foreign_account_value', 0))) > 10000
-        ])
+        try:
+            # Enhanced international document detection
+            triggers = {
+                'has_foreign_accounts': False,
+                'has_foreign_income': False,
+                'has_foreign_assets': False,
+                'foreign_account_value': Decimal('0')
+            }
+
+            for key in triggers:
+                if key == 'foreign_account_value':
+                    value = Decimal(str(answers.get(key, 0)))
+                    if value > 10000:
+                        return True
+                elif answers.get(key):
+                    return True
+
+            return False
+        except Exception as exception:
+            self.logger.error(f"Error checking international documents: {str(exception)}")
+            return False
 
     def _get_international_requirements(
         self,

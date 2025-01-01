@@ -7,10 +7,13 @@ interface DocumentListProps {
     type: DocumentType;
     status: DocumentStatus;
     fileName: string;
+    version: number;
+    metadata?: Record<string, any>;
   }>;
+  onVersionSelect?: (documentId: string, version: number) => void;
 }
 
-export const DocumentList: React.FC<DocumentListProps> = ({ documents }) => {
+export const DocumentList: React.FC<DocumentListProps> = ({ documents, onVersionSelect }) => {
   const getStatusColor = (status: DocumentStatus): string => {
     switch (status) {
       case DocumentStatus.PROCESSED:
@@ -34,7 +37,13 @@ export const DocumentList: React.FC<DocumentListProps> = ({ documents }) => {
             style={{ color: getStatusColor(doc.status) }}
           >
             {doc.status}
+            {doc.version > 1 && (
+              <span className="version-badge">
+                v{doc.version}
+              </span>
+            )}
           </span>
+          {doc.metadata && <div className="document-metadata">...</div>}
         </div>
       ))}
     </div>

@@ -1,245 +1,108 @@
-import sys
-from api.setup_path import setup_python_path
-
-# Set up path for both package and direct execution
-if __name__ == "__main__":
-    setup_python_path(__file__)
-else:
-    setup_python_path()
-
+from typing import Dict, Any, List
 import logging
-from typing import Dict, Any, Optional, List, Tuple
-from datetime import datetime
-from api.utils.db_utils import get_db_connection
-import json
 import os
 import uuid
-from sqlalchemy.orm import Session
-from sqlalchemy.orm import joinedload
-from api.models.documents import Document, DocumentType, DocumentStatus
-from api.config.database import get_db, engine
-
-class DocumentError(Exception):
-    """Base class for document-related errors"""
-    pass
-
-class DocumentValidationError(DocumentError):
-    """Raised when document validation fails"""
-    pass
-
-class DocumentStorageError(DocumentError):
-    """Raised when document storage fails"""
-    pass
+from datetime import datetime
+from api.services.category.category_manager import CategoryManager
+from api.services.validation.validation_manager import ValidationManager
+from api.services.error_handling_service import ErrorHandlingService
+from api.services.performance_logger import PerformanceLogger
+from api.services.error_metrics_collector import ErrorMetricsCollector
+from api.services.document.document_optimization_service import DocumentOptimizationService
 
 class DocumentManager:
     def __init__(self):
-        self.supported_formats = ['.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx']
-        self.max_file_size = 10 * 1024 * 1024  # 10MB
-        self.document_store = "documents"
         self.logger = logging.getLogger(__name__)
-        self._init_storage()
-        
-    def _init_storage(self):
-        """Initialize document storage"""
-        if not os.path.exists(self.document_store):
-            os.makedirs(self.document_store)
+        self.performance_logger = PerformanceLogger()
+        self.error_metrics = ErrorMetricsCollector()
+        self.category_manager = CategoryManager()
+        self.validation_manager = ValidationManager()
+        self.optimization_service = DocumentOptimizationService()
+        self.storage_path = os.getenv('DOCUMENT_STORAGE_PATH', 'storage/documents')
 
-    def validate_document(self, file_data: Dict[str, Any]) -> Tuple[bool, str]:
-        """Validate document before storage"""
+    async def store_document(
+        self, 
+        content: bytes, 
+        filename: str, 
+        mime_type: str
+    ) -> str:
+        """Store document with enhanced metadata"""
         try:
-            # Check file format
-            file_ext = os.path.splitext(file_data['filename'])[1].lower()
-            if file_ext not in self.supported_formats:
-                return False, f"Unsupported file format. Allowed formats: {', '.join(self.supported_formats)}"
-
-            # Check file size
-            if file_data.get('size', 0) > self.max_file_size:
-                return False, "File size exceeds maximum limit of 10MB"
-
-            return True, "Valid document"
-        except Exception as e:
-            return False, f"Validation error: {str(e)}"
-
-    def store_document(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Store document and metadata"""
-        try:
-            self._validate_user_permissions(data['user_id'])
-            db = next(get_db())
+            start_time = datetime.utcnow()
+            document_id = self._generate_document_id()
             
-            # Validate document
-            is_valid, message = self.validate_document(data)
-            if not is_valid:
-                raise ValueError(message)
-
-            user_id = data['user_id']
-            document_type = data['type']
-            content = data.get('content')
-            metadata = data.get('metadata', {})
-            tracking_id = str(uuid.uuid4())
-            
-            # Generate filename and store file
-            file_path = self._store_file(content, data['filename'])
-            
-            document = Document(
-                user_id=user_id,
-                type=DocumentType(document_type),
-                filename=data['filename'],
-                file_path=file_path,
-                metadata=json.dumps(metadata),
-                status=DocumentStatus.PENDING
+            # Optimize document before storage
+            optimized_content = await self.optimization_service.optimize_document(
+                content,
+                mime_type
             )
             
-            db.add(document)
-            db.commit()
-            db.refresh(document)
+            # Store optimized document
+            await self._store_optimized_document(optimized_content, document_id)
             
-            return {
-                'document_id': document.id,
-                'filename': document.filename
-            }
+            await self.performance_logger.log_metrics({
+                'operation': 'store_document',
+                'duration': (datetime.utcnow() - start_time).total_seconds()
+            })
+            return document_id
             
-        except Exception as exception:
-            self.logger.error(f"Error storing document: {exception}")
-            raise DocumentStorageError(f"Error storing document: {str(exception)}")
-            
-    def get_document(self, document_id: int) -> Optional[Dict[str, Any]]:
-        """Retrieve document by ID"""
-        try:
-            with Session(engine) as session:
-                document = session.query(Document).filter(
-                    Document.id == document_id
-                ).options(
-                    joinedload(Document.user)
-                ).first()
-                
-            if not document:
-                return None
-                
-            return {
-                'id': document.id,
-                'user_id': document.user_id,
-                'type': document.type.value,
-                'filename': document.filename,
-                'status': document.status.value,
-                'metadata': json.loads(document.metadata) if document.metadata else {},
-                'content': self._read_file(document.file_path),
-                'created_at': document.created_at,
-                'updated_at': document.updated_at
-            }
-            
-        except Exception as exception:
-            self.logger.error(f"Error retrieving document: {exception}")
-            return None
-            
-    def get_user_documents(self, user_id: int, document_type: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Get all documents for a user"""
-        try:
-            with Session(engine) as session:
-                query = session.query(Document).filter(
-                    Document.user_id == user_id
-                ).options(
-                    joinedload(Document.user)
-                )
-            
-            if document_type:
-                query = query.filter(Document.type == DocumentType(document_type))
-                
-            documents = query.all()
-            
-            return [{
-                'id': document.id,
-                'type': document.type.value,
-                'filename': document.filename,
-                'status': document.status.value,
-                'metadata': json.loads(document.metadata) if document.metadata else {},
-                'created_at': document.created_at
-            } for document in documents]
-            
-        except Exception as exception:
-            self.logger.error(f"Error retrieving user documents: {exception}")
-            return []
-            
-    def delete_document(self, document_id: int) -> bool:
-        """Delete document and its metadata"""
-        try:
-            db = next(get_db())
-            document = db.query(Document).filter(Document.id == document_id).first()
-            if not document:
-                return False
-                
-            # Delete from database
-            db.delete(document)
-            db.commit()
-            
-            # Delete file
-            if os.path.exists(document.file_path):
-                os.remove(document.file_path)
-                
-            return True
-            
-        except Exception as exception:
-            self.logger.error(f"Error deleting document: {exception}")
-            return False
-
-    def verify_document(self, document_id: int) -> Dict[str, Any]:
-        """Verify document integrity and metadata"""
-        try:
-            document = self.get_document(document_id)
-            if not document:
-                raise DocumentError("Document not found")
-
-            # Verify file exists
-            if not os.path.exists(document['filename']):
-                raise DocumentError("Document file missing")
-
-            # Verify metadata integrity
-            metadata = document.get('metadata', {})
-            if not metadata.get('tracking_id'):
-                raise DocumentError("Document tracking ID missing")
-
-            # Update verification status
-            self._update_document_status(document_id, 'verified')
-
-            return {"status": "verified", "document": document}
-
         except Exception as e:
-            self.logger.error(f"Document verification failed: {e}")
-            raise DocumentError(f"Verification failed: {str(e)}")
+            await self.error_metrics.collect_error(e, 'STORAGE')
+            self.logger.error(f"Error storing document: {str(e)}")
+            raise
 
-    def _update_document_status(self, document_id: int, status: str) -> None:
-        """Update the status of a document"""
+    async def validate_document(
+        self, 
+        document_id: str
+    ) -> Dict[str, Any]:
+        """Validate document with enhanced category support"""
         try:
-            db = next(get_db())
-            document = db.query(Document).filter(Document.id == document_id).first()
-            document.status = DocumentStatus(status)
-            db.commit()
+            start_time = datetime.utcnow()
+            validation_result = await self._perform_validation(document_id)
+            
+            # Log performance metrics
+            await self.performance_logger.log_metrics({
+                'operation': 'validate_document',
+                'duration': (datetime.utcnow() - start_time).total_seconds(),
+                'document_id': document_id
+            })
+            
+            return validation_result
+            
         except Exception as e:
-            self.logger.error(f"Error updating document status: {e}")
-            raise DocumentError(f"Error updating document status: {str(e)}")
+            await self.error_metrics.collect_error(e, 'VALIDATION')
+            raise
 
-    def _store_file(self, content: Any, filename: str) -> str:
-        file_path = os.path.join(self.document_store, filename)
-        with open(file_path, 'w') as file:
-            json.dump(content, file)
-        return file_path
+    def _generate_storage_path(self, document_id: str, category: str = None) -> str:
+        """Generate storage path based on category"""
+        base_path = self.storage_path
+        if category:
+            return os.path.join(base_path, category, document_id)
+        return os.path.join(base_path, document_id)
 
-    def _read_file(self, file_path: str) -> Any:
-        with open(file_path, 'r') as file:
-            return json.load(file)
+    def _generate_document_id(self, category: str = None) -> str:
+        """Generate document ID with category prefix"""
+        unique_id = str(uuid.uuid4())
+        if category:
+            return f"{category.lower()}_{unique_id}"
+        return unique_id
 
-    def _validate_user_permissions(self, user_id: int) -> None:
-        """Validate user permissions for document operations"""
+    async def get_category_documents(self, category: str) -> List[Dict[str, Any]]:
+        """Get all documents in a category"""
         try:
-            with Session(engine) as session:
-                user = session.query(Users).filter(Users.id == user_id).first()
-                if not user:
-                    raise DocumentError("User not found")
-                if not user.is_active:
-                    raise DocumentError("User account is inactive")
+            category_path = os.path.join(self.storage_path, category)
+            if not os.path.exists(category_path):
+                return []
+                
+            documents = []
+            for filename in os.listdir(category_path):
+                document_id = filename.split('.')[0]
+                document = await self._get_document(document_id)
+                if document:
+                    documents.append(document)
+                    
+            return documents
+            
         except Exception as e:
-            raise DocumentError(f"Permission validation failed: {str(e)}")
-
-    def _handle_db_error(self, operation: str, error: Exception) -> None:
-        """Handle database operation errors"""
-        self.logger.error(f"Database error during {operation}: {str(error)}")
-        raise DocumentStorageError(f"Database operation failed: {str(error)}")
+            self.logger.error(f"Error getting category documents: {str(e)}")
+            raise

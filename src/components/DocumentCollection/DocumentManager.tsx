@@ -10,6 +10,8 @@ interface DocumentManagerProps {
     description: string;
     required: boolean;
     status: DocumentStatus;
+    category: string;
+    priority: 'high' | 'medium' | 'low';
   }>;
   onDocumentProcessed?: (result: any) => void;
   onComplete: () => void;
@@ -29,7 +31,8 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
     try {
       setIsProcessing(true);
       setProcessingStatus('Uploading document...');
-
+      
+      // Enhanced document processing
       const formData = new FormData();
       formData.append('receipt', file);
       formData.append('userId', userId);
@@ -50,6 +53,19 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
 
       const ocrResult = await ocrResponse.json();
       
+      // Validate document against requirements
+      const validationResult = await fetch('/api/documents/validate', {
+        method: 'POST',
+        body: JSON.stringify({
+          documentId: ocrResult.document_id,
+          requirements: requiredDocuments
+        }),
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-ID': userId
+        }
+      });
+
       // Update document status based on Optical Character Recognition results
       setProcessingStatus('Updating document status...');
       const updatedDocs = uploadedDocs.map(doc => {

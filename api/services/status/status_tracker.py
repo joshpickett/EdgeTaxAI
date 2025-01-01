@@ -3,6 +3,7 @@ import logging
 from datetime import datetime
 from api.models.documents import Document, DocumentStatus
 from api.services.audit.tax_audit_logger import TaxAuditLogger
+from api.services.notification.notification_manager import NotificationManager
 
 class StatusTracker:
     """Service for tracking document status and verification workflow"""
@@ -10,6 +11,7 @@ class StatusTracker:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.audit_logger = TaxAuditLogger()
+        self.notification_manager = NotificationManager()
         
         self.workflow_states = {
             'UPLOADED': {
@@ -83,6 +85,11 @@ class StatusTracker:
                 new_status,
                 metadata
             )
+            
+            # Check expiration status and send notifications if needed
+            expiration_info = await self._check_expiration_status(document)
+            if expiration_info['is_expired'] or expiration_info['days_until_expiration'] < 30:
+                await self._send_expiration_notification(document, expiration_info)
             
             return {
                 'success': True,
@@ -160,26 +167,12 @@ class StatusTracker:
             }
             
             # Check document metadata for expiration
-            metadata = document.metadata
-            if 'expiration_date' in metadata:
-                expiration_date = datetime.fromisoformat(metadata['expiration_date'])
-                current_date = datetime.utcnow()
-                
-                days_until_expiration = (expiration_date - current_date).days
-                
-                expiration_info.update({
-                    'has_expiration': True,
-                    'expiration_date': metadata['expiration_date'],
-                    'days_until_expiration': days_until_expiration,
-                    'is_expired': days_until_expiration < 0
-                })
-                
-                # Add warnings based on expiration
-                if days_until_expiration < 0:
-                    expiration_info['warnings'].append('Document has expired')
-                elif days_until_expiration < 30:
-                    expiration_info['warnings'].append('Document expires soon')
+            expiration_info.update(await self._check_expiration_status(document))
             
+            # Send notifications if needed
+            if expiration_info['is_expired'] or expiration_info['days_until_expiration'] < 30:
+                await self._send_expiration_notification(document, expiration_info)
+         
             return expiration_info
             
         except Exception as e:
@@ -284,3 +277,36 @@ class StatusTracker:
         """Get document check history"""
         # Implementation would fetch check history from database
         return {}
+
+    async def _check_expiration_status(self, document: Document) -> Dict[str, Any]:
+        """Check document expiration status"""
+        metadata = document.metadata
+        if 'expiration_date' in metadata:
+            expiration_date = datetime.fromisoformat(metadata['expiration_date'])
+            current_date = datetime.utcnow()
+            days_until_expiration = (expiration_date - current_date).days
+            
+            return {
+                'has_expiration': True,
+                'expiration_date': metadata['expiration_date'],
+                'days_until_expiration': days_until_expiration,
+                'is_expired': days_until_expiration < 0
+            }
+        return {'has_expiration': False}
+
+    async def _send_expiration_notification(self, document: Document, expiration_info: Dict[str, Any]) -> None:
+        """Send notification about document expiration"""
+        try:
+            await self.notification_manager.send_notification(
+                document.user_id,
+                'EXPIRATION',
+                {
+                    'document_id': document.id,
+                    'document_type': document.type,
+                    'expiration_date': expiration_info['expiration_date'],
+                    'days_until_expiration': expiration_info['days_until_expiration']
+                }
+            )
+        except Exception as e:
+            self.logger.error(f"Error sending expiration notification: {str(e)}")
+            # Don't raise - notification failure shouldn't break status tracking

@@ -1,5 +1,6 @@
 import React from 'react';
 import { DocumentStatus } from '../../types/documents';
+import { StatusBadge } from '../StatusBadge';
 
 interface RequiredDocumentsListProps {
   documents: Array<{
@@ -8,11 +9,18 @@ interface RequiredDocumentsListProps {
     description: string;
     required: boolean;
     status: DocumentStatus;
+    category: string;
+    priority: 'high' | 'medium' | 'low';
+    conditions?: Array<string>;
+    rejectionReason?: string;
+    version?: number;
   }>;
+  onResubmit?: (documentId: string) => void;
 }
 
 export const RequiredDocumentsList: React.FC<RequiredDocumentsListProps> = ({
-  documents
+  documents,
+  onResubmit
 }) => {
   return (
     <div className="required-documents-list">
@@ -23,12 +31,41 @@ export const RequiredDocumentsList: React.FC<RequiredDocumentsListProps> = ({
             key={doc.id} 
             className={`document-item ${doc.required ? 'required' : 'optional'}`}
           >
-            <div className="document-status">
-              <span className={`status-indicator ${doc.status.toLowerCase()}`} />
+            <div className="document-header">
+              <StatusBadge status={doc.status} />
+              <span className={`priority-badge ${doc.priority}`}>
+                {doc.priority}
+              </span>
+              <span className="category-badge">
+                {doc.category}
+              </span>
+              {doc.conditions && doc.conditions.length > 0 && (
+                <div className="conditions-list">
+                  {doc.conditions.map(condition => (
+                    <span key={condition} className="condition-tag">{condition}</span>
+                  ))}
+                </div>
+              )}
+              {doc.version > 1 && (
+                <span className="version-badge">
+                  Version {doc.version}
+                </span>
+              )}
+              {doc.required && <span className="required-badge">Required</span>}
             </div>
             <div className="document-info">
               <h4>{doc.name}</h4>
               <p>{doc.description}</p>
+              {doc.status === DocumentStatus.REJECTED && (
+                <div className="rejection-info">
+                  <p className="rejection-reason">{doc.rejectionReason}</p>
+                  <button 
+                    onClick={() => onResubmit?.(doc.id)}
+                    className="resubmit-button"
+                  >
+                    Resubmit Document</button>
+                </div>
+              )}
             </div>
           </div>
         ))}

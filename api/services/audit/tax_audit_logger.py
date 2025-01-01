@@ -65,6 +65,32 @@ class TaxAuditLogger:
             self.logger.error(f"Error logging form submission: {str(e)}")
             raise
 
+    async def log_status_change(self,
+                               document_id: int,
+                               old_status: str,
+                               new_status: str,
+                               metadata: Dict[str, Any] = None) -> None:
+        """Log document status changes"""
+        try:
+            audit_entry = AuditLog(
+                event_type=self.event_types['STATUS_CHANGE'],
+                event_data={
+                    'document_id': document_id,
+                    'old_status': old_status,
+                    'new_status': new_status,
+                    'metadata': metadata,
+                    'timestamp': datetime.utcnow().isoformat()
+                },
+                ip_address=self._get_client_ip(),
+                user_agent=self._get_user_agent()
+            )
+            
+            self.db.add(audit_entry)
+            await self.db.commit()
+        except Exception as e:
+            self.logger.error(f"Error logging status change: {str(e)}")
+            raise
+
     def _sanitize_input(self, input_data: Dict[str, Any]) -> Dict[str, Any]:
         """Remove sensitive information from input data"""
         sanitized = input_data.copy()
