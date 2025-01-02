@@ -1,25 +1,25 @@
 # Category-specific Metadata Configuration
 METADATA_FIELDS:
   COMMON:
+    - field: document_id
+      type: string
+      required: true
+      format: "^DOC-[0-9A-Z]{8}$"
+      
     - field: tax_year
       type: integer
       required: true
       validation: "current_year - 7 <= value <= current_year"
-    
+      
     - field: submission_date
       type: date
       required: true
       validation: "value <= current_date"
     
-    - field: document_id
-      type: string
-      required: true
-      format: "^DOC-[0-9A-Z]{8}$"
-
   INCOME_DOCUMENTS:
     - field: income_type
       type: enum
-      values: ["wages", "self_employment", "rental", "investment"]
+      values: ["wages", "self_employment", "rental", "investment", "farm_income"]
       required: true
     
     - field: amount
@@ -65,16 +65,18 @@ METADATA_FIELDS:
       validation: "value > 0"
 
   INTERNATIONAL_DOCUMENTS:
-    - field: country_code
+    - field: country
       type: string
       required: true
       format: "^[A-Z]{2}$"
+      validation: "valid_country_code"
     
     - field: currency_code
       type: string
       required: true
       format: "^[A-Z]{3}$"
-    
+      validation: "valid_currency_code"
+      
     - field: exchange_rate
       type: decimal
       required: true
@@ -82,9 +84,14 @@ METADATA_FIELDS:
 
 RETENTION_RULES:
   DEFAULT:
-    duration: 7
+    duration: "7"
     unit: years
     start_from: "tax_year_end"
+    exceptions:
+      - document_type: "asset_purchase_records"
+        duration: "permanent"
+      - document_type: "business_formation"
+        duration: "permanent"
 
   PERMANENT:
     - asset_purchase_records
@@ -106,15 +113,26 @@ RETENTION_RULES:
 
 SECURITY_CLASSIFICATION:
   HIGH_SENSITIVITY:
-    - social_security_number_documents
-    - tax_returns
-    - bank_statements
-    
+    - document_types:
+        - social_security_documents
+        - tax_returns
+        - bank_statements
+        - foreign_accounts
+      requirements:
+        encryption: required
+        access_control: strict
+        audit_logging: required
+
   MEDIUM_SENSITIVITY:
-    - expense_receipts
-    - income_statements
-    - asset_records
-    
+    - document_types:
+        - expense_receipts
+        - income_statements
+        - business_records
+      requirements:
+        encryption: required
+        access_control: standard
+        audit_logging: enabled
+
   LOW_SENSITIVITY:
     - public_records
     - marketing_materials

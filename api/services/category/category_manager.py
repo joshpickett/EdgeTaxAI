@@ -11,6 +11,7 @@ class CategoryManager:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.categories = self._load_categories()
+        self.farm_categories = self._initialize_farm_categories()
         self.validation_rules = {}
         self.relationships = {}
 
@@ -37,6 +38,34 @@ class CategoryManager:
             rules = self._merge_rules(parent_rules, rules)
             
         return rules
+
+    def _initialize_farm_categories(self) -> Dict[str, Any]:
+        """Initialize farm-specific categories"""
+        return {
+            "FARM_INCOME": {
+                "required_fields": ["farm_name", "ein", "farm_address"],
+                "validation_rules": ["farm_income_validation"],
+                "metadata": {
+                    "retention_years": 7,
+                    "requires_schedule_f": True
+                }
+            },
+            "FARM_EXPENSES": {
+                "required_fields": ["expense_type", "amount", "date"],
+                "validation_rules": ["farm_expense_validation"],
+                "metadata": {
+                    "retention_years": 7
+                }
+            },
+            "AGRICULTURAL_PAYMENTS": {
+                "required_fields": ["program_name", "payment_amount", "date"],
+                "validation_rules": ["agricultural_payment_validation"],
+                "metadata": {
+                    "retention_years": 7,
+                    "requires_program_details": True
+                }
+            }
+        }
 
     def validate_category(self, category: str, document: Dict[str, Any]) -> Dict[str, Any]:
         """Validate document against category rules"""
@@ -126,3 +155,23 @@ class CategoryManager:
         elif format_check in ['jpg', 'png']:
             return document.get('mime_type', '').startswith('image/')
         return True
+
+    def validate_farm_category(self, category: str, document: Dict[str, Any]) -> Dict[str, Any]:
+        """Validate farm-specific category"""
+        if category not in self.farm_categories:
+            raise ValueError(f"Invalid farm category: {category}")
+
+        validation_result = {
+            "is_valid": True,
+            "errors": [],
+            "warnings": []
+        }
+
+        # Validate required fields
+        required_fields = self.farm_categories[category]["required_fields"]
+        for field in required_fields:
+            if field not in document:
+                validation_result["is_valid"] = False
+                validation_result["errors"].append(f"Missing required field: {field}")
+
+        return validation_result

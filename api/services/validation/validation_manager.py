@@ -1,6 +1,7 @@
 from typing import Dict, Any, List
 import logging
 from datetime import datetime
+from decimal import Decimal
 from api.services.category.category_manager import CategoryManager
 from api.services.error_handling_service import ErrorHandlingService
 
@@ -10,9 +11,9 @@ class ValidationManager:
 
     def __init__(self):
         self.logger = logging.getLogger(__name__)
-        self.performance_logger = PerformanceLogger()
         self.category_manager = CategoryManager()
         self.error_service = ErrorHandlingService()
+        self.farm_validation_rules = self._initialize_farm_rules()
 
         # Define quality scoring weights
         self.quality_weights = {"completeness": 0.4, "clarity": 0.3, "compliance": 0.3}
@@ -75,6 +76,35 @@ class ValidationManager:
         except Exception as e:
             self.logger.error(f"Error validating document: {str(e)}")
             raise
+
+    def _initialize_farm_rules(self) -> Dict[str, Any]:
+        """Initialize farm-specific validation rules"""
+        return {
+            "SCHEDULE_F": {
+                "required_fields": [
+                    "farm_name",
+                    "ein",
+                    "farm_address",
+                    "principal_product"
+                ],
+                "validation_rules": [
+                    "farm_income_validation",
+                    "expense_validation",
+                    "inventory_validation"
+                ],
+                "thresholds": {
+                    "inventory_change": Decimal("500000")
+                }
+            },
+            "AGRICULTURAL_PAYMENTS": {
+                "required_fields": [
+                    "program_name",
+                    "payment_amount",
+                    "payment_date"
+                ],
+                "validation_rules": ["payment_validation"]
+            }
+        }
 
     def _calculate_quality_score(
         self, document: Dict[str, Any], category: str
@@ -210,3 +240,27 @@ class ValidationManager:
         """Check validation rules between related categories"""
         # Implementation would check relationships between categories
         return {"is_valid": True, "errors": [], "warnings": []}
+
+    async def validate_farm_document(
+        self, document: Dict[str, Any], document_type: str
+    ) -> Dict[str, Any]:
+        """Validate farm-specific document"""
+        try:
+            rules = self.farm_validation_rules.get(document_type, {})
+            validation_result = {
+                "is_valid": True,
+                "errors": [],
+                "warnings": []
+            }
+
+            # Validate required fields
+            for field in rules.get("required_fields", []):
+                if field not in document:
+                    validation_result["is_valid"] = False
+                    validation_result["errors"].append(f"Missing required field: {field}")
+
+            return validation_result
+
+        except Exception as e:
+            self.logger.error(f"Error validating farm document: {str(e)}")
+            return {"is_valid": False, "errors": [str(e)], "warnings": []}

@@ -1,24 +1,26 @@
 FORM_1040:
   categories:
     primary_tax_documents:
+      - type: FORM_1040
+        priority: high
+        metadata:
+          retention_years: 7
+          irs_form_association: "Form 1040"
       - type: W2
         priority: high
         metadata:
           retention_years: 7
           irs_form_association: "Form W-2"
-      - type: SSN_CARD
+      - type: FORM_1099NEC
         priority: high
         metadata:
-          retention_years: permanent
-    supporting_documents:
-      - type: BANK_STATEMENTS
-        priority: medium
+          retention_years: 7
+          irs_form_association: "Form 1099-NEC"
+      - type: FORM_1099K
+        priority: high
         metadata:
-          retention_years: 3
-      - type: EXPENSE_RECEIPTS
-        priority: medium
-        metadata:
-          retention_years: 3
+          retention_years: 7
+          irs_form_association: "Form 1099-K"
 
   required:
     - type: CONDITIONAL_INCOME
@@ -117,3 +119,46 @@ CHARITABLE_CONTRIBUTIONS:
         metadata:
           retention_years: 7
           irs_form_association: "Form 8283"
+
+SCHEDULE_REQUIREMENTS:
+  SCHEDULE_A:
+    required:
+      - type: ITEMIZED_DEDUCTIONS
+        priority: high
+        metadata:
+          retention_years: 7
+
+  SCHEDULE_B:
+    required:
+      - type: INTEREST_DIVIDENDS
+        priority: high
+        metadata:
+          retention_years: 7
+
+  SCHEDULE_C:
+    required:
+      - type: BUSINESS_INCOME
+        priority: high
+        metadata:
+          retention_years: 7
+
+  SCHEDULE_D:
+    required:
+      - type: CAPITAL_GAINS
+        priority: high
+        metadata:
+          retention_years: 7
+
+  SCHEDULE_E:
+    required:
+      - type: RENTAL_INCOME
+        priority: high
+        metadata:
+          retention_years: 7
+
+  SCHEDULE_F:
+    required:
+      - type: FARM_INCOME
+        priority: high
+        metadata:
+          retention_years: 7

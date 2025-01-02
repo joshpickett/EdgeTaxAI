@@ -7,6 +7,8 @@ PRIMARY_DOCUMENTS:
     - required_fields: ["document_id", "tax_year", "amount"]
     - format_checks: ["pdf", "jpg", "png"]
     - max_size: 10485760  # 10MB
+    - cross_validation: ["total_income", "tax_withheld"]
+    - document_quality: ["legible", "complete", "unaltered"]
 
 INCOME_DOCUMENTS:
   description: "Income-related documentation"
@@ -31,6 +33,13 @@ INCOME_DOCUMENTS:
         - field_patterns:
             gross_amount: "^\d+(\.\d{2})?$"
             transaction_count: "^\d+$"
+    FARM_INCOME:
+      required_fields: ["farm_name", "ein", "farm_address"]
+      validation_rules:
+        - field_patterns:
+            ein: "^\d{2}-\d{7}$"
+            income: "^\d+(\.\d{2})?$"
+        - cross_validation: ["total_farm_income", "expenses"]
 
 EXPENSE_DOCUMENTS:
   description: "Expense and deduction documentation"
@@ -78,6 +87,16 @@ INTERNATIONAL_DOCUMENTS:
       validation_rules:
         - field_patterns:
             foreign_tax_paid: "^\d+(\.\d{2})?$"
+    FOREIGN_INCOME:
+      required_fields: ["country", "income_amount", "tax_paid"]
+      validation_rules:
+        - currency_validation: true
+        - exchange_rate_required: true
+    FOREIGN_ASSETS:
+      required_fields: ["asset_type", "value", "country"]
+      validation_rules:
+        - threshold_check: "value > 50000"
+        - currency_validation: true
 
 CREDIT_DOCUMENTS:
   description: "Tax credit documentation"
@@ -119,3 +138,12 @@ CREDIT_DOCUMENTS:
       validation_rules:
         - field_patterns:
             cost_basis: "^\d+(\.\d{2})?$"
+    EDUCATION_CREDITS:
+      required_fields: ["institution", "student_name", "amount_paid"]
+      validation_rules:
+        - field_patterns:
+            amount_paid: "^\d+(\.\d{2})?$"
+    ENERGY_CREDITS:
+      required_fields: ["improvement_type", "cost", "date_installed"]
+      validation_rules:
+        - qualified_improvements_check: true

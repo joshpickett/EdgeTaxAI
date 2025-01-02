@@ -1,42 +1,87 @@
+FORM_1116:
+  required:
+    - type: FOREIGN_TAX_DOCUMENTS
+      priority: high
+      metadata:
+        retention_years: 7
+        currency_validation: required
+        exchange_rate_required: true
+    - type: FOREIGN_TAX_RETURNS
+      priority: high
+      metadata:
+        retention_years: 7
+        translation_required: true
+
+FORM_2555:
+  required:
+    - type: FOREIGN_INCOME_DOCUMENTATION
+      priority: high
+      metadata:
+        retention_years: 7
+        requires_foreign_address: true
+        physical_presence_test: required
+        bona_fide_residence_test: required
+    - type: FOREIGN_HOUSING_EXPENSES
+      priority: medium
+      metadata:
+        retention_years: 7
+        currency_conversion: required
+
 FORM_8938:
   categories:
     foreign_accounts:
-      - type: FOREIGN_BANK_STATEMENTS
-        priority: high
-        metadata:
-          retention_years: 6
-          fbar_required: true
-      - type: FBAR_DOCUMENTATION
-        priority: high
-        metadata:
-          retention_years: 6
-    foreign_income:
-      - type: FOREIGN_TAX_RETURNS
+      - type: FOREIGN_FINANCIAL_ACCOUNTS
         priority: high
         metadata:
           retention_years: 7
-          treaty_verification: required
+          foreign_bank_account_report_required: true
+          threshold_validation: true
+          account_balance_tracking: required
+      - type: FOREIGN_SECURITIES
+        priority: high
+        metadata:
+          retention_years: 7
+          valuation_date_required: true
+      - type: FOREIGN_PARTNERSHIPS
+        priority: high
+        metadata:
+          retention_years: 7
+          ownership_percentage_required: true
 
+FORM_8829:
   required:
-    - type: FOREIGN_ACCOUNTS
-      description: Foreign account statements
+    - type: HOME_OFFICE
       priority: high
-      conditions:
-        account_value:
-          trigger: "foreign_account_value > 10000"
-          category: "foreign_accounts"
-          required_docs:
-            - type: FOREIGN_BANK_STATEMENTS
-              metadata:
-                retention_years: 6
-                fbar_required: true
-            - type: FBAR_DOCUMENTATION
-              metadata:
-                retention_years: 6
+      metadata:
+        retention_years: 7
+        requires_floor_plan: true
+        requires_expenses: true
 
-  optional:
-    - type: CURRENCY_CONVERSION
-      description: Currency conversion documentation
-      priority: medium
-      validation:
-        required_fields: ["exchange_rate", "date"]
+FBAR:
+  required:
+    - type: FOREIGN_ACCOUNT_STATEMENTS
+      priority: high
+      metadata:
+        retention_years: 6
+        maximum_balance_required: true
+        account_type_validation: true
+    - type: ACCOUNT_OWNERSHIP_DOCUMENTATION
+      priority: high
+      metadata:
+        retention_years: 6
+        signature_authority_validation: true
+
+INTERNATIONAL_DOCUMENTS:
+  required:
+    - type: FOREIGN_INCOME
+      priority: high
+      metadata:
+        retention_years: 7
+        currency_validation: true
+        exchange_rate_required: true
+    - type: FOREIGN_ASSETS
+      priority: high
+      metadata:
+        retention_years: 7
+        threshold_check: "value > 50000"
+        currency_validation: true

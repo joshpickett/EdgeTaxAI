@@ -9,6 +9,7 @@ SCHEDULE_C:
         priority: high
         metadata:
           retention_years: permanent
+          validation_required: true
     expense_documents:
       - type: EXPENSE_RECEIPTS
         priority: medium
@@ -96,7 +97,7 @@ SCHEDULE_C:
 
 SCHEDULE_E:
   required:
-    - type: RENTAL_INCOME
+    - type: RENTAL_PROPERTY_DOCUMENTATION
       description: Rental income records
       priority: high
       metadata:
@@ -107,17 +108,9 @@ SCHEDULE_E:
         irs_form_association: "Schedule E"
         purpose: "rental_income_verification"
         special_handling: "financial_records"
-      validation:
-        required_fields: ["property_address", "rental_amount", "period"]
-        field_patterns:
-          rental_amount: "^\d+(\.\d{2})?$"
-          period: "^(Q[1-4]|Annual)_\d{4}$"
-        date_ranges:
-          period: "tax_year"
-        cross_validation:
-          total_rental_income: ["rental_amount", "other_income"]
-
-    - type: PROPERTY_EXPENSES
+        requires_lease_agreement: true
+        requires_property_tax: true
+    - type: RENTAL_EXPENSES
       description: Property expense records
       priority: high
       metadata:
@@ -128,6 +121,7 @@ SCHEDULE_E:
         irs_form_association: "N/A"
         purpose: "property_expense_verification"
         special_handling: "financial_records"
+        categorization_required: true
       validation:
         required_fields: ["expense_type", "amount", "date"]
         field_patterns:
@@ -152,3 +146,83 @@ SCHEDULE_E:
         required_fields: ["asset_description", "basis", "method"]
         field_patterns:
           basis: "^\d+(\.\d{2})?$"
+
+SCHEDULE_F:
+  required:
+    - type: FARM_INCOME_DOCUMENTATION
+      description: Farm income records
+      priority: high
+      metadata:
+        retention_years: 7
+        requires_crop_insurance: true
+        requires_subsidy_documentation: true
+    - type: LIVESTOCK_RECORDS
+      description: Livestock records
+      priority: high
+      metadata:
+        retention_years: 7
+        inventory_tracking: required
+
+FORM_2441:
+  required:
+    - type: CHILD_CARE_EXPENSES
+      priority: high
+      metadata:
+        retention_years: 7
+
+FORM_5695:
+  required:
+    - type: ENERGY_CREDITS
+      priority: high
+      metadata:
+        retention_years: 7
+
+FORM_8863:
+  required:
+    - type: EDUCATION_CREDITS
+      priority: high
+      metadata:
+        retention_years: 7
+
+FORM_4562:
+  required:
+    - type: DEPRECIATION
+      priority: high
+      metadata:
+        retention_years: 7
+
+FORM_8606:
+  required:
+    - type: NONDEDUCTIBLE_IRAS
+      priority: high
+      metadata:
+        retention_years: 7
+
+FORM_3520:
+  required:
+    - type: FOREIGN_GIFTS
+      priority: high
+      metadata:
+        retention_years: 7
+
+FORM_4684:
+  required:
+    - type: CASUALTIES_THEFTS
+      priority: high
+      metadata:
+        retention_years: 7
+
+FORM_8829:
+  required:
+    - type: HOME_OFFICE_DOCUMENTATION
+      priority: high
+      metadata:
+        retention_years: 7
+        requires_floor_plan: true
+        requires_expenses: true
+        requires_photos: true
+    - type: UTILITY_BILLS
+      priority: medium
+      metadata:
+        retention_years: 3
+        allocation_required: true

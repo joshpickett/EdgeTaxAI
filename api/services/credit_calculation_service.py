@@ -12,9 +12,12 @@ class CreditCalculationService:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.calculator = TaxCalculator()
-
-        # Define credit thresholds and limits
         self.credit_limits = {
+            # Add farm-specific credit limits
+            "farm_credits": {
+                "max_credit": Decimal("5000"),
+                "income_limit": Decimal("400000")
+            },
             "child_tax_credit": {
                 "amount_per_child": Decimal("2000"),
                 "income_limit_single": Decimal("200000"),
@@ -43,6 +46,7 @@ class CreditCalculationService:
             credits = {
                 "child_tax_credit": self._calculate_child_tax_credit(tax_data),
                 "earned_income_credit": self._calculate_earned_income_credit(tax_data),
+                "farm_credits": self._calculate_farm_credits(tax_data),
                 "education_credits": self._calculate_education_credits(tax_data),
             }
 
@@ -137,6 +141,39 @@ class CreditCalculationService:
             self.logger.error(f"Error calculating earned income credit: {str(e)}")
             raise
 
+    def _calculate_farm_credits(self, tax_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Calculate farm-related credits"""
+        try:
+            farm_income = Decimal(str(tax_data.get("farm_income", {}).get("total_income", 0)))
+            agricultural_payments = Decimal(str(tax_data.get("agricultural_payments", 0)))
+            farm_expenses = Decimal(str(tax_data.get("farm_expenses", 0)))
+
+            # Calculate base credit
+            base_credit = min(
+                self.credit_limits["farm_credits"]["max_credit"],
+                (farm_income + agricultural_payments) * Decimal("0.10")
+            )
+
+            # Apply income phase-out
+            income = Decimal(str(tax_data.get("adjusted_gross_income", 0)))
+            income_limit = self.credit_limits["farm_credits"]["income_limit"]
+
+            if income > income_limit:
+                reduction = ((income - income_limit) / Decimal("1000")).quantize(
+                    Decimal("1.")
+                ) * Decimal("50")
+                base_credit = max(Decimal("0"), base_credit - reduction)
+
+            return {
+                "amount": base_credit,
+                "farm_income": farm_income,
+                "agricultural_payments": agricultural_payments
+            }
+
+        except Exception as e:
+            self.logger.error(f"Error calculating farm credits: {str(e)}")
+            raise
+
     def _calculate_education_credits(self, tax_data: Dict[str, Any]) -> Dict[str, Any]:
         """Calculate Education Credits"""
         try:
@@ -216,6 +253,10 @@ class CreditCalculationService:
                 "has_earned_income": credit_data.get("earned_income", 0) > 0,
                 "meets_income_limits": credit_data.get("amount", 0) > 0,
             },
+            "farm_credits": {
+                "has_farm_income": credit_data.get("farm_income", 0) > 0,
+                "meets_income_limits": credit_data.get("amount", 0) > 0,
+            },
             "education_credits": {
                 "has_qualified_expenses": credit_data.get("qualified_expenses", 0) > 0
             },
@@ -232,4 +273,7 @@ class CreditCalculationService:
             "filing_status": "single",
             "dependents": {"qualifying_children": 2},
             "education": {"qualified_expenses": 4000},
+            "farm_income": {"total_income": 30000},
+            "agricultural_payments": 2000,
+            "farm_expenses": 1000,
         }

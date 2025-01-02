@@ -2,10 +2,17 @@
 DEPENDENCIES:
   W2:
     required_by: ["FORM_1040"]
-    conflicts_with: []
-    optional_attachments: ["EXPENSE_RECEIPTS"]
+    conflicts_with: ["FORM_1099_NEWS"]
+    optional_attachments: ["EXPENSE_RECEIPTS", "STATE_W2"]
+    validation_chain: ["income_validation", "withholding_validation"]
 
-  1099_NEC:
+  SCHEDULE_F:
+    required_by: ["FORM_1040"]
+    requires: ["FARM_INCOME_DOCUMENTS", "EXPENSE_RECEIPTS"]
+    optional_attachments: ["CROP_INSURANCE", "SUBSIDY_DOCUMENTS"]
+    validation_chain: ["farm_income_validation", "expense_validation"]
+
+  1099_NEWS:
     required_by: ["FORM_1040", "SCHEDULE_C"]
     triggers: ["SCHEDULE_SE"]
     optional_attachments: ["EXPENSE_RECEIPTS", "CONTRACTS"]
@@ -27,8 +34,15 @@ DEPENDENCIES:
 
 CROSS_REFERENCES:
   INCOME_DOCUMENTS:
-    - validates_against: ["W2_SUMMARY", "EMPLOYER_RECORDS"]
-    - cross_check: ["TOTAL_INCOME", "ADJUSTED_GROSS_INCOME"]
+    - validates_against: 
+        - "W2_SUMMARY"
+        - "EMPLOYER_RECORDS"
+        - "FARM_INCOME_STATEMENTS"
+        - "AGRICULTURAL_PAYMENTS"
+    - cross_check: 
+        - "TOTAL_INCOME"
+        - "ADJUSTED_GROSS_INCOME"
+        - "FARM_NET_INCOME"
 
   EXPENSE_DOCUMENTS:
     - validates_against: ["BANK_STATEMENTS"]
@@ -52,3 +66,37 @@ VALIDATION_CHAINS:
         - BANK_STATEMENTS
         - SCHEDULE_TOTALS
     - cross_validate: ["TOTAL_EXPENSES", "NET_INCOME"]
+
+  FARM_INCOME_VALIDATION:
+    - sequence:
+        - FARM_INCOME_DOCUMENTS
+        - AGRICULTURAL_PAYMENTS
+        - CROP_INSURANCE
+        - TOTAL_FARM_INCOME
+    - cross_validate: 
+        - "GROSS_FARM_INCOME"
+        - "NET_FARM_INCOME"
+
+  INTERNATIONAL_VALIDATION:
+    - sequence:
+        - FOREIGN_INCOME_DOCUMENTS
+        - FOREIGN_TAX_DOCUMENTS
+        - EXCHANGE_RATES
+    - cross_validate:
+        - "FOREIGN_EARNED_INCOME"
+        - "FOREIGN_TAX_CREDIT"
+
+DOCUMENT_GROUPS:
+  FARM_DOCUMENTS:
+    - FARM_INCOME_DOCUMENTS
+    - AGRICULTURAL_PAYMENTS
+    - CROP_INSURANCE
+    - LIVESTOCK_RECORDS
+    - FARM_EXPENSE_RECEIPTS
+
+  INTERNATIONAL_DOCUMENTS:
+    - FOREIGN_INCOME_DOCUMENTS
+    - FOREIGN_TAX_DOCUMENTS
+    - FOREIGN_BANK_STATEMENTS
+    - FBAR_DOCUMENTS
+    - TREATY_DOCUMENTS

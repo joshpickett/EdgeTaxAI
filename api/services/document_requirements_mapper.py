@@ -24,9 +24,7 @@ class DocumentRequirementsMapper:
         # Load configurations
         self.base_requirements = self._load_config("base_requirements.yml")
         self.schedule_requirements = self._load_config("schedule_requirements.yml")
-        self.international_requirements = self._load_config(
-            "international_requirements.yml"
-        )
+        self.international_requirements = self._load_config("international_requirements.yml")
         self.document_categories = self._initialize_categories()
 
     def get_required_documents(
@@ -71,6 +69,12 @@ class DocumentRequirementsMapper:
                         required_documents.extend(conditional_documents)
                     else:
                         required_documents.append(document)
+                
+            # Add farm requirements if applicable
+            if self._needs_farm_documents(answers):
+                farm_documents = self._get_farm_requirements(answers)
+                required_documents.extend(farm_documents["required"])
+                optional_documents.extend(farm_documents.get("optional", []))
 
             # Add schedule requirements based on answers
             schedule_documents = self._get_schedule_requirements(answers)
@@ -300,3 +304,50 @@ class DocumentRequirementsMapper:
         }
         required.extend(expense_documents["required"])
         optional.extend(expense_documents["optional"])
+
+    def _needs_farm_documents(self, answers: Dict[str, Any]) -> bool:
+        """Determine if farm documents are needed"""
+        try:
+            return (
+                answers.get("has_farm_income", False) or
+                answers.get("has_agricultural_payments", False) or
+                answers.get("has_farm_expenses", False)
+            )
+        except Exception as exception:
+            self.logger.error(f"Error checking farm documents: {str(exception)}")
+            return False
+            
+    def _get_farm_requirements(self, answers: Dict[str, Any]) -> Dict[str, List[Dict[str, Any]]]:
+        """Get farm document requirements"""
+        required = []
+        optional = []
+
+        # Add Schedule F requirements
+        if answers.get("has_farm_income"):
+            schedule_f = self.schedule_requirements["SCHEDULE_F"]
+            required.extend(schedule_f["required"])
+            optional.extend(schedule_f.get("optional", []))
+
+        # Add agricultural payment documentation
+        if answers.get("has_agricultural_payments"):
+            required.append({
+                "type": "AGRICULTURAL_PAYMENTS",
+                "priority": "high",
+                "metadata": {
+                    "retention_years": 7,
+                    "requires_program_details": True
+                }
+            })
+
+        # Add crop insurance documentation
+        if answers.get("has_crop_insurance"):
+            required.append({
+                "type": "CROP_INSURANCE",
+                "priority": "high",
+                "metadata": {
+                    "retention_years": 7,
+                    "requires_policy_details": True
+                }
+            })
+
+        return {"required": required, "optional": optional}
