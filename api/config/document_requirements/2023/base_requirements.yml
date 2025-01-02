@@ -97,6 +97,25 @@ FORM_1040:
         required_fields: ["dependent_ssn"]
         format: "ssn"
 
+EDUCATION_DOCUMENTS:
+  categories:
+    education_expenses:
+      - type: FORM_1098T
+        priority: high
+        metadata:
+          retention_years: 7
+          irs_form_association: "Form 1098-T"
+
+STATE_DOCUMENTS:
+  categories:
+    state_credits:
+      - type: STATE_CREDIT
+        priority: high
+        metadata:
+          retention_years: 7
+          requires_state_verification: true
+          state_specific_rules: true
+
 INTERNATIONAL_DOCUMENTS:
   categories:
     foreign_income:

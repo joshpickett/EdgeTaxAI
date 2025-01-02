@@ -14,6 +14,7 @@ class ValidationManager:
         self.category_manager = CategoryManager()
         self.error_service = ErrorHandlingService()
         self.farm_validation_rules = self._initialize_farm_rules()
+        self.form_validation_rules = self._initialize_form_validation_rules()
 
         # Define quality scoring weights
         self.quality_weights = {"completeness": 0.4, "clarity": 0.3, "compliance": 0.3}
@@ -103,6 +104,103 @@ class ValidationManager:
                     "payment_date"
                 ],
                 "validation_rules": ["payment_validation"]
+            }
+        }
+
+    def _initialize_form_validation_rules(self) -> Dict[str, Any]:
+        """Initialize validation rules for all forms"""
+        return {
+            "STATE_CREDIT": {
+                "required_fields": ["state_code", "credit_type", "amount"],
+                "validation_rules": ["state_credit_validation"]
+            },
+            "FORM_1098T": {
+                "required_fields": ["institution_name", "student_name", "tuition_amount"],
+                "validation_rules": ["education_expense_validation"]
+            },
+            "FORM_1040": {
+                "required_fields": ["taxpayer_info", "income", "deductions", "tax_calculation"],
+                "validation_rules": ["income_validation", "deduction_validation"]
+            },
+            "SCHEDULE_A": {
+                "required_fields": ["itemized_deductions", "total_deductions"],
+                "validation_rules": ["deduction_threshold_validation"]
+            },
+            "SCHEDULE_B": {
+                "required_fields": ["interest_income", "dividend_income"],
+                "validation_rules": ["interest_threshold_validation"]
+            },
+            "SCHEDULE_C": {
+                "required_fields": ["business_income", "business_expenses"],
+                "validation_rules": ["business_income_validation"]
+            },
+            "SCHEDULE_D": {
+                "required_fields": ["capital_gains", "capital_losses"],
+                "validation_rules": ["capital_gains_validation"]
+            },
+            "SCHEDULE_E": {
+                "required_fields": ["rental_income", "rental_expenses"],
+                "validation_rules": ["rental_income_validation"]
+            },
+            "SCHEDULE_F": {
+                "required_fields": ["farm_income", "farm_expenses"],
+                "validation_rules": ["farm_income_validation"]
+            },
+            "FORM_2555": {
+                "required_fields": ["foreign_earned_income", "foreign_housing"],
+                "validation_rules": ["foreign_income_validation"]
+            },
+            "FORM_8938": {
+                "required_fields": ["foreign_assets", "asset_value"],
+                "validation_rules": ["foreign_asset_threshold_validation"]
+            },
+            "FORM_8283": {
+                "required_fields": ["donation_description", "donation_value"],
+                "validation_rules": ["donation_threshold_validation"]
+            },
+            "FORM_4684": {
+                "required_fields": ["casualty_description", "loss_amount"],
+                "validation_rules": ["casualty_loss_validation"]
+            },
+            "FORM_5695": {
+                "required_fields": ["energy_improvements", "cost"],
+                "validation_rules": ["energy_credit_validation"]
+            },
+            "FORM_8863": {
+                "required_fields": ["education_expenses", "institution_info"],
+                "validation_rules": ["education_credit_validation"]
+            },
+            "FORM_2441": {
+                "required_fields": ["care_provider", "care_expenses"],
+                "validation_rules": ["child_care_validation"]
+            },
+            "FORM_5329": {
+                "required_fields": ["distribution_amount", "reason"],
+                "validation_rules": ["early_withdrawal_validation"]
+            },
+            "FORM_8606": {
+                "required_fields": ["ira_basis", "distribution"],
+                "validation_rules": ["ira_contribution_validation"]
+            },
+            "FORM_3520": {
+                "required_fields": ["gift_description", "gift_value"],
+                "validation_rules": ["foreign_gift_validation"]
+            },
+            "FORM_4562": {
+                "required_fields": ["asset_description", "depreciation_method"],
+                "validation_rules": ["depreciation_validation"]
+            },
+            "FORM_8829": {
+                "required_fields": ["home_expenses", "business_percentage"],
+                "validation_rules": ["home_office_validation"]
+            },
+            "FORM_1116": {
+                "required_fields": ["foreign_tax_paid", "foreign_income"],
+                "validation_rules": ["foreign_tax_credit_validation"]
+            },
+            "FBAR": {
+                "required_fields": ["account_info", "maximum_value"],
+                "validation_rules": ["fbar_threshold_validation"]
             }
         }
 
@@ -264,3 +362,12 @@ class ValidationManager:
         except Exception as e:
             self.logger.error(f"Error validating farm document: {str(e)}")
             return {"is_valid": False, "errors": [str(e)], "warnings": []}
+
+    async def validate_form(self, form_type: str, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Validate specific form data"""
+        try:
+            rules = self.form_validation_rules.get(form_type, {})
+            return await self._validate_against_rules(data, rules)
+        except Exception as e:
+            self.logger.error(f"Error validating form {form_type}: {str(e)}")
+            raise

@@ -147,3 +147,24 @@ CREDIT_DOCUMENTS:
       required_fields: ["improvement_type", "cost", "date_installed"]
       validation_rules:
         - qualified_improvements_check: true
+
+EDUCATION_DOCUMENTS:
+  description: "Education-related documentation"
+  priority: high
+  retention: 7
+  subcategories:
+    FORM_1098T:
+      required_fields: ["institution_name", "student_name", "tuition_amount"]
+      validation_rules:
+        - field_patterns:
+            tuition_amount: "^\d+(\.\d{2})?$"
+
+STATE_DOCUMENTS:
+  description: "State-specific documentation"
+  priority: high
+  retention: 7
+  subcategories:
+    STATE_CREDIT:
+      required_fields: ["state_code", "credit_type", "amount"]
+      validation_rules:
+        - state_specific_validation: true
