@@ -80,11 +80,31 @@ export const StreamlinedTaxWizard: React.FC<StreamlinedTaxWizardProps> = ({
     return <LoadingOverlay />;
   }
 
+  const additionalQuestions = [
+    {
+      id: 'itemized_deductions',
+      text: 'Do you want to itemize your deductions?',
+      type: 'boolean'
+    },
+    {
+      id: 'foreign_tax_credit',
+      text: 'Did you pay taxes to a foreign government?',
+      type: 'boolean',
+      conditional: (answers) => answers.foreign_income === true
+    },
+    {
+      id: 'home_office',
+      text: 'Do you use part of your home for business?',
+      type: 'boolean',
+      conditional: (answers) => answers.self_employment === true
+    }
+  ];
+
   return (
     <div className="streamlined-tax-wizard">
       {currentStep < questions.length ? (
         <QuestionnaireStepper
-          questions={questions}
+          questions={[...questions, ...additionalQuestions]}
           currentStep={currentStep}
           answers={answers}
           onAnswerSubmit={handleAnswerSubmit}

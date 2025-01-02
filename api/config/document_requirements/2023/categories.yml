@@ -19,11 +19,18 @@ INCOME_DOCUMENTS:
         - field_patterns:
             employer_id: "^\d{2}-\d{7}$"
             wages: "^\d+(\.\d{2})?$"
-    1099:
-      required_fields: ["payer_tin", "income_amount"]
+    1099_NEC:
+      required_fields: ["payer_tin", "recipient_tin", "nonemployee_compensation"]
       validation_rules:
         - field_patterns:
             payer_tin: "^\d{2}-\d{7}$"
+            nonemployee_compensation: "^\d+(\.\d{2})?$"
+    1099_K:
+      required_fields: ["payer_tin", "gross_amount", "transaction_count"]
+      validation_rules:
+        - field_patterns:
+            gross_amount: "^\d+(\.\d{2})?$"
+            transaction_count: "^\d+$"
 
 EXPENSE_DOCUMENTS:
   description: "Expense and deduction documentation"
@@ -53,9 +60,62 @@ INTERNATIONAL_DOCUMENTS:
   priority: high
   retention: 7
   subcategories:
+    FORM_2555:
+      required_fields: ["foreign_earned_income", "tax_home", "residence"]
+      validation_rules:
+        - field_patterns:
+            foreign_earned_income: "^\d+(\.\d{2})?$"
+    FORM_8938:
+      required_fields: ["foreign_assets", "max_value"]
+      validation_rules:
+        - threshold: 50000
     FBAR:
       required_fields: ["account_number", "max_value", "institution"]
       validation_rules:
         - threshold: 10000
-    FOREIGN_INCOME:
-      required_fields: ["source_country", "amount", "tax_paid"]
+    FORM_1116:
+      required_fields: ["foreign_tax_paid", "foreign_income"]
+      validation_rules:
+        - field_patterns:
+            foreign_tax_paid: "^\d+(\.\d{2})?$"
+
+CREDIT_DOCUMENTS:
+  description: "Tax credit documentation"
+  priority: high
+  retention: 7
+  subcategories:
+    FORM_8863:
+      required_fields: ["institution_name", "student_name", "qualified_expenses"]
+      validation_rules:
+        - field_patterns:
+            qualified_expenses: "^\d+(\.\d{2})?$"
+    FORM_5695:
+      required_fields: ["property_address", "improvement_type", "cost"]
+      validation_rules:
+        - field_patterns:
+            cost: "^\d+(\.\d{2})?$"
+    FORM_2441:
+      required_fields: ["provider_name", "provider_tax_id", "expenses"]
+      validation_rules:
+        - field_patterns:
+            expenses: "^\d+(\.\d{2})?$"
+    FORM_5329:
+      required_fields: ["distribution_amount", "early_withdrawal_reason"]
+      validation_rules:
+        - field_patterns:
+            distribution_amount: "^\d+(\.\d{2})?$"
+    FORM_8606:
+      required_fields: ["contribution_amount", "basis"]
+      validation_rules:
+        - field_patterns:
+            contribution_amount: "^\d+(\.\d{2})?$"
+    FORM_3520:
+      required_fields: ["gift_amount", "donor_information"]
+      validation_rules:
+        - field_patterns:
+            gift_amount: "^\d+(\.\d{2})?$"
+    FORM_4562:
+      required_fields: ["asset_description", "cost_basis", "depreciation_method"]
+      validation_rules:
+        - field_patterns:
+            cost_basis: "^\d+(\.\d{2})?$"

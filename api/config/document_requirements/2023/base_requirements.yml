@@ -94,3 +94,26 @@ FORM_1040:
       validation:
         required_fields: ["dependent_ssn"]
         format: "ssn"
+
+INTERNATIONAL_DOCUMENTS:
+  categories:
+    foreign_income:
+      - type: FORM_2555
+        priority: high
+        metadata:
+          retention_years: 7
+          irs_form_association: "Form 2555"
+      - type: FORM_8938
+        priority: high
+        metadata:
+          retention_years: 7
+          irs_form_association: "Form 8938"
+
+CHARITABLE_CONTRIBUTIONS:
+  categories:
+    noncash_donations:
+      - type: FORM_8283
+        priority: high
+        metadata:
+          retention_years: 7
+          irs_form_association: "Form 8283"

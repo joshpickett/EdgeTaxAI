@@ -90,6 +90,23 @@ export const DocumentManager: React.FC<DocumentManagerProps> = ({
     }
   };
 
+  const processInternationalDocument = async (file: File): Promise<void> => {
+    try {
+      // Enhanced validation for international documents
+      const validation = await this.validateInternationalDocument(file);
+      if (!validation.isValid) {
+        throw new Error(validation.errors.join(', '));
+      }
+      
+      // Process document with special handling for currency conversion
+      await this.processWithCurrencyConversion(file);
+      
+    } catch (error) {
+      this.logger.error('Error processing international document:', error);
+      throw error;
+    }
+  };
+
   return (
     <div>
       <DocumentUploader

@@ -30,6 +30,25 @@ export const Question: React.FC<QuestionProps> = ({
 
   const renderInput = () => {
     switch (question.type) {
+      case 'state':
+        return (
+          <select value={answer || ''} onChange={(e) => handleChange(e.target.value)}>
+            <option value="">Select State</option>
+            {US_STATES.map(state => (
+              <option key={state.code} value={state.code}>
+                {state.name}
+              </option>
+            ))}
+          </select>
+        );
+
+      case 'dropdown':
+        return (
+          <select value={answer || ''} onChange={(e) => handleChange(e.target.value)}>
+            {question.options?.map(option => <option key={option} value={option}>{option}</option>)}
+          </select>
+        );
+
       case 'boolean':
         return (
           <div className="boolean-input" style={styles.booleanContainer}>
@@ -109,6 +128,13 @@ export const Question: React.FC<QuestionProps> = ({
     </div>
   );
 };
+
+const US_STATES = [
+  { code: 'CA', name: 'California' },
+  { code: 'NY', name: 'New York' },
+  // Add all other states...
+  { code: 'WY', name: 'Wyoming' }
+].sort((a, b) => a.name.localeCompare(b.name));
 
 const styles = {
   container: {

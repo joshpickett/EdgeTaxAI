@@ -12,6 +12,15 @@ interface RequiredDocumentsListProps {
     category: string;
     priority: 'high' | 'medium' | 'low';
     conditions?: Array<string>;
+    metadata?: {
+      stateSpecific?: boolean;
+      state?: string;
+      thresholds?: {
+        amount?: number;
+        currency?: string;
+      };
+      requiresAppraisal?: boolean;
+    };
     rejectionReason?: string;
     version?: number;
   }>;
@@ -42,7 +51,13 @@ export const RequiredDocumentsList: React.FC<RequiredDocumentsListProps> = ({
               {doc.conditions && doc.conditions.length > 0 && (
                 <div className="conditions-list">
                   {doc.conditions.map(condition => (
-                    <span key={condition} className="condition-tag">{condition}</span>
+                    <span key={condition} className="condition-tag">
+                      {condition}
+                      {doc.metadata?.thresholds?.amount && 
+                        ` (>${doc.metadata.thresholds.amount} 
+                          ${doc.metadata.thresholds.currency || 'USD'})`
+                      }
+                    </span>
                   ))}
                 </div>
               )}
