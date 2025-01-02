@@ -53,3 +53,35 @@ vehicleForBusiness	Did you use a personal vehicle for business?	Boolean	answer =
 - Form 4562: Depreciation and Amortization	Add detailed validation for mileage logs and depreciation claims.	- QuestionnaireMapper.ts
 - DocumentManager.tsx
 - RequiredDocumentsList.tsx
+
+State Forms
+Alabama	Form 40	Form 40NR	Form 40ES	Form 4868A	Alabama Tax Forms
+Alaska	N/A	N/A	N/A	N/A	No state income tax.
+Arizona	Form 140	Form 140NR	Form 140ES	Form 204	Arizona Tax Forms
+Arkansas	Form AR1000F	Form AR1000NR	Form AR1000ES	Form AR1055	Arkansas Tax Forms
+California	Form 540	Form 540NR	Form 540-ES	Form 3519	California Tax Forms
+Colorado	Form 104	Form 104PN	Form 104EP	Form DR 0158-I	Colorado Tax Forms
+Connecticut	Form CT-1040	Form CT-1040NR/PY	Form CT-1040ES	Form CT-1040 EXT	Connecticut Tax Forms
+Delaware	Form 200-01	Form 200-02	Form 200-ES	Form 1027	Delaware Tax Forms
+District of Columbia	Form D-40	Form D-40B	Form D-40ES	Form FR-127	District of Columbia Tax Forms
+Florida	N/A	N/A	N/A	N/A	No state income tax.
+Georgia	Form 500	Form 500	Form 500-ES	Form IT-303	Georgia Tax Forms
+Hawaii	Form N-11	Form N-15	Form N-1	Form N-101A	Hawaii Tax Forms
+Idaho	Form 40	Form 43	Form 51	Form 40-EXT	Idaho Tax Forms
+Illinois	Form IL-1040	N/A	Form IL-1040-ES	Form IL-505-I	Illinois Tax Forms
+Indiana	Form IT-40	Form IT-40PNR	Form ES-40	Form IT-9	Indiana Tax Forms
+Iowa	Form IA 1040	Form IA 1040	Form IA 1040ES	Form IA 1040V	Iowa Tax Forms
+Kansas	Form K-40	Form K-40	Form K-40ES	Form K-40EXT	Kansas Tax Forms
+Kentucky	Form 740	Form 740-NP	Form 740-ES	Form 740EXT	Kentucky Tax Forms
+Louisiana	Form IT-540	Form IT-540B	Form IT-540ES	Form R-2868	Louisiana Tax Forms
+Maine	Form 1040ME	Form 1040ME	Form 1040ES-ME	Form 1040EXT-ME	Maine Tax Forms
+Maryland	Form 502	Form 505	Form 502D	Form 502E	Maryland Tax Forms
+Massachusetts	Form 1	Form 1-NR/PY	Form 1-ES	Form M-4868	Massachusetts Tax Forms
+Michigan	Form MI-1040	N/A	Form MI-1040ES	Form 4	Michigan Tax Forms
+Minnesota	Form M1	Form M1NR	Form M1-ES	Form M13	Minnesota Tax Forms
+Mississippi	Form 80-105	Form 80-205	Form 80-300	Form 80-106	Mississippi Tax Forms
+Missouri	Form MO-1040	Form MO-1040NR	Form MO-1040ES	Form MO-60	Missouri Tax Forms
+Montana	Form 2	Form 2	Form ESW	Form EXT	Montana Tax Forms
+Nebraska	Form 1040N	Form 1040N	Form 1040N-ES	Form 4868N	Nebraska Tax Forms
+Nevada	N/A	N/A	N/A	N/A	No state income tax.
+New Hampshire	N/A				
