@@ -1,10 +1,12 @@
 from desktop.setup_path import setup_desktop_path
+
 setup_desktop_path()
 
 import streamlit as st
 import requests
 import pandas as pd
 from desktop.config import API_BASE_URL
+
 
 def reports_page():
     """
@@ -128,7 +130,9 @@ def reports_page():
     # Display Connected Platforms
     st.subheader("Connected Platforms")
     try:
-        response = requests.get(f"{API_BASE_URL}/gig/connections", params={"user_id": user_id})
+        response = requests.get(
+            f"{API_BASE_URL}/gig/connections", params={"user_id": user_id}
+        )
         if response.status_code == 200:
             connected_accounts = response.json().get("connected_accounts", [])
             if connected_accounts:
@@ -145,7 +149,8 @@ def reports_page():
     # Fetch and Display Gig Platform Data
     st.subheader("Fetch Trip and Expense Data")
     platform_choice = st.selectbox(
-        "Select a Platform", ["Uber", "Lyft", "DoorDash", "Instacart", "Upwork", "Fiverr"]
+        "Select a Platform",
+        ["Uber", "Lyft", "DoorDash", "Instacart", "Upwork", "Fiverr"],
     )
 
     if st.button("Fetch Data"):
@@ -163,7 +168,9 @@ def reports_page():
                 else:
                     st.error(f"Failed to fetch data from {platform_choice}.")
             except Exception as e:
-                st.error(f"An error occurred while fetching data from {platform_choice}.")
+                st.error(
+                    f"An error occurred while fetching data from {platform_choice}."
+                )
                 st.exception(e)
 
 

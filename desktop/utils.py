@@ -1,4 +1,5 @@
 from desktop.setup_path import setup_desktop_path
+
 setup_desktop_path()
 
 import requests
@@ -8,8 +9,9 @@ import logging
 logging.basicConfig(
     filename="utils.log",  # Log file for API calls and errors
     level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
+    format="%(asctime)s - %(levelname)s - %(message)s",
 )
+
 
 def handle_api_response(response):
     """

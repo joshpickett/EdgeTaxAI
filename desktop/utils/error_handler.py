@@ -1,12 +1,15 @@
 """
 Error handling utilities for desktop application
 """
+
 from desktop.setup_path import setup_desktop_path
+
 setup_desktop_path()
 
 import logging
 from typing import Optional, Dict, Any
 from requests.exceptions import RequestException
+
 
 def handle_api_error(error: Exception) -> Dict[str, Any]:
     """
@@ -17,15 +20,16 @@ def handle_api_error(error: Exception) -> Dict[str, Any]:
         return {
             "status": "error",
             "message": "Failed to connect to API service",
-            "error": str(error)
+            "error": str(error),
         }
-    
+
     logging.error(f"Unexpected error: {error}")
     return {
         "status": "error",
         "message": "An unexpected error occurred",
-        "error": str(error)
+        "error": str(error),
     }
+
 
 def log_error(error: Exception, context: Optional[str] = None) -> None:
     """

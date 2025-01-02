@@ -1,6 +1,7 @@
 import pytest
 from api.routes.bank_routes import USER_TOKENS
 
+
 def test_disconnect_bank_account_success(client):
     """Test disconnecting a bank account successfully."""
     # Mock the USER_TOKENS to simulate an existing token

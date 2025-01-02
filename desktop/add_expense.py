@@ -1,4 +1,5 @@
 from desktop.setup_path import setup_desktop_path
+
 setup_desktop_path()
 
 import sqlite3
@@ -11,7 +12,7 @@ import os
 logging.basicConfig(
     filename="add_expense.log",
     level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
+    format="%(asctime)s - %(levelname)s - %(message)s",
 )
 
 # API Configuration
@@ -22,6 +23,7 @@ UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 expense_service = ExpenseServiceAdapter()
+
 
 async def sync_expenses():
     """Sync expenses with the server"""
@@ -35,6 +37,7 @@ async def sync_expenses():
         logging.error(f"Sync error: {e}")
         print("Error syncing expenses. Changes saved locally.")
 
+
 def process_receipt_ocr(file_path) -> Optional[Dict[str, Any]]:
     """Send the receipt image to the OCR API for text extraction."""
     try:
@@ -45,6 +48,7 @@ def process_receipt_ocr(file_path) -> Optional[Dict[str, Any]]:
         logging.exception(f"Error during OCR processing: {e}")
     return None
 
+
 def get_expense_category(description: str, amount: float) -> dict:
     """Get expense category using shared categorization logic"""
     try:
@@ -53,6 +57,7 @@ def get_expense_category(description: str, amount: float) -> dict:
     except Exception as e:
         logging.error(f"Categorization error: {e}")
         return {"category": "OTHER", "confidence": 0.0}
+
 
 def add_expense():
     """Add a new expense to the database."""
@@ -73,7 +78,9 @@ def add_expense():
                 print("Extracted Text from Receipt:")
                 print(ocr_result["text"])
                 # Suggest description based on OCR result
-                description = description or ocr_result["text"].split("\n")[0]  # Use first line as suggestion
+                description = (
+                    description or ocr_result["text"].split("\n")[0]
+                )  # Use first line as suggestion
         except Exception as e:
             logging.exception(f"Error saving receipt file: {e}")
             print("Error: Could not save or process the receipt.")
@@ -100,21 +107,22 @@ def add_expense():
         expense_payload = {
             "description": description,
             "amount": amount,
-            "category": category
+            "category": category,
         }
-        
+
         result = expense_service.create_expense(expense_payload)
         if not result:
             raise Exception("Failed to create expense")
-        
+
         # Try to sync changes
         await sync_expenses()
-            
+
         print("Expense added successfully!")
         logging.info(f"Expense added: {description} - ${amount} - {category}")
     except Exception as e:
         logging.exception(f"Error adding expense: {e}")
         print("Error: Could not add the expense.")
+
 
 def edit_expense():
     """Edit an existing expense."""
@@ -124,7 +132,7 @@ def edit_expense():
             print("Error: Invalid expense ID.")
             return
 
-        conn = sqlite3.connect('expenses.db')
+        conn = sqlite3.connect("expenses.db")
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM expenses WHERE id = ?", (expense_id,))
         expense = cursor.fetchone()
@@ -134,9 +142,13 @@ def edit_expense():
             return
 
         print("Leave a field blank to keep its current value.")
-        description = input(f"Enter new description (current: {expense['description']}): ").strip()
+        description = input(
+            f"Enter new description (current: {expense['description']}): "
+        ).strip()
         amount = input(f"Enter new amount (current: ${expense['amount']}): ").strip()
-        category = input(f"Enter new category (current: {expense['category']}): ").strip()
+        category = input(
+            f"Enter new category (current: {expense['category']}): "
+        ).strip()
 
         updates = []
         params = []
@@ -172,6 +184,7 @@ def edit_expense():
         print("Error: Could not edit the expense.")
     finally:
         conn.close()
+
 
 if __name__ == "__main__":
     print("Expense Management")

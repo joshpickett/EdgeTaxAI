@@ -1,6 +1,7 @@
 import os
 import sys
 from api.setup_path import setup_python_path
+
 setup_python_path(__file__)
 
 from flask import Blueprint, request, jsonify
@@ -9,7 +10,7 @@ from api.schemas.tax_schemas import (
     QuarterlyTaxSchema,
     TaxSavingsSchema,
     DeductionAnalysisSchema,
-    TaxDocumentSchema
+    TaxDocumentSchema,
 )
 from api.config.tax_config import TAX_CONFIG
 from api.services.tax_service import TaxService
@@ -27,9 +28,10 @@ export_service = ExportService()
 
 tax_bp = Blueprint("tax_routes", __name__)
 
+
 @tax_bp.route("/api/tax/estimate-quarterly", methods=["POST"])
-@rate_limit(requests_per_minute=TAX_CONFIG['RATE_LIMITS']['tax_calculation'])
-@cache_response(timeout=TAX_CONFIG['CACHE_SETTINGS']['tax_calculation'])
+@rate_limit(requests_per_minute=TAX_CONFIG["RATE_LIMITS"]["tax_calculation"])
+@cache_response(timeout=TAX_CONFIG["CACHE_SETTINGS"]["tax_calculation"])
 def estimate_quarterly_tax():
     """Calculate quarterly estimated tax payments"""
     try:
@@ -39,23 +41,25 @@ def estimate_quarterly_tax():
     except Exception as e:
         return handle_api_error(e)
 
+
 @tax_bp.route("/api/tax/savings", methods=["POST"])
-@rate_limit(requests_per_minute=TAX_CONFIG['RATE_LIMITS']['tax_calculation'])
-@cache_response(timeout=TAX_CONFIG['CACHE_SETTINGS']['tax_calculation'])
+@rate_limit(requests_per_minute=TAX_CONFIG["RATE_LIMITS"]["tax_calculation"])
+@cache_response(timeout=TAX_CONFIG["CACHE_SETTINGS"]["tax_calculation"])
 def real_time_tax_savings():
     """Calculate real-time tax savings based on expense amount"""
     try:
         schema = TaxSavingsSchema()
         data = schema.load(request.json)
-        result = tax_service.calculate_tax_savings(data['amount'])
+        result = tax_service.calculate_tax_savings(data["amount"])
         return jsonify(result), 200
     except Exception as e:
         return handle_api_error(e)
 
+
 # AI Deduction Suggestions Endpoint
 @tax_bp.route("/api/tax/deductions", methods=["POST"])
-@rate_limit(requests_per_minute=TAX_CONFIG['RATE_LIMITS']['deduction_analysis'])
-@cache_response(timeout=TAX_CONFIG['CACHE_SETTINGS']['deduction_analysis'])
+@rate_limit(requests_per_minute=TAX_CONFIG["RATE_LIMITS"]["deduction_analysis"])
+@cache_response(timeout=TAX_CONFIG["CACHE_SETTINGS"]["deduction_analysis"])
 def ai_deduction_suggestions():
     """Calculate deductions based on expense data"""
     try:
@@ -65,6 +69,7 @@ def ai_deduction_suggestions():
         return jsonify({"suggestions": deduction_analysis}), 200
     except Exception as e:
         return handle_api_error(e)
+
 
 # Quarterly Tax Estimate Endpoint
 @tax_bp.route("/api/tax/quarterly-estimate", methods=["POST"])
@@ -84,27 +89,39 @@ def quarterly_tax_estimate():
         income = Decimal(str(data.get("income", 0)))
         expenses = Decimal(str(data.get("expenses", 0)))
 
-        tax_result: TaxCalculationResult = tax_service.calculate_quarterly_tax(income, expenses)
+        tax_result: TaxCalculationResult = tax_service.calculate_quarterly_tax(
+            income, expenses
+        )
 
-        return jsonify({
-            "quarter": quarter,
-            "year": year,
-            "income": float(income),
-            "expenses": float(expenses),
-            "quarterly_tax": tax_result['quarterly_amount'],
-            "annual_tax": tax_result['annual_tax'],
-            "effective_rate": tax_result['effective_rate']
-        }), 200
+        return (
+            jsonify(
+                {
+                    "quarter": quarter,
+                    "year": year,
+                    "income": float(income),
+                    "expenses": float(expenses),
+                    "quarterly_tax": tax_result["quarterly_amount"],
+                    "annual_tax": tax_result["annual_tax"],
+                    "effective_rate": tax_result["effective_rate"],
+                }
+            ),
+            200,
+        )
     except Exception as e:
         logging.error(f"Error calculating quarterly tax estimate: {str(e)}")
         return jsonify({"error": "Failed to calculate quarterly tax estimate."}), 500
 
+
 def calculate_tax_bracket(income: float) -> tuple:
     """Calculate tax bracket and effective rate based on income"""
-    for min_income, max_income, rate in TAX_CONFIG['TAX_BRACKETS']:
+    for min_income, max_income, rate in TAX_CONFIG["TAX_BRACKETS"]:
         if min_income <= income <= max_income:
             return rate, f"${min_income:,} - ${max_income:,}"
-    return TAX_CONFIG['TAX_BRACKETS'][-1][2], f"Over ${TAX_CONFIG['TAX_BRACKETS'][-1][0]:,}"
+    return (
+        TAX_CONFIG["TAX_BRACKETS"][-1][2],
+        f"Over ${TAX_CONFIG['TAX_BRACKETS'][-1][0]:,}",
+    )
+
 
 @tax_bp.route("/calculate-effective-rate", methods=["POST"])
 def calculate_effective_rate():
@@ -113,22 +130,25 @@ def calculate_effective_rate():
         data = request.json
         gross_income = Decimal(data.get("gross_income", 0))
         deductions = Decimal(data.get("deductions", 0))
-        
-        taxable_income = max(Decimal('0'), gross_income - deductions)
+
+        taxable_income = max(Decimal("0"), gross_income - deductions)
         tax_rate, bracket = calculate_tax_bracket(taxable_income)
-        
-        return jsonify({
-            "taxable_income": float(taxable_income),
-            "tax_bracket": bracket,
-            "tax_rate": float(tax_rate),
-            "estimated_tax": float(taxable_income * tax_rate)
-        })
+
+        return jsonify(
+            {
+                "taxable_income": float(taxable_income),
+                "tax_bracket": bracket,
+                "tax_rate": float(tax_rate),
+                "estimated_tax": float(taxable_income * tax_rate),
+            }
+        )
     except Exception as e:
         logging.error(f"Error calculating effective tax rate: {str(e)}")
         return jsonify({"error": "Failed to calculate effective tax rate"}), 500
 
+
 @tax_bp.route("/api/tax/document", methods=["POST"])
-@rate_limit(requests_per_minute=TAX_CONFIG['RATE_LIMITS']['document_generation'])
+@rate_limit(requests_per_minute=TAX_CONFIG["RATE_LIMITS"]["document_generation"])
 def generate_tax_document():
     """Generate tax documents based on user input"""
     try:
@@ -139,23 +159,24 @@ def generate_tax_document():
     except Exception as e:
         return handle_api_error(e)
 
+
 @tax_bp.route("/export-tax-report", methods=["POST"])
 def export_tax_report():
     try:
         data = request.json
-        format_type = data.get('format', 'pdf')
+        format_type = data.get("format", "pdf")
         tax_data = tax_service.generate_tax_report(data)
-        
+
         # Log export attempt
         audit_logger.log_tax_analysis(
-            data['user_id'],
+            data["user_id"],
             f"tax_report_export_{format_type}",
-            {"year": data.get('year')}
+            {"year": data.get("year")},
         )
-        
-        if format_type == 'pdf':
+
+        if format_type == "pdf":
             return export_service.export_pdf(tax_data)
-        elif format_type == 'excel':
+        elif format_type == "excel":
             return export_service.export_excel(tax_data)
         else:
             return export_service.export_json(tax_data)
@@ -163,8 +184,10 @@ def export_tax_report():
         logging.error(f"Error exporting tax report: {str(e)}")
         return jsonify({"error": "Failed to export tax report."}), 500
 
+
 if __name__ == "__main__":
     from flask import Flask
+
     app = Flask(__name__)
     app.register_blueprint(tax_bp)
     app.run(debug=True)

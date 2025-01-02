@@ -1,4 +1,5 @@
 from desktop.setup_path import setup_desktop_path
+
 setup_desktop_path()
 
 import streamlit as streamlit
@@ -7,8 +8,8 @@ import logging
 from pathlib import Path
 
 # Asset paths
-ASSETS_DIR = Path(__file__).parent.parent / 'assets'
-TAX_REMINDER_ICON = ASSETS_DIR / 'logo' / 'icon' / 'edgetaxai-icon-color.svg'
+ASSETS_DIR = Path(__file__).parent.parent / "assets"
+TAX_REMINDER_ICON = ASSETS_DIR / "logo" / "icon" / "edgetaxai-icon-color.svg"
 
 from desktop.config import API_BASE_URL
 
@@ -16,8 +17,9 @@ from desktop.config import API_BASE_URL
 logging.basicConfig(
     filename="tax_reminders.log",  # Log file for tax reminders
     level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
+    format="%(asctime)s - %(levelname)s - %(message)s",
 )
+
 
 def quarterly_tax_reminders_page():
     """
@@ -48,17 +50,27 @@ def quarterly_tax_reminders_page():
                 payload = {
                     "user_id": user_id,
                     "phone_number": phone_number,
-                    "reminder_date": str(reminder_date)
+                    "reminder_date": str(reminder_date),
                 }
                 response = requests.post(f"{API_BASE_URL}/tax/reminders", json=payload)
 
                 if response.status_code == 200:
                     streamlit.success("Reminder scheduled successfully!")
-                    logging.info(f"User {user_id} scheduled a reminder for {reminder_date} to {phone_number}.")
+                    logging.info(
+                        f"User {user_id} scheduled a reminder for {reminder_date} to {phone_number}."
+                    )
                 else:
-                    error_message = response.json().get("error", "Failed to schedule reminder.")
+                    error_message = response.json().get(
+                        "error", "Failed to schedule reminder."
+                    )
                     streamlit.error(error_message)
-                    logging.error(f"API Error - Failed to schedule reminder for user {user_id}: {error_message}")
+                    logging.error(
+                        f"API Error - Failed to schedule reminder for user {user_id}: {error_message}"
+                    )
             except Exception as e:
-                streamlit.error("An unexpected error occurred while scheduling the reminder.")
-                logging.exception(f"Exception while scheduling reminder for user {user_id}: {e}")
+                streamlit.error(
+                    "An unexpected error occurred while scheduling the reminder."
+                )
+                logging.exception(
+                    f"Exception while scheduling reminder for user {user_id}: {e}"
+                )

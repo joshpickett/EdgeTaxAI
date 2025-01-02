@@ -18,7 +18,7 @@ from contextlib import contextmanager
 class DatabaseService:
     def __init__(self):
         self.database_file = os.getenv("DB_PATH", "database.db")
-        
+
     @contextmanager
     def get_connection(self):
         conn = None
@@ -32,7 +32,7 @@ class DatabaseService:
         finally:
             if conn:
                 conn.close()
-                
+
     def execute_query(self, query: str, params: tuple = ()) -> Any:
         with self.get_connection() as conn:
             cursor = conn.cursor()

@@ -7,9 +7,10 @@ from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
 import logging
 
+
 class EncryptionManager:
     def __init__(self):
-        self.key = os.getenv('ENCRYPTION_KEY', Fernet.generate_key())
+        self.key = os.getenv("ENCRYPTION_KEY", Fernet.generate_key())
         self.cipher_suite = Fernet(self.key)
         self.key_rotation_interval = timedelta(days=30)
         self.last_rotation = datetime.now()

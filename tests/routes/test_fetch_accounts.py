@@ -26,7 +26,7 @@ def test_fetch_bank_accounts_success(mock_accounts_get, client):
     mock_response.to_dict.return_value = {
         "accounts": [
             {"name": "Checking Account", "balance": {"current": 500}},
-            {"name": "Savings Account", "balance": {"current": 1500}}
+            {"name": "Savings Account", "balance": {"current": 1500}},
         ]
     }
     mock_accounts_get.return_value = mock_response

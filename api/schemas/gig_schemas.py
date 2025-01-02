@@ -3,17 +3,20 @@ from typing import Optional, List, Dict, Any, Union
 from datetime import datetime
 from enum import Enum
 
+
 class PlatformType(str, Enum):
     UBER = "uber"
     LYFT = "lyft"
     DOORDASH = "doordash"
     INSTACART = "instacart"
 
+
 class PlatformStatus(str, Enum):
     ACTIVE = "active"
     INACTIVE = "inactive"
     PENDING = "pending"
     ERROR = "error"
+
 
 class GigPlatformBase(BaseModel):
     platform: PlatformType
@@ -24,9 +27,11 @@ class GigPlatformBase(BaseModel):
     metadata: Optional[Dict[str, Any]]
     error_message: Optional[str]
 
+
 class GigPlatformCreate(GigPlatformBase):
     access_token: str
     refresh_token: Optional[str]
+
 
 class GigPlatformUpdate(BaseModel):
     platform_email: Optional[str]
@@ -35,6 +40,7 @@ class GigPlatformUpdate(BaseModel):
 
     class Config:
         orm_mode = True
+
 
 class GigEarningsBase(BaseModel):
     platform_id: int
@@ -45,8 +51,10 @@ class GigEarningsBase(BaseModel):
     trips_count: int
     metadata: Optional[Dict[str, Any]]
 
+
 class GigEarningsCreate(GigEarningsBase):
     pass
+
 
 class GigEarningsResponse(GigEarningsBase):
     id: int
@@ -55,6 +63,7 @@ class GigEarningsResponse(GigEarningsBase):
 
     class Config:
         orm_mode = True
+
 
 class GigPlatformResponse(GigPlatformBase):
     id: int

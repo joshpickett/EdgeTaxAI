@@ -5,7 +5,10 @@ from datetime import datetime, timedelta
 from api.routes.auth_routes import save_otp_for_user, get_db_connection
 
 # Add the 'api/models' directory to the Python module search path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../api/models")))
+sys.path.append(
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "../../api/models"))
+)
+
 
 def test_save_otp_for_user():
     """Test that OTP and expiry are correctly saved in the database."""
@@ -16,7 +19,8 @@ def test_save_otp_for_user():
     # Initialize database
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("""
+    cursor.execute(
+        """
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         email TEXT,
@@ -25,7 +29,8 @@ def test_save_otp_for_user():
         otp_expiry TEXT,
         is_verified INTEGER DEFAULT 0
     )
-""")
+"""
+    )
 
     cursor.execute("INSERT INTO users (phone_number) VALUES (?)", (identifier,))
     conn.commit()
@@ -34,10 +39,14 @@ def test_save_otp_for_user():
     save_otp_for_user(identifier, otp_code)
 
     # Validate OTP and expiry in the database
-    cursor.execute("SELECT otp_code, otp_expiry FROM users WHERE phone_number = ?", (identifier,))
+    cursor.execute(
+        "SELECT otp_code, otp_expiry FROM users WHERE phone_number = ?", (identifier,)
+    )
     row = cursor.fetchone()
     conn.close()
 
     assert row is not None, "User record not found."
     assert row[0] == otp_code, "OTP code was not saved correctly."
-    assert datetime.strptime(row[1], "%Y-%m-%d %H:%M:%S.%f") > datetime.now(), "OTP expiry time is invalid."
+    assert (
+        datetime.strptime(row[1], "%Y-%m-%d %H:%M:%S.%f") > datetime.now()
+    ), "OTP expiry time is invalid."

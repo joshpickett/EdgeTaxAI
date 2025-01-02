@@ -1,5 +1,6 @@
 from api.routes.auth_routes import generate_otp
 
+
 def test_otp_generation():
     """Test if OTP is a 6-digit number."""
     otp = generate_otp()

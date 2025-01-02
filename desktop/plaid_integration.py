@@ -4,10 +4,11 @@ import logging
 from pathlib import Path
 
 # Asset paths
-ASSETS_DIR = Path(__file__).parent.parent / 'assets'
-PLAID_ICON = ASSETS_DIR / 'logo' / 'icon' / 'edgetaxai-icon-color.svg'
+ASSETS_DIR = Path(__file__).parent.parent / "assets"
+PLAID_ICON = ASSETS_DIR / "logo" / "icon" / "edgetaxai-icon-color.svg"
 
 from config import API_BASE_URL
+
 
 def plaid_integration_page():
     st.title("Plaid Integration")

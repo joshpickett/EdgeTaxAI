@@ -18,6 +18,7 @@ auth_blueprint = Blueprint("auth", __name__, url_prefix="/api/auth")
 # Utility Functions
 DATABASE_FILE = os.getenv("DB_PATH", "database.db")
 
+
 # 1. OTP-Based Signup
 @auth_blueprint.route("/signup", methods=["POST"])
 @rate_limit(requests_per_minute=5)
@@ -40,6 +41,7 @@ def signup():
         logging.error(f"Signup error: {str(e)}")
         return jsonify({"error": "Internal server error"}), 500
 
+
 # 2. Verify OTP for Signup/Login
 @auth_blueprint.route("/verify-otp", methods=["POST"])
 @rate_limit(requests_per_minute=3)
@@ -61,23 +63,31 @@ def verify_otp():
             access_token = TokenManager.generate_access_token(data)
             refresh_token = TokenManager.generate_refresh_token(data)
             # Create session
-            SessionManager.create_session(data, request.headers.get('User-Agent'))
-            return jsonify({"message": "OTP verified successfully", 
-                            "access_token": access_token,
-                            "refresh_token": refresh_token}), 200
+            SessionManager.create_session(data, request.headers.get("User-Agent"))
+            return (
+                jsonify(
+                    {
+                        "message": "OTP verified successfully",
+                        "access_token": access_token,
+                        "refresh_token": refresh_token,
+                    }
+                ),
+                200,
+            )
 
         identifier = data.get("email") or data.get("phone_number")
         otp_code = data.get("otp_code")
 
         if not identifier:
             return jsonify({"error": "Email/Phone and OTP code are required"}), 400
-            
+
         if not otp_code or len(otp_code) != 6:
             return jsonify({"error": "Invalid OTP format"}), 400
 
         return jsonify({"error": "Invalid or expired OTP."}), 401
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 # 3. OTP-Based Login
 @auth_blueprint.route("/login", methods=["POST"])
@@ -89,20 +99,28 @@ def login():
     try:
         data = request.json
         response = auth_service.handle_login(data)
-        if response.get('success'):
+        if response.get("success"):
             # Generate tokens
             access_token = TokenManager.generate_access_token(data)
             refresh_token = TokenManager.generate_refresh_token(data)
             # Create session
-            SessionManager.create_session(data, request.headers.get('User-Agent'))
-            return jsonify({"message": "Login successful",
-                            "access_token": access_token,
-                            "refresh_token": refresh_token}), 200
-            
+            SessionManager.create_session(data, request.headers.get("User-Agent"))
+            return (
+                jsonify(
+                    {
+                        "message": "Login successful",
+                        "access_token": access_token,
+                        "refresh_token": refresh_token,
+                    }
+                ),
+                200,
+            )
+
         return jsonify({"error": "User not found"}), 404
-            
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 @auth_blueprint.route("/biometric/register", methods=["POST"])
 @rate_limit(requests_per_minute=3)
@@ -110,33 +128,37 @@ def register_biometric():
     """Register biometric data for mobile authentication"""
     try:
         data = request.json
-        user_id = data.get('user_id')
-        biometric_data = data.get('biometric_data')
-        
+        user_id = data.get("user_id")
+        biometric_data = data.get("biometric_data")
+
         if not all([user_id, biometric_data]):
             return jsonify({"error": "Missing required data"}), 400
-            
+
         success = auth_service.handle_biometric_registration(user_id, biometric_data)
         if success:
-            return jsonify({
-                "message": "Biometric authentication registered successfully"
-            }), 200
+            return (
+                jsonify(
+                    {"message": "Biometric authentication registered successfully"}
+                ),
+                200,
+            )
         return jsonify({"error": "Failed to register biometric data"}), 400
-        
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 @auth_blueprint.route("/biometric/verify", methods=["POST"])
 def verify_biometric():
     """Verify biometric data for authentication"""
     try:
         data = request.json
-        user_id = data.get('user_id')
-        biometric_data = data.get('biometric_data')
-        
+        user_id = data.get("user_id")
+        biometric_data = data.get("biometric_data")
+
         if not all([user_id, biometric_data]):
             return jsonify({"error": "Missing required data"}), 400
-            
+
         if auth_service.verify_biometric(user_id, biometric_data):
             auth_service.update_last_login(user_id)
             return jsonify({"message": "Biometric verification successful"}), 200
@@ -147,6 +169,7 @@ def verify_biometric():
 
 if __name__ == "__main__":
     from flask import Flask
+
     app = Flask(__name__)
     app.register_blueprint(auth_blueprint)
     app.run(debug=True)

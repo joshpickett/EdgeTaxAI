@@ -25,13 +25,15 @@ else:
 bank_service = BankService()
 session_manager = SessionManager()
 token_manager = TokenManager()
-bank_routes = Blueprint('bank', __name__)
+bank_routes = Blueprint("bank", __name__)
 encryption_manager = EncryptionManager()
 audit_logger = AuditLogger()
+
 
 @bank_routes.errorhandler(Exception)
 def handle_error(error):
     return handle_api_error(error)
+
 
 @bank_routes.route("/link-token", methods=["POST"])
 @rate_limit(max_requests=100, window_seconds=3600)
@@ -39,7 +41,7 @@ def handle_error(error):
 @validate_session()
 def create_link_token() -> Dict[str, Any]:
     """Create a link token for bank integration.
-    
+
     Returns:
         Dict containing the link token or error message
     """
@@ -47,7 +49,7 @@ def create_link_token() -> Dict[str, Any]:
         user_id = request.json.get("user_id")
         if not user_id:
             return jsonify({"error": "user_id is required"}), HTTPStatus.BAD_REQUEST
-            
+
         # Verify active session
         if not session_manager.validate_session(str(user_id)):
             return jsonify({"error": "Invalid session"}), HTTPStatus.UNAUTHORIZED
@@ -57,25 +59,30 @@ def create_link_token() -> Dict[str, Any]:
     except Exception as e:
         raise
 
+
 @bank_routes.route("/exchange-token", methods=["POST"])
 @require_auth
 @validate_session()
 def exchange_public_token() -> Dict[str, Any]:
     """Exchange a public token for an access token.
-    
+
     Returns:
         Dict containing the access token or error message
     """
     try:
         user_id = request.json.get("user_id")
         public_token = request.json.get("public_token")
-        
+
         if not user_id or not public_token:
-            return jsonify({"error": "user_id and public_token are required"}), HTTPStatus.BAD_REQUEST
-            
+            return (
+                jsonify({"error": "user_id and public_token are required"}),
+                HTTPStatus.BAD_REQUEST,
+            )
+
         return bank_service.exchange_public_token(user_id, public_token), HTTPStatus.OK
     except Exception as e:
         raise
+
 
 @bank_routes.route("/accounts", methods=["GET"])
 @require_auth
@@ -90,6 +97,7 @@ def get_accounts() -> Dict[str, Any]:
     except Exception as e:
         raise
 
+
 @bank_routes.route("/transactions", methods=["GET"])
 @require_auth
 @rate_limit(max_requests=100, window_seconds=3600)
@@ -103,6 +111,7 @@ def get_transactions() -> Dict[str, Any]:
     except Exception as e:
         raise
 
+
 @bank_routes.route("/balance", methods=["GET"])
 @require_auth
 @rate_limit(max_requests=100, window_seconds=3600)
@@ -114,6 +123,7 @@ def get_balance() -> Dict[str, Any]:
         return bank_service.get_balance(user_id), HTTPStatus.OK
     except Exception as e:
         raise
+
 
 @bank_routes.route("/disconnect", methods=["POST"])
 @require_auth
@@ -127,6 +137,7 @@ def disconnect_bank() -> Dict[str, Any]:
     except Exception as e:
         raise
 
+
 @bank_routes.route("/transactions/search", methods=["POST"])
 @require_auth
 @validate_session()
@@ -139,6 +150,7 @@ def search_transactions() -> Dict[str, Any]:
     except Exception as e:
         raise
 
+
 @bank_routes.route("/verify", methods=["GET"])
 @require_auth
 @rate_limit(max_requests=100, window_seconds=3600)
@@ -150,6 +162,7 @@ def verify_account() -> Dict[str, Any]:
         return bank_service.verify_account(user_id), HTTPStatus.OK
     except Exception as e:
         raise
+
 
 @bank_routes.route("/transactions/analysis", methods=["GET"])
 @require_auth

@@ -3,36 +3,35 @@ from unittest.mock import Mock, patch
 from desktop.services.ai_service_adapter import AIServiceAdapter
 from shared.services.taxService import TaxService
 
+
 @pytest.fixture
 def ai_service():
     return AIServiceAdapter()
 
+
 @pytest.fixture
 def mock_tax_service():
-    with patch('shared.services.taxService.TaxService') as mock:
+    with patch("shared.services.taxService.TaxService") as mock:
         yield mock
+
 
 def test_categorize_expense_success(ai_service, mock_tax_service):
     # Arrange
-    expense_data = {
-        "description": "Uber ride to client",
-        "amount": 25.50
-    }
-    expected_result = {
-        "category": "transportation",
-        "confidence": 0.95
-    }
+    expense_data = {"description": "Uber ride to client", "amount": 25.50}
+    expected_result = {"category": "transportation", "confidence": 0.95}
     mock_tax_service.analyzeTaxContext.return_value = expected_result
 
     # Act
-    result = ai_service.categorize_expense(expense_data["description"], expense_data["amount"])
+    result = ai_service.categorize_expense(
+        expense_data["description"], expense_data["amount"]
+    )
 
     # Assert
     assert result == expected_result
     mock_tax_service.analyzeTaxContext.assert_called_once_with(
-        expense_data["description"], 
-        expense_data["amount"]
+        expense_data["description"], expense_data["amount"]
     )
+
 
 def test_categorize_expense_error(ai_service, mock_tax_service):
     # Arrange
@@ -43,6 +42,7 @@ def test_categorize_expense_error(ai_service, mock_tax_service):
         ai_service.categorize_expense("test", 100)
     assert str(exc.value) == "API Error"
 
+
 @pytest.mark.asyncio
 async def test_analyze_receipt_success(ai_service, mock_tax_service):
     # Arrange
@@ -51,8 +51,8 @@ async def test_analyze_receipt_success(ai_service, mock_tax_service):
         "total": 125.50,
         "items": [
             {"description": "Item 1", "amount": 25.50},
-            {"description": "Item 2", "amount": 100.00}
-        ]
+            {"description": "Item 2", "amount": 100.00},
+        ],
     }
     mock_tax_service.analyzeReceipt.return_value = expected_result
 
@@ -62,6 +62,7 @@ async def test_analyze_receipt_success(ai_service, mock_tax_service):
     # Assert
     assert result == expected_result
     mock_tax_service.analyzeReceipt.assert_called_once_with(receipt_text)
+
 
 @pytest.mark.asyncio
 async def test_analyze_receipt_error(ai_service, mock_tax_service):
@@ -73,16 +74,14 @@ async def test_analyze_receipt_error(ai_service, mock_tax_service):
         await ai_service.analyze_receipt("test receipt")
     assert str(exc.value) == "OCR Error"
 
+
 def test_get_tax_suggestions_success(ai_service, mock_tax_service):
     # Arrange
-    expense_data = {
-        "description": "Office supplies",
-        "amount": 150.00
-    }
+    expense_data = {"description": "Office supplies", "amount": 150.00}
     expected_result = {
         "deductible": True,
         "category": "office_supplies",
-        "confidence": 0.9
+        "confidence": 0.9,
     }
     mock_tax_service.getOptimizationSuggestions.return_value = expected_result
 

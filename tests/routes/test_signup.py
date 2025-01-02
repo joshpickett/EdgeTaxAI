@@ -6,7 +6,10 @@ from flask import Flask
 from api.routes.auth_routes import auth_bp
 
 # Add the 'api/models' directory to the Python module search path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../api/models")))
+sys.path.append(
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "../../api/models"))
+)
+
 
 @pytest.fixture
 def client():
@@ -23,7 +26,8 @@ def client():
 
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE TABLE users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             email TEXT,
@@ -32,12 +36,14 @@ def client():
             otp_expiry TEXT,
             is_verified INTEGER DEFAULT 0
         )
-    """)
+    """
+    )
     conn.commit()
     conn.close()
 
     # Return test client
     return app.test_client()
+
 
 def test_signup_success(client, mocker):
     """Test successful user signup and OTP generation."""
@@ -46,6 +52,7 @@ def test_signup_success(client, mocker):
     response = client.post("/signup", json={"phone_number": "+1234567890"})
     assert response.status_code == 201
     assert b"Signup successful. OTP sent for verification." in response.data
+
 
 def test_signup_user_exists(client):
     """Test signup failure when the user already exists."""

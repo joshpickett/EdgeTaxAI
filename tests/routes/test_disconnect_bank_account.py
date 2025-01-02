@@ -53,8 +53,13 @@ def test_disconnect_bank_account_user_not_found(client):
 def test_disconnect_bank_account_server_error(client):
     """Test internal server error during disconnect."""
     # Use a custom mutable dictionary to replace USER_TOKENS to allow `pop` patching
-    with patch("api.routes.bank_routes.USER_TOKENS", new_callable=lambda: {1: "mock-encrypted-access-token"}):
-        with patch.object(USER_TOKENS, "pop", side_effect=Exception("Unexpected error")):
+    with patch(
+        "api.routes.bank_routes.USER_TOKENS",
+        new_callable=lambda: {1: "mock-encrypted-access-token"},
+    ):
+        with patch.object(
+            USER_TOKENS, "pop", side_effect=Exception("Unexpected error")
+        ):
             response = client.post("/plaid/disconnect", json={"user_id": 1})
 
             assert response.status_code == 500

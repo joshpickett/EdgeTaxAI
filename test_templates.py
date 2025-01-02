@@ -10,7 +10,7 @@ class TestTemplates:
     ### Summary of Tests
     {test_summary}
     """
-    
+
     UNITTEST_TEMPLATE = """
     import unittest
     from api.app import create_app
@@ -22,7 +22,7 @@ class TestTemplates:
     ### Summary of Tests
     {test_summary}
     """
-    
+
     # Add fixtures template
     PYTEST_FIXTURES = """
     @pytest.fixture
@@ -35,7 +35,7 @@ class TestTemplates:
     def client(app):
         return app.test_client()
     """
-     
+
     @classmethod
     def get_template(cls, framework: str) -> str:
         return cls.PYTEST_TEMPLATE if framework == "pytest" else cls.UNITTEST_TEMPLATE

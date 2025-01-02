@@ -1,9 +1,10 @@
-#deprecated not used
+# deprecated not used
 
 import sqlite3
 import logging
 from typing import Dict, Any, Optional
 from datetime import datetime
+
 
 class GigData:
     def __init__(self, db_path: str = "database.db"):
@@ -14,7 +15,8 @@ class GigData:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS gig_trips (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
@@ -28,9 +30,11 @@ class GigData:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(platform, trip_id)
             )
-        """)
+        """
+        )
 
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS gig_earnings (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
@@ -42,9 +46,11 @@ class GigData:
                 net_earnings REAL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+        """
+        )
 
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS gig_sync_status (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL,
@@ -56,7 +62,8 @@ class GigData:
                 FOREIGN KEY (user_id) REFERENCES users (id),
                 UNIQUE(user_id, platform)
             )
-        """)
+        """
+        )
 
         conn.commit()
         conn.close()
@@ -66,23 +73,26 @@ class GigData:
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            
-            cursor.execute("""
+
+            cursor.execute(
+                """
                 INSERT INTO gig_trips (
                     user_id, platform, trip_id, start_time,
                     end_time, earnings, distance, status
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                trip_data["user_id"],
-                trip_data["platform"],
-                trip_data["trip_id"],
-                trip_data["start_time"],
-                trip_data["end_time"],
-                trip_data["earnings"],
-                trip_data["distance"],
-                trip_data["status"]
-            ))
-            
+            """,
+                (
+                    trip_data["user_id"],
+                    trip_data["platform"],
+                    trip_data["trip_id"],
+                    trip_data["start_time"],
+                    trip_data["end_time"],
+                    trip_data["earnings"],
+                    trip_data["distance"],
+                    trip_data["status"],
+                ),
+            )
+
             trip_id = cursor.lastrowid
             conn.commit()
             conn.close()
@@ -96,22 +106,25 @@ class GigData:
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            
-            cursor.execute("""
+
+            cursor.execute(
+                """
                 INSERT INTO gig_earnings (
                     user_id, platform, period_start, period_end,
                     gross_earnings, expenses, net_earnings
                 ) VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (
-                earnings_data["user_id"],
-                earnings_data["platform"],
-                earnings_data["period_start"],
-                earnings_data["period_end"],
-                earnings_data["gross_earnings"],
-                earnings_data["expenses"],
-                earnings_data["net_earnings"]
-            ))
-            
+            """,
+                (
+                    earnings_data["user_id"],
+                    earnings_data["platform"],
+                    earnings_data["period_start"],
+                    earnings_data["period_end"],
+                    earnings_data["gross_earnings"],
+                    earnings_data["expenses"],
+                    earnings_data["net_earnings"],
+                ),
+            )
+
             earnings_id = cursor.lastrowid
             conn.commit()
             conn.close()
@@ -120,13 +133,16 @@ class GigData:
             logging.error(f"Error storing earnings: {e}")
             return None
 
-    def update_sync_status(self, user_id: int, platform: str, status: str, error: str = None) -> bool:
+    def update_sync_status(
+        self, user_id: int, platform: str, status: str, error: str = None
+    ) -> bool:
         """Update platform sync status"""
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            
-            cursor.execute("""
+
+            cursor.execute(
+                """
                 INSERT INTO gig_sync_status (user_id, platform, last_sync, sync_status, error_message)
                 VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?)
                 ON CONFLICT(user_id, platform) 
@@ -134,8 +150,10 @@ class GigData:
                     last_sync=CURRENT_TIMESTAMP,
                     sync_status=excluded.sync_status,
                     error_message=excluded.error_message
-            """, (user_id, platform, status, error))
-            
+            """,
+                (user_id, platform, status, error),
+            )
+
             conn.commit()
             conn.close()
             return True

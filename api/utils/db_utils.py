@@ -15,9 +15,12 @@ import os
 from contextlib import contextmanager, closing
 from typing import Generator
 
+
 class DatabaseError(Exception):
     """Custom exception for database errors"""
+
     pass
+
 
 class Database:
     def __init__(self, db_path: str):
@@ -46,20 +49,22 @@ class Database:
             yield cursor
             conn.commit()
 
+
 # Configure Logging
 logging.basicConfig(
     filename="db_utils.log",
     level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
+    format="%(asctime)s - %(levelname)s - %(message)s",
 )
 
 DATABASE_FILE = "database.db"
+
 
 # --- Database Connection ---
 def get_db_connection():
     """Establish a database connection using the DATABASE environment variable."""
     db_path = os.getenv("DATABASE", "default_database.db")
-    
+
     # Ensure database directory exists
     db_dir = os.path.dirname(db_path)
     if db_dir and not os.path.exists(db_dir):
@@ -68,7 +73,7 @@ def get_db_connection():
         except OSError as e:
             logging.error(f"Failed to create database directory: {e}")
             return None
-            
+
     print(f"Connecting to database at: {db_path}")  # Debugging output
     return sqlite3.connect(db_path)
 
@@ -91,14 +96,21 @@ def save_otp_for_user(identifier, otp_code):
     """
     with Database(DATABASE_FILE).get_cursor() as cursor:
         try:
-            expiry_time = datetime.datetime.now() + datetime.timedelta(minutes=5)  # OTP valid for 5 minutes
+            expiry_time = datetime.datetime.now() + datetime.timedelta(
+                minutes=5
+            )  # OTP valid for 5 minutes
             cursor.execute(
                 """
                 UPDATE users 
                 SET otp_code = ?, otp_expiry = ? 
                 WHERE email = ? OR phone_number = ?
                 """,
-                (otp_code, expiry_time.strftime("%Y-%m-%d %H:%M:%S"), identifier, identifier)
+                (
+                    otp_code,
+                    expiry_time.strftime("%Y-%m-%d %H:%M:%S"),
+                    identifier,
+                    identifier,
+                ),
             )
             logging.info(f"OTP saved successfully for {identifier}.")
         except sqlite3.Error as e:
@@ -124,12 +136,16 @@ def verify_otp_for_user(identifier, otp_code):
                 FROM users 
                 WHERE (email = ? OR phone_number = ?)
                 """,
-                (identifier, identifier)
+                (identifier, identifier),
             )
             row = cursor.fetchone()
             if row:
                 stored_otp, expiry_time = row
-                if otp_code == stored_otp and datetime.datetime.now() <= datetime.datetime.strptime(expiry_time, "%Y-%m-%d %H:%M:%S"):
+                if (
+                    otp_code == stored_otp
+                    and datetime.datetime.now()
+                    <= datetime.datetime.strptime(expiry_time, "%Y-%m-%d %H:%M:%S")
+                ):
                     logging.info(f"OTP verified successfully for {identifier}.")
                     return True
             logging.warning(f"Invalid or expired OTP for {identifier}.")
@@ -154,7 +170,7 @@ def clear_otp_for_user(identifier):
                 SET otp_code = NULL, otp_expiry = NULL 
                 WHERE email = ? OR phone_number = ?
                 """,
-                (identifier, identifier)
+                (identifier, identifier),
             )
             logging.info(f"OTP cleared successfully for {identifier}.")
         except sqlite3.Error as e:

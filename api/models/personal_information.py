@@ -1,7 +1,16 @@
-from sqlalchemy import Column, Integer, String, Date, DateTime, ForeignKey, CheckConstraint
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    Date,
+    DateTime,
+    ForeignKey,
+    CheckConstraint,
+)
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func, text
 from api.config.database import Base
+
 
 class PersonalInformation(Base):
     __tablename__ = "personal_information"
@@ -16,14 +25,16 @@ class PersonalInformation(Base):
     address_line1 = Column(String(100), nullable=False)
     address_line2 = Column(String(100))
     city = Column(String(50), nullable=False)
-    state = Column(String(2), nullable=False, 
-                  CheckConstraint("LENGTH(state) = 2"))
+    state = Column(String(2), nullable=False, CheckConstraint("LENGTH(state) = 2"))
     zip_code = Column(String(10), nullable=False)
-    created_at = Column(DateTime(timezone=True), 
-                       server_default=text('CURRENT_TIMESTAMP'))
-    updated_at = Column(DateTime(timezone=True), 
-                       server_default=text('CURRENT_TIMESTAMP'),
-                       onupdate=text('CURRENT_TIMESTAMP'))
+    created_at = Column(
+        DateTime(timezone=True), server_default=text("CURRENT_TIMESTAMP")
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=text("CURRENT_TIMESTAMP"),
+        onupdate=text("CURRENT_TIMESTAMP"),
+    )
 
     # Relationship
     user = relationship("Users", back_populates="personal_info", uselist=False)

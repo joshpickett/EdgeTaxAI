@@ -15,60 +15,58 @@ from api.utils.cache_utils import cache_response
 
 scaler = StandardScaler()
 
+
 class AnalyticsService:
-    
+
     @cache_response(timeout=1800)
-    def calculate_expense_trends(self, expenses: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def calculate_expense_trends(
+        self, expenses: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
         df = pd.DataFrame(expenses)
-        df['date'] = pd.to_datetime(df['date'])
-        
-        monthly_trends = df.groupby([
-            df['date'].dt.to_period('M'),
-            'category'
-        ])['amount'].sum().unstack()
-        
+        df["date"] = pd.to_datetime(df["date"])
+
+        monthly_trends = (
+            df.groupby([df["date"].dt.to_period("M"), "category"])["amount"]
+            .sum()
+            .unstack()
+        )
+
         trends = {}
         for category in monthly_trends.columns:
             if not monthly_trends[category].empty:
                 trends[category] = self._calculate_trend_line(monthly_trends[category])
-        
-        return {
-            'monthly_data': monthly_trends.to_dict(),
-            'trend_analysis': trends
-        }
+
+        return {"monthly_data": monthly_trends.to_dict(), "trend_analysis": trends}
 
     def _calculate_trend_line(self, data: pd.Series) -> Dict[str, float]:
         X = np.arange(len(data)).reshape(-1, 1)
         y = data.values.reshape(-1, 1)
-        
+
         model = LinearRegression()
         model.fit(X, y)
-        
+
         return {
-            'slope': float(model.coef_[0]),
-            'intercept': float(model.intercept_),
-            'r_squared': model.score(X, y)
+            "slope": float(model.coef_[0]),
+            "intercept": float(model.intercept_),
+            "r_squared": model.score(X, y),
         }
 
     def generate_advanced_analytics(
-        self, 
-        user_id: int, 
-        year: int, 
-        include_predictions: bool = False
+        self, user_id: int, year: int, include_predictions: bool = False
     ) -> Dict[str, Any]:
         """Generate comprehensive analytics including predictions if requested"""
         trends = self.calculate_expense_trends(expenses=[])  # type: ignore
         patterns = self.identify_spending_patterns(user_id, year)
-        
+
         result = {
-            'trends': trends,
-            'patterns': patterns,
-            'summary': self.generate_analytics_summary(trends, patterns)
+            "trends": trends,
+            "patterns": patterns,
+            "summary": self.generate_analytics_summary(trends, patterns),
         }
-        
+
         if include_predictions:
-            result['predictions'] = self.generate_expense_predictions(user_id, year)
-            
+            result["predictions"] = self.generate_expense_predictions(user_id, year)
+
         return result
 
     def identify_spending_patterns(self, user_id: int, year: int) -> Dict[str, Any]:
@@ -81,12 +79,15 @@ class AnalyticsService:
         # Implementation here
         pass
 
-    def generate_analytics_summary(self, trends: Dict, patterns: Dict) -> Dict[str, Any]:
+    def generate_analytics_summary(
+        self, trends: Dict, patterns: Dict
+    ) -> Dict[str, Any]:
         """Generate a summary of analytics findings"""
         # Implementation here
         pass
 
     # Add other analytics methods
+
 
 if __name__ == "__main__":
     analytics = AnalyticsService()

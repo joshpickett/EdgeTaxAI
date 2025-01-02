@@ -5,11 +5,13 @@ from sqlalchemy.schema import Table
 import enum
 from api.config.database import Base
 
+
 class DocumentType(enum.Enum):
     RECEIPT = "receipt"
     INVOICE = "invoice"
     TAX_DOCUMENT = "tax_document"
     OTHER = "other"
+
 
 class DocumentStatus(enum.Enum):
     PENDING = "pending"
@@ -17,12 +19,16 @@ class DocumentStatus(enum.Enum):
     FAILED = "failed"
     VERIFIED = "verified"
 
-document_shares = Table('document_shares', Base.metadata,
-    Column('document_id', Integer, ForeignKey('documents.id', ondelete="CASCADE")),
-    Column('shared_with_id', Integer, ForeignKey('users.id', ondelete="CASCADE")),
-    Column('created_at', DateTime(timezone=True), server_default=func.now()),
-    Column('permissions', String(50), default='read')  # read, write, admin
+
+document_shares = Table(
+    "document_shares",
+    Base.metadata,
+    Column("document_id", Integer, ForeignKey("documents.id", ondelete="CASCADE")),
+    Column("shared_with_id", Integer, ForeignKey("users.id", ondelete="CASCADE")),
+    Column("created_at", DateTime(timezone=True), server_default=func.now()),
+    Column("permissions", String(50), default="read"),  # read, write, admin
 )
+
 
 class Document(Base):
     __tablename__ = "documents"
@@ -37,11 +43,16 @@ class Document(Base):
     status = Column(SQLEnum(DocumentStatus), default=DocumentStatus.PENDING)
     metadata = Column(String)  # JSON string
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
     # Relationships
     user = relationship("Users", back_populates="documents")
-    shared_with = relationship("Users", secondary=document_shares, backref="shared_documents")
+    shared_with = relationship(
+        "Users", secondary=document_shares, backref="shared_documents"
+    )
+
 
 class DocumentVersion(Base):
     __tablename__ = "document_versions"
@@ -58,4 +69,7 @@ class DocumentVersion(Base):
     document = relationship("Document", backref="versions")
     user = relationship("Users", foreign_keys=[created_by])
 
-Document.current_version_id = Column(Integer, ForeignKey("document_versions.id"), nullable=True)
+
+Document.current_version_id = Column(
+    Integer, ForeignKey("document_versions.id"), nullable=True
+)

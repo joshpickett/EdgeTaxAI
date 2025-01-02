@@ -3,6 +3,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from api.config.database import Base
 
+
 class Mileage(Base):
     __tablename__ = "mileage"
 
@@ -16,12 +17,15 @@ class Mileage(Base):
     expense_id = Column(Integer, ForeignKey("expenses.id", nullable=True))
     deduction_id = Column(Integer, ForeignKey("deductions.id", nullable=True))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
     # Relationships
     user = relationship("Users", back_populates="mileage_records")
     expense = relationship("Expenses", back_populates="mileage_record")
     deduction = relationship("Deductions", back_populates="mileage_record")
+
 
 class RecurringTrip(Base):
     __tablename__ = "recurring_trips"
@@ -33,7 +37,9 @@ class RecurringTrip(Base):
     frequency = Column(String(50), nullable=False)  # daily, weekly, monthly
     purpose = Column(String(500))
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
     # Relationships
     user = relationship("Users", back_populates="recurring_trips")

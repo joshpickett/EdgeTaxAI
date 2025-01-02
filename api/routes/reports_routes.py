@@ -12,8 +12,9 @@ report_service = ReportService()
 analytics_service = AnalyticsService()
 export_service = ExportService()
 
-@rate_limit(requests_per_minute=REPORT_CONFIG['RATE_LIMITS']['generate_report'])
-@cache_response(timeout=REPORT_CONFIG['CACHE_SETTINGS']['tax_summary'])
+
+@rate_limit(requests_per_minute=REPORT_CONFIG["RATE_LIMITS"]["generate_report"])
+@cache_response(timeout=REPORT_CONFIG["CACHE_SETTINGS"]["tax_summary"])
 def generate_tax_summary():
     """Generate tax summary report"""
     try:

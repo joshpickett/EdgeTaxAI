@@ -1,10 +1,12 @@
 from desktop.setup_path import setup_desktop_path
+
 setup_desktop_path()
 
 import streamlit as st
 import requests
 import logging
 from desktop.utils import validate_input_fields, send_post_request
+
 
 def account_creation_page(api_base_url):
     """
@@ -42,19 +44,20 @@ def account_creation_page(api_base_url):
                     validation_errors.append("Invalid email format")
                 if phone and not validate_input_fields({"phone": phone}):
                     validation_errors.append("Invalid phone format")
-                
+
                 if validation_errors:
                     for error in validation_errors:
                         st.error(error)
                     return
 
                 response = send_post_request(
-                    f"{api_base_url}/auth/signup",
-                    {"identifier": identifier}
+                    f"{api_base_url}/auth/signup", {"identifier": identifier}
                 )
 
                 if response.status_code == 200:
-                    st.success("OTP sent successfully! Please check your email or phone.")
+                    st.success(
+                        "OTP sent successfully! Please check your email or phone."
+                    )
                     st.session_state["otp_sent"] = True
                     st.session_state["identifier"] = identifier
                 else:
@@ -72,8 +75,13 @@ def account_creation_page(api_base_url):
 
             # Call API to verify OTP
             try:
-                payload = {"identifier": st.session_state["identifier"], "otp_code": otp_code}
-                response = requests.post(f"{api_base_url}/verify-signup-otp", json=payload)
+                payload = {
+                    "identifier": st.session_state["identifier"],
+                    "otp_code": otp_code,
+                }
+                response = requests.post(
+                    f"{api_base_url}/verify-signup-otp", json=payload
+                )
                 if response.status_code == 201:
                     st.success("Account created successfully! Please log in.")
                     st.session_state["otp_sent"] = False  # Reset OTP state

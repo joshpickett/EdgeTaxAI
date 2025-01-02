@@ -16,6 +16,7 @@ def client():
 
 # ---------------- Test Cases ---------------- #
 
+
 # Test missing required fields
 def test_add_expense_missing_fields(client):
     """Test adding an expense with missing required fields."""
@@ -44,7 +45,9 @@ def test_add_expense_valid_data(client, mocker):
     mocker.patch("api.routes.expense_routes.categorize_expense", return_value="General")
 
     # Valid expense with description
-    response = client.post("/add", json={"user_id": 1, "description": "Lunch", "amount": 15.0})
+    response = client.post(
+        "/add", json={"user_id": 1, "description": "Lunch", "amount": 15.0}
+    )
     assert response.status_code == 201
     assert b"Expense added successfully" in response.data
     assert b'"category":"General"' in response.data
@@ -64,7 +67,9 @@ def test_add_expense_default_category(client, mocker):
     mocker.patch("api.routes.expense_routes.categorize_expense", return_value=None)
 
     # Valid expense with description
-    response = client.post("/add", json={"user_id": 1, "description": "Miscellaneous", "amount": 20.0})
+    response = client.post(
+        "/add", json={"user_id": 1, "description": "Miscellaneous", "amount": 20.0}
+    )
     assert response.status_code == 201
     assert b"Expense added successfully" in response.data
     assert b'"category":"General"' in response.data
@@ -76,15 +81,19 @@ def test_add_expense_empty_description(client, mocker):
     """Test adding an expense with an explicitly empty description."""
     mocker.patch("api.routes.expense_routes.categorize_expense", return_value="General")
 
-    response = client.post("/add", json={"user_id": 1, "description": "", "amount": 10.0})
+    response = client.post(
+        "/add", json={"user_id": 1, "description": "", "amount": 10.0}
+    )
     assert response.status_code == 201
     assert b"Expense added successfully" in response.data
     assert b'"category":"General"' in response.data
     assert b'"description":"General"' in response.data
 
+
 import pytest
 from flask import Flask
 from api.routes.bank_routes import bank_bp
+
 
 @pytest.fixture
 def client():
@@ -95,30 +104,39 @@ def client():
 
     with app.test_client() as client:
         yield client
+
 
 def test_fetch_transactions_missing_fields(client):
     """Test that required fields are validated properly."""
     # Missing access_token
-    response = client.post("/fetch-transactions", json={
-        "account_id": "account_123",
-        "start_date": "2024-12-01",
-        "end_date": "2024-12-19"
-    })
+    response = client.post(
+        "/fetch-transactions",
+        json={
+            "account_id": "account_123",
+            "start_date": "2024-12-01",
+            "end_date": "2024-12-19",
+        },
+    )
     assert response.status_code == 400
     assert b"Missing access token" in response.data
 
     # Missing account_id
-    response = client.post("/fetch-transactions", json={
-        "access_token": "valid_token",
-        "start_date": "2024-12-01",
-        "end_date": "2024-12-19"
-    })
+    response = client.post(
+        "/fetch-transactions",
+        json={
+            "access_token": "valid_token",
+            "start_date": "2024-12-01",
+            "end_date": "2024-12-19",
+        },
+    )
     assert response.status_code == 400
     assert b"Missing account ID" in response.data
+
 
 import pytest
 from flask import Flask
 from api.routes.bank_routes import bank_bp
+
 
 @pytest.fixture
 def client():
@@ -128,6 +146,7 @@ def client():
     app.config["TESTING"] = True
     with app.test_client() as client:
         yield client
+
 
 def test_validate_input_missing_fields(client):
     """Test input validation for missing required fields."""
@@ -135,8 +154,11 @@ def test_validate_input_missing_fields(client):
     assert response.status_code == 400
     assert b"Account ID is required" in response.data
 
+
 def test_validate_invalid_data(client):
     """Test input validation for invalid data."""
-    response = client.post("/transactions", json={"account_id": "12345", "invalid_key": "test"})
+    response = client.post(
+        "/transactions", json={"account_id": "12345", "invalid_key": "test"}
+    )
     assert response.status_code == 400
     assert b"Invalid input data" in response.data

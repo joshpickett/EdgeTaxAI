@@ -6,7 +6,10 @@ from api.routes.auth_routes import auth_bp
 
 
 # Add the 'api/models' directory to the Python module search path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../api/models")))
+sys.path.append(
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "../../api/models"))
+)
+
 
 @pytest.fixture
 def client():
@@ -16,15 +19,17 @@ def client():
     app.config["TESTING"] = True
     return app.test_client()
 
+
 def test_login_success(client, mocker):
     """Test successful OTP generation for an existing user."""
     # Pre-populate the database with a user
     client.post("/signup", json={"phone_number": "+1234567890"})
     mocker.patch("api.routes.auth_routes.send_sms")
-  # Mock SMS sending
+    # Mock SMS sending
     response = client.post("/login", json={"phone_number": "+1234567890"})
     assert response.status_code == 200
     assert b"OTP sent to your phone number" in response.data
+
 
 def test_login_user_not_found(client):
     """Test login failure for a non-existing user."""

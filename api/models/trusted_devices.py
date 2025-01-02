@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.sql import func
 from api.config.database import Base
 
+
 class TrustedDevices(Base):
     __tablename__ = "trusted_devices"
 

@@ -2,25 +2,26 @@ import redis
 import uuid
 from datetime import datetime
 
+
 class SessionManager:
     def __init__(self):
-        self.redis_client = redis.Redis(host='localhost', port=6379, db=0)
+        self.redis_client = redis.Redis(host="localhost", port=6379, db=0)
         self.session_timeout = 3600  # 1 hour
         self.max_sessions_per_user = 5
 
     def create_session(self, user_id: str, device_info: str) -> str:
         """Create a new session"""
         session_id = str(uuid.uuid4())
-        
+
         # Check and remove oldest session if limit reached
         self.enforce_session_limit(user_id)
-        
+
         session_data = {
-            'user_id': user_id,
-            'device_info': device_info,
-            'device_fingerprint': DeviceFingerprint().generate_fingerprint(),
-            'created_at': datetime.now().isoformat(),
-            'last_active': datetime.now().isoformat()
+            "user_id": user_id,
+            "device_info": device_info,
+            "device_fingerprint": DeviceFingerprint().generate_fingerprint(),
+            "created_at": datetime.now().isoformat(),
+            "last_active": datetime.now().isoformat(),
         }
         self.redis_client.setex(session_id, self.session_timeout, session_data)
         return session_id

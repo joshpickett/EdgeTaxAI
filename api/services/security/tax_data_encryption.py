@@ -8,12 +8,13 @@ from datetime import datetime
 import logging
 from api.config.security_config import SECURITY_CONFIG
 
+
 class TaxDataEncryption:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.key = self._generate_key()
         self.cipher_suite = Fernet(self.key)
-        self.sensitive_fields = SECURITY_CONFIG['AUDIT']['SENSITIVE_FIELDS']
+        self.sensitive_fields = SECURITY_CONFIG["AUDIT"]["SENSITIVE_FIELDS"]
 
     def _generate_key(self) -> bytes:
         """Generate encryption key using PBKDF2"""
@@ -24,29 +25,29 @@ class TaxDataEncryption:
             salt=salt,
             iterations=100000,
         )
-        key = base64.urlsafe_b64encode(kdf.derive(
-            os.getenv('TAX_ENCRYPTION_SECRET').encode()
-        ))
+        key = base64.urlsafe_b64encode(
+            kdf.derive(os.getenv("TAX_ENCRYPTION_SECRET").encode())
+        )
         return key
 
     def encrypt_tax_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Encrypt sensitive tax data fields"""
         encrypted_data = data.copy()
-        
+
         for field in self.sensitive_fields:
             if field in encrypted_data:
                 encrypted_data[field] = self._encrypt_value(str(encrypted_data[field]))
-                
+
         return encrypted_data
 
     def decrypt_tax_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Decrypt sensitive tax data fields"""
         decrypted_data = data.copy()
-        
+
         for field in self.sensitive_fields:
             if field in decrypted_data:
                 decrypted_data[field] = self._decrypt_value(str(decrypted_data[field]))
-                
+
         return decrypted_data
 
     def _encrypt_value(self, value: str) -> str:

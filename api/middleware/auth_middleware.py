@@ -20,18 +20,22 @@ session_manager = SessionManager()
 audit_logger = AuditLogger()
 REFRESH_THRESHOLD = 300  # 5 minutes before expiry
 
+
 class AuthError(APIError):
     """Custom authentication error class"""
+
     pass
+
 
 def token_required(function: Callable) -> Callable:
     """Decorator to verify JSON Web Tokens"""
+
     @wraps(function)
     def decorated(*args: Any, **kwargs: Any) -> Any:
         token = None
-        
-        if 'Authorization' in request.headers:
-            authorization_header = request.headers['Authorization']
+
+        if "Authorization" in request.headers:
+            authorization_header = request.headers["Authorization"]
             try:
                 token = authorization_header.split(" ")[1]
             except IndexError:
@@ -40,7 +44,7 @@ def token_required(function: Callable) -> Callable:
             # Get user from database
             db = SessionLocal()
             claims = token_manager.verify_token(token)
-            user = db.query(Users).filter(Users.id == claims['user_id']).first()
+            user = db.query(Users).filter(Users.id == claims["user_id"]).first()
             if not user:
                 raise AuthError("User not found", 401)
 
@@ -48,15 +52,15 @@ def token_required(function: Callable) -> Callable:
             try:
                 claims = token_manager.verify_token(token)
                 request.user = claims
-                audit_logger.log_auth_success(claims['user_id'], 'token_verification')
+                audit_logger.log_auth_success(claims["user_id"], "token_verification")
                 return function(*args, **kwargs)
             except jwt.ExpiredSignatureError:
-                audit_logger.log_auth_failure(claims.get('user_id'), 'token_expired')
+                audit_logger.log_auth_failure(claims.get("user_id"), "token_expired")
                 if token_manager.can_refresh(token):
                     new_token = token_manager.refresh_token(token)
                     if new_token:
                         response = function(*args, **kwargs)
-                        response.headers['New-Token'] = new_token
+                        response.headers["New-Token"] = new_token
                         return response
                 raise AuthError("Token has expired", 401)
             except jwt.InvalidTokenError:
@@ -69,44 +73,47 @@ def token_required(function: Callable) -> Callable:
 
     return decorated
 
+
 def generate_token(user_identifier: int) -> str:
     """Generate JSON Web Token for user"""
     payload = {
-        'user_id': user_identifier,
-        'exp': datetime.utcnow() + timedelta(days=1),
-        'iat': datetime.utcnow()
+        "user_id": user_identifier,
+        "exp": datetime.utcnow() + timedelta(days=1),
+        "iat": datetime.utcnow(),
     }
-    
-    return jwt.encode(
-        payload,
-        os.getenv('JWT_SECRET_KEY'),
-        algorithm="HS256"
-    )
+
+    return jwt.encode(payload, os.getenv("JWT_SECRET_KEY"), algorithm="HS256")
+
 
 def needs_refresh(token: str) -> bool:
     """Check if token needs to be refreshed"""
     try:
-        payload = jwt.decode(token, os.getenv('JWT_SECRET_KEY'), algorithms=["HS256"])
-        exp = datetime.fromtimestamp(payload['exp'])
+        payload = jwt.decode(token, os.getenv("JWT_SECRET_KEY"), algorithms=["HS256"])
+        exp = datetime.fromtimestamp(payload["exp"])
         return (exp - datetime.utcnow()).total_seconds() < REFRESH_THRESHOLD
     except:
         return False
 
+
 def refresh_token(old_token: str) -> Optional[str]:
     """Refresh token if it's approaching expiration"""
     try:
-        payload = jwt.decode(old_token, os.getenv('JWT_SECRET_KEY'), algorithms=["HS256"])
-        return generate_token(payload['user_id'])
+        payload = jwt.decode(
+            old_token, os.getenv("JWT_SECRET_KEY"), algorithms=["HS256"]
+        )
+        return generate_token(payload["user_id"])
     except:
         return None
+
 
 def validate_token_format(token: str) -> bool:
     """Validate token format"""
     try:
-        parts = token.split('.')
+        parts = token.split(".")
         return len(parts) == 3 and all(parts)
     except:
         return False
+
 
 def handle_api_error(error: APIError) -> tuple:
     """Handle API errors with proper logging and response"""
@@ -114,6 +121,6 @@ def handle_api_error(error: APIError) -> tuple:
     response = {
         "error": error.message,
         "status": "error",
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.utcnow().isoformat(),
     }
     return jsonify(response), error.status_code

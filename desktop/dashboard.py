@@ -1,4 +1,5 @@
 from desktop.setup_path import setup_desktop_path
+
 setup_desktop_path()
 
 import tkinter as tk
@@ -8,7 +9,8 @@ import requests
 import matplotlib.pyplot as plt
 from desktop.config import ASSETS_DIR, API_BASE_URL
 
-DASHBOARD_LOGO = ASSETS_DIR / 'logo' / 'primary' / 'edgetaxai-horizontal-color.svg'
+DASHBOARD_LOGO = ASSETS_DIR / "logo" / "primary" / "edgetaxai-horizontal-color.svg"
+
 
 # Dashboard Window
 class ExpenseDashboard(tk.Tk):
@@ -23,22 +25,34 @@ class ExpenseDashboard(tk.Tk):
         self.expense_listbox.pack(pady=20)
 
         # Buttons
-        self.fetch_button = tk.Button(self, text="Fetch Expenses", command=self.fetch_expenses)
+        self.fetch_button = tk.Button(
+            self, text="Fetch Expenses", command=self.fetch_expenses
+        )
         self.fetch_button.pack()
 
-        self.edit_button = tk.Button(self, text="Edit Selected Expense", command=self.edit_expense)
+        self.edit_button = tk.Button(
+            self, text="Edit Selected Expense", command=self.edit_expense
+        )
         self.edit_button.pack()
 
-        self.delete_button = tk.Button(self, text="Delete Selected Expense", command=self.delete_expense)
+        self.delete_button = tk.Button(
+            self, text="Delete Selected Expense", command=self.delete_expense
+        )
         self.delete_button.pack()
 
-        self.bar_chart_button = tk.Button(self, text="Show Bar Chart", command=self.show_bar_chart)
+        self.bar_chart_button = tk.Button(
+            self, text="Show Bar Chart", command=self.show_bar_chart
+        )
         self.bar_chart_button.pack()
 
-        self.pie_chart_button = tk.Button(self, text="Show Pie Chart", command=self.show_pie_chart)
+        self.pie_chart_button = tk.Button(
+            self, text="Show Pie Chart", command=self.show_pie_chart
+        )
         self.pie_chart_button.pack()
 
-        self.logout_button = tk.Button(self, text="Logout", command=self.logout, bg="#FF5733", fg="white")
+        self.logout_button = tk.Button(
+            self, text="Logout", command=self.logout, bg="#FF5733", fg="white"
+        )
         self.logout_button.pack(pady=10)
 
         self.expenses = []  # Initialize the expenses list
@@ -71,9 +85,17 @@ class ExpenseDashboard(tk.Tk):
             expense = self.expenses[index]
 
             # Prompt for new values
-            new_description = simpledialog.askstring("Edit Expense", "Enter new description:", initialvalue=expense["description"])
-            new_amount = simpledialog.askfloat("Edit Expense", "Enter new amount:", initialvalue=expense["amount"])
-            new_category = simpledialog.askstring("Edit Expense", "Enter new category:", initialvalue=expense["category"])
+            new_description = simpledialog.askstring(
+                "Edit Expense",
+                "Enter new description:",
+                initialvalue=expense["description"],
+            )
+            new_amount = simpledialog.askfloat(
+                "Edit Expense", "Enter new amount:", initialvalue=expense["amount"]
+            )
+            new_category = simpledialog.askstring(
+                "Edit Expense", "Enter new category:", initialvalue=expense["category"]
+            )
 
             if new_description and new_amount and new_category:
                 updated_data = {
@@ -81,7 +103,9 @@ class ExpenseDashboard(tk.Tk):
                     "amount": new_amount,
                     "category": new_category,
                 }
-                response = requests.put(f"{API_BASE_URL}/expenses/edit/{expense['id']}", json=updated_data)
+                response = requests.put(
+                    f"{API_BASE_URL}/expenses/edit/{expense['id']}", json=updated_data
+                )
                 if response.status_code == 200:
                     messagebox.showinfo("Success", "Expense updated successfully!")
                     self.fetch_expenses()
@@ -100,9 +124,14 @@ class ExpenseDashboard(tk.Tk):
             index = selected[0]
             expense = self.expenses[index]
 
-            confirm = messagebox.askyesno("Confirm Deletion", f"Are you sure you want to delete expense '{expense['description']}'?")
+            confirm = messagebox.askyesno(
+                "Confirm Deletion",
+                f"Are you sure you want to delete expense '{expense['description']}'?",
+            )
             if confirm:
-                response = requests.delete(f"{API_BASE_URL}/expenses/delete/{expense['id']}")
+                response = requests.delete(
+                    f"{API_BASE_URL}/expenses/delete/{expense['id']}"
+                )
                 if response.status_code == 200:
                     messagebox.showinfo("Success", "Expense deleted successfully!")
                     self.fetch_expenses()
@@ -141,7 +170,13 @@ class ExpenseDashboard(tk.Tk):
                 return
 
             plt.figure(figsize=(8, 6))
-            plt.pie(amounts, labels=categories, autopct="%1.1f%%", startangle=140, colors=plt.cm.Paired.colors)
+            plt.pie(
+                amounts,
+                labels=categories,
+                autopct="%1.1f%%",
+                startangle=140,
+                colors=plt.cm.Paired.colors,
+            )
             plt.title("Expense Breakdown")
             plt.tight_layout()
             plt.show()
@@ -160,6 +195,7 @@ class ExpenseDashboard(tk.Tk):
 
         self.destroy()
         messagebox.showinfo("Logout", "Session ended. Please log in again.")
+
 
 if __name__ == "__main__":
     app = ExpenseDashboard()

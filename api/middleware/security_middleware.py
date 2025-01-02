@@ -8,6 +8,7 @@ from api.utils.rate_limit import RateLimiter
 import ipaddress
 import logging
 
+
 class SecurityMiddleware:
     def __init__(self, db):
         self.encryption_manager = EncryptionManager()
@@ -18,48 +19,51 @@ class SecurityMiddleware:
 
     def _load_allowed_ips(self) -> set:
         """Load allowed IPs from configuration"""
-        return set(SECURITY_CONFIG['API_SECURITY']['ALLOWED_IPS'])
+        return set(SECURITY_CONFIG["API_SECURITY"]["ALLOWED_IPS"])
 
     def validate_api_headers(self, f):
         """Decorator to validate required API headers"""
+
         @wraps(f)
         async def decorated_function(*args, **kwargs):
-            required_headers = SECURITY_CONFIG['API_SECURITY']['REQUIRED_HEADERS']
+            required_headers = SECURITY_CONFIG["API_SECURITY"]["REQUIRED_HEADERS"]
             missing_headers = [
-                header for header in required_headers 
-                if header not in request.headers
+                header for header in required_headers if header not in request.headers
             ]
-            
+
             if missing_headers:
-                return jsonify({
-                    'error': 'Missing required headers',
-                    'missing': missing_headers
-                }), 400
-                
+                return (
+                    jsonify(
+                        {
+                            "error": "Missing required headers",
+                            "missing": missing_headers,
+                        }
+                    ),
+                    400,
+                )
+
             return await f(*args, **kwargs)
+
         return decorated_function
 
     def require_encryption(self, f):
         """Decorator to ensure request data is encrypted"""
+
         @wraps(f)
         async def decorated_function(*args, **kwargs):
             try:
                 # Check if request data is encrypted
                 if request.is_json:
                     encrypted_data = request.get_json()
-                    if 'encrypted_payload' not in encrypted_data:
-                        return jsonify({
-                            'error': 'Request must be encrypted'
-                        }), 400
+                    if "encrypted_payload" not in encrypted_data:
+                        return jsonify({"error": "Request must be encrypted"}), 400
 
                     # Decrypt the payload
                     decrypted_data = self.encryption_manager.decrypt(
-                        encrypted_data['encrypted_payload']
+                        encrypted_data["encrypted_payload"]
                     )
                     if not decrypted_data:
-                        return jsonify({
-                            'error': 'Invalid encryption'
-                        }), 400
+                        return jsonify({"error": "Invalid encryption"}), 400
 
                     # Replace request data with decrypted data
                     request.data = decrypted_data
@@ -67,14 +71,13 @@ class SecurityMiddleware:
                 return await f(*args, **kwargs)
             except Exception as e:
                 self.logger.error(f"Encryption middleware error: {str(e)}")
-                return jsonify({
-                    'error': 'Security check failed'
-                }), 500
+                return jsonify({"error": "Security check failed"}), 500
 
         return decorated_function
 
     def verify_ip_whitelist(self, f):
         """Decorator to verify IP whitelist for IRS submissions"""
+
         @wraps(f)
         async def decorated_function(*args, **kwargs):
             client_ip = request.remote_addr
@@ -82,13 +85,11 @@ class SecurityMiddleware:
                 await self.audit_logger.log_document_access(
                     user_id=request.user.id if request.user else None,
                     document_id=None,
-                    access_type='ip_whitelist_violation',
+                    access_type="ip_whitelist_violation",
                     success=False,
-                    details={'ip_address': client_ip}
+                    details={"ip_address": client_ip},
                 )
-                return jsonify({
-                    'error': 'IP not authorized'
-                }), 403
+                return jsonify({"error": "IP not authorized"}), 403
 
             return await f(*args, **kwargs)
 
@@ -96,21 +97,22 @@ class SecurityMiddleware:
 
     def audit_request(self, f):
         """Decorator to audit API requests"""
+
         @wraps(f)
         async def decorated_function(*args, **kwargs):
             try:
                 # Log request details
                 await self.audit_logger.log_document_access(
                     user_id=request.user.id if request.user else None,
-                    document_id=kwargs.get('document_id'),
-                    access_type='api_request',
+                    document_id=kwargs.get("document_id"),
+                    access_type="api_request",
                     success=True,
                     details={
-                        'method': request.method,
-                        'path': request.path,
-                        'ip_address': request.remote_addr,
-                        'user_agent': request.user_agent.string
-                    }
+                        "method": request.method,
+                        "path": request.path,
+                        "ip_address": request.remote_addr,
+                        "user_agent": request.user_agent.string,
+                    },
                 )
 
                 response = await f(*args, **kwargs)
@@ -118,10 +120,10 @@ class SecurityMiddleware:
                 # Log response status
                 await self.audit_logger.log_document_access(
                     user_id=request.user.id if request.user else None,
-                    document_id=kwargs.get('document_id'),
-                    access_type='api_response',
+                    document_id=kwargs.get("document_id"),
+                    access_type="api_response",
                     success=response.status_code == 200,
-                    details={'status_code': response.status_code}
+                    details={"status_code": response.status_code},
                 )
 
                 return response

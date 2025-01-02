@@ -3,6 +3,7 @@ from unittest.mock import patch
 from flask import Flask
 from api.routes.bank_routes import bank_bp
 
+
 @pytest.fixture
 def client():
     """Fixture to set up a Flask test client for the bank routes."""
@@ -11,6 +12,7 @@ def client():
     app.config["TESTING"] = True
     with app.test_client() as client:
         yield client
+
 
 # Test Case: Successful creation of Plaid Link Token
 @patch("api.routes.bank_routes.plaid_client.link_token_create")
@@ -29,12 +31,14 @@ def test_create_link_token_success(mock_link_token_create, client):
     assert b"test-link-token" in response.data
     mock_link_token_create.assert_called_once()
 
+
 # Test Case: Missing User ID
 def test_create_link_token_missing_user_id(client):
     """Test failure when user_id is missing."""
     response = client.post("/plaid/link-token", json={})
     assert response.status_code == 400
     assert b"User ID is required" in response.data
+
 
 # Test Case: Failure due to Plaid API Error
 @patch("api.routes.bank_routes.plaid_client.link_token_create")
@@ -51,12 +55,14 @@ def test_create_link_token_failure(mock_link_token_create, client):
     assert b"Failed to generate Plaid link token" in response.data
     mock_link_token_create.assert_called_once()
 
+
 # Test Case: Invalid User ID
 def test_create_link_token_invalid_user_id(client):
     """Test failure when user_id is invalid."""
     response = client.post("/plaid/link-token", json={"user_id": "invalid"})
     assert response.status_code == 400
     assert b"User ID must be an integer" in response.data
+
 
 # Test Case: Empty JSON Request
 def test_create_link_token_empty_request(client):
@@ -65,8 +71,12 @@ def test_create_link_token_empty_request(client):
     assert response.status_code == 400
     assert b"User ID is required" in response.data
 
+
 # Test Case: Missing Plaid Client Configuration
-@patch("api.routes.bank_routes.plaid_client.link_token_create", side_effect=AttributeError("Plaid client not configured"))
+@patch(
+    "api.routes.bank_routes.plaid_client.link_token_create",
+    side_effect=AttributeError("Plaid client not configured"),
+)
 def test_create_link_token_missing_plaid_client(mock_link_token_create, client):
     """Test failure when Plaid client is not properly configured."""
     response = client.post("/plaid/link-token", json={"user_id": 1})

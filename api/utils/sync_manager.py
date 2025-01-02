@@ -16,6 +16,7 @@ from api.utils.error_handler import handle_sync_error
 from api.models.gig_data_model import GigPlatform
 from sqlalchemy.orm import Session
 
+
 class SyncManager:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
@@ -25,15 +26,17 @@ class SyncManager:
         """Synchronize all user data"""
         try:
             sync_result = {
-                'status': 'success',
-                'timestamp': datetime.utcnow().isoformat(),
-                'synced_items': {}
+                "status": "success",
+                "timestamp": datetime.utcnow().isoformat(),
+                "synced_items": {},
             }
 
             # Sync different data types
-            sync_result['synced_items']['expenses'] = await self.sync_expenses(user_id)
-            sync_result['synced_items']['receipts'] = await self.sync_receipts(user_id)
-            sync_result['synced_items']['platform_data'] = await self.sync_platform_data(user_id)
+            sync_result["synced_items"]["expenses"] = await self.sync_expenses(user_id)
+            sync_result["synced_items"]["receipts"] = await self.sync_receipts(user_id)
+            sync_result["synced_items"]["platform_data"] = (
+                await self.sync_platform_data(user_id)
+            )
 
             return sync_result
 
@@ -47,7 +50,7 @@ class SyncManager:
             cursor = self.db.cursor()
             cursor.execute(
                 "SELECT * FROM expenses WHERE user_id = ? AND sync_status = 'pending'",
-                (user_id,)
+                (user_id,),
             )
             pending_expenses = cursor.fetchall()
 
@@ -57,10 +60,7 @@ class SyncManager:
                 await self._process_expense_sync(expense)
                 synced_count += 1
 
-            return {
-                'status': 'success',
-                'synced_count': synced_count
-            }
+            return {"status": "success", "synced_count": synced_count}
 
         except Exception as e:
             self.logger.error(f"Error syncing expenses: {str(e)}")
@@ -72,7 +72,7 @@ class SyncManager:
             cursor = self.db.cursor()
             cursor.execute(
                 "SELECT * FROM receipts WHERE user_id = ? AND sync_status = 'pending'",
-                (user_id,)
+                (user_id,),
             )
             pending_receipts = cursor.fetchall()
 
@@ -81,10 +81,7 @@ class SyncManager:
                 await self._process_receipt_sync(receipt)
                 synced_count += 1
 
-            return {
-                'status': 'success',
-                'synced_count': synced_count
-            }
+            return {"status": "success", "synced_count": synced_count}
 
         except Exception as e:
             self.logger.error(f"Error syncing receipts: {str(e)}")
@@ -94,21 +91,18 @@ class SyncManager:
         """Sync platform-specific data"""
         try:
             cursor = self.db.cursor()
-            platforms = self.db.query(GigPlatform).filter(
-                GigPlatform.user_id == user_id
-            ).all()
+            platforms = (
+                self.db.query(GigPlatform).filter(GigPlatform.user_id == user_id).all()
+            )
 
             platform_results = {}
             for platform in platforms:
                 platform_results[platform.platform.value] = {
-                    'last_sync': platform.last_sync,
-                    'status': 'synced'
+                    "last_sync": platform.last_sync,
+                    "status": "synced",
                 }
 
-            return {
-                'status': 'success',
-                'platforms': platform_results
-            }
+            return {"status": "success", "platforms": platform_results}
 
         except Exception as e:
             self.logger.error(f"Error syncing platform data: {str(e)}")
@@ -121,7 +115,7 @@ class SyncManager:
             cursor = self.db.cursor()
             cursor.execute(
                 "UPDATE expenses SET sync_status = 'synced', last_synced = ? WHERE id = ?",
-                (datetime.utcnow().isoformat(), expense['id'])
+                (datetime.utcnow().isoformat(), expense["id"]),
             )
             self.db.commit()
 
@@ -136,7 +130,7 @@ class SyncManager:
             cursor = self.db.cursor()
             cursor.execute(
                 "UPDATE receipts SET sync_status = 'synced', last_synced = ? WHERE id = ?",
-                (datetime.utcnow().isoformat(), receipt['id'])
+                (datetime.utcnow().isoformat(), receipt["id"]),
             )
             self.db.commit()
 
@@ -150,7 +144,7 @@ class SyncManager:
             cursor = self.db.cursor()
             cursor.execute(
                 "SELECT * FROM platform_data WHERE user_id = ? AND platform = ? AND sync_status = 'pending'",
-                (user_id, platform)
+                (user_id, platform),
             )
             pending_data = cursor.fetchall()
 
@@ -160,10 +154,7 @@ class SyncManager:
                 await self._process_platform_data_sync(data)
                 synced_count += 1
 
-            return {
-                'status': 'success',
-                'synced_count': synced_count
-            }
+            return {"status": "success", "synced_count": synced_count}
 
         except Exception as e:
             self.logger.error(f"Error syncing platform {platform}: {str(e)}")
@@ -175,7 +166,7 @@ class SyncManager:
             cursor = self.db.cursor()
             cursor.execute(
                 "UPDATE platform_data SET sync_status = 'synced', last_synced = ? WHERE id = ?",
-                (datetime.utcnow().isoformat(), data['id'])
+                (datetime.utcnow().isoformat(), data["id"]),
             )
             self.db.commit()
 

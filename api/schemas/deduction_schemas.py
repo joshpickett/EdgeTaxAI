@@ -2,6 +2,7 @@ from marshmallow import Schema, fields, validate
 from .base_schemas import AuditSchema
 from api.models.deductions import DeductionType
 
+
 class DeductionSchema(AuditSchema):
     type = fields.Enum(DeductionType, required=True)
     description = fields.String(required=True, validate=validate.Length(max=500))
@@ -13,6 +14,7 @@ class DeductionSchema(AuditSchema):
     expense_id = fields.Integer(allow_none=True)
     category = fields.String(validate=validate.Length(max=100))
     is_verified = fields.Boolean(default=False)
+
 
 deduction_schema = DeductionSchema()
 deductions_schema = DeductionSchema(many=True)

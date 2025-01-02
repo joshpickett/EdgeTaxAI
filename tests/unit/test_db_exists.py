@@ -3,14 +3,17 @@ import os
 import sqlite3
 
 # Add the 'api/models' directory to the Python module search path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../api/models")))
+sys.path.append(
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "../../api/models"))
+)
 
 from gig_model import init_gig_table
+
 
 def test_database_already_exists():
     # Define the database file name
     db_path = "database.db"
-    
+
     # Step 1: Ensure database file exists
     if not os.path.exists(db_path):
         conn = sqlite3.connect(db_path)

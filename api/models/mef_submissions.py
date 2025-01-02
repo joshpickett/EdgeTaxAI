@@ -5,6 +5,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from datetime import datetime
 from api.config.database import Base
 
+
 class SubmissionStatus(enum.Enum):
     PENDING = "pending"
     TRANSMITTED = "transmitted"
@@ -12,6 +13,7 @@ class SubmissionStatus(enum.Enum):
     REJECTED = "rejected"
     ERROR = "error"
     FAILED = "failed"
+
 
 class MeFSubmission(Base):
     __tablename__ = "mef_submissions"

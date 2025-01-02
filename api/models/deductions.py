@@ -1,8 +1,17 @@
-from sqlalchemy import Column, Integer, String, Numeric, DateTime, ForeignKey, Enum as SQLAlchemyEnum
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    Numeric,
+    DateTime,
+    ForeignKey,
+    Enum as SQLAlchemyEnum,
+)
 from sqlalchemy.orm import relationship
 import enum
 from api.config.database import Base
 from sqlalchemy.sql import func
+
 
 class DeductionType(enum.Enum):
     MILEAGE = "mileage"
@@ -10,6 +19,7 @@ class DeductionType(enum.Enum):
     SUPPLIES = "supplies"
     EQUIPMENT = "equipment"
     OTHER = "other"
+
 
 class Deductions(Base):
     __tablename__ = "deductions"
@@ -22,7 +32,9 @@ class Deductions(Base):
     calculated_amount = Column(Numeric(10, 2))
     tax_year = Column(Integer)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
     # Relationships
     user = relationship("Users", back_populates="deductions")

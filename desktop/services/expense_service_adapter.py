@@ -8,6 +8,7 @@ from desktop.utils.error_handler import handle_api_error
 
 setup_desktop_path()
 
+
 class ExpenseServiceAdapter:
     def __init__(self, base_url: str = Config.API_BASE_URL):
         self.base_url = base_url
@@ -28,14 +29,13 @@ class ExpenseServiceAdapter:
                 raise ValueError(f"Invalid platform: {platform}")
 
             response = requests.post(
-                f"{self.base_url}/platforms/sync/{platform}",
-                headers=self.headers
+                f"{self.base_url}/platforms/sync/{platform}", headers=self.headers
             )
-            
+
             if response.status_code == 200:
                 return True
             return False
-            
+
         except Exception as e:
             logging.error(f"Platform sync error: {e}")
             return False

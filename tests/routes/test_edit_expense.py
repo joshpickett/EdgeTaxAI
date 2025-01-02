@@ -4,6 +4,7 @@ def test_edit_expense_success(client):
     assert response.status_code == 200
     assert b"Expense updated successfully" in response.data
 
+
 def test_edit_expense_not_found(client):
     """Test editing a non-existing expense."""
     response = client.put("/edit/999", json={"description": "New"})

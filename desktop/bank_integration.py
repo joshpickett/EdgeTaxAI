@@ -1,4 +1,5 @@
 from desktop.setup_path import setup_desktop_path
+
 setup_desktop_path()
 
 import streamlit as st
@@ -11,18 +12,19 @@ from desktop.services.ai_service_adapter import AIServiceAdapter
 logging.basicConfig(
     filename="plaid_integration.log",
     level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
+    format="%(asctime)s - %(levelname)s - %(message)s",
 )
 
 # Constants
 PLAID_CATEGORIES = {
     "FOOD_AND_DRINK": "Meals",
     "TRAVEL": "Travel",
-    "TRANSPORTATION": "Vehicle"
+    "TRANSPORTATION": "Vehicle",
 }
 
 bank_service = BankServiceAdapter()
 ai_service = AIServiceAdapter()
+
 
 def bank_integration_page():
     """
@@ -41,7 +43,7 @@ def bank_integration_page():
 
     # Step 1: Connect Bank Account
     st.subheader("Connect Bank Account")
-    
+
     if st.button("Connect Bank Account"):
         try:
             link_token = await bank_service.get_link_token(user_id)
@@ -51,7 +53,7 @@ def bank_integration_page():
 
     # Step 2: Fetch Bank Transactions
     st.subheader("Fetch Bank Transactions")
-    
+
     # Date range selector
     col1, col2 = st.columns(2)
     with col1:
@@ -61,17 +63,23 @@ def bank_integration_page():
 
     if st.button("Fetch Transactions"):
         try:
-            transactions = await bank_service.get_transactions(user_id, start_date, end_date)
+            transactions = await bank_service.get_transactions(
+                user_id, start_date, end_date
+            )
             # Categorize transactions using AI
             for transaction in transactions:
-                categorization = await ai_service.categorize_expense(transaction['description'], transaction['amount'])
-             
+                categorization = await ai_service.categorize_expense(
+                    transaction["description"], transaction["amount"]
+                )
+
             if transactions:
                 st.dataframe(transactions)
                 logging.info(f"User {user_id} fetched bank transactions successfully.")
             else:
                 st.info("No transactions found for the connected accounts.")
-                logging.info(f"User {user_id} has no transactions in connected accounts.")
+                logging.info(
+                    f"User {user_id} has no transactions in connected accounts."
+                )
         except Exception as e:
             st.error("An unexpected error occurred while fetching transactions.")
             logging.exception(f"Exception while fetching transactions: {e}")
@@ -80,9 +88,10 @@ def bank_integration_page():
     st.subheader("Account Balances")
     if st.button("Check Balances"):
         try:
-            response = requests.get(f"{API_BASE_URL}/api/banks/plaid/balance",
-                                  params={"user_id": user_id})
-            
+            response = requests.get(
+                f"{API_BASE_URL}/api/banks/plaid/balance", params={"user_id": user_id}
+            )
+
             if response.status_code == 200:
                 balances = response.json().get("balances", [])
                 if balances:
@@ -102,9 +111,11 @@ def bank_integration_page():
     if st.button("Disconnect Bank"):
         if st.confirm("Are you sure you want to disconnect your bank account?"):
             try:
-                response = requests.post(f"{API_BASE_URL}/api/banks/plaid/disconnect",
-                                       json={"user_id": user_id})
-                
+                response = requests.post(
+                    f"{API_BASE_URL}/api/banks/plaid/disconnect",
+                    json={"user_id": user_id},
+                )
+
                 if response.status_code == 200:
                     st.success("Bank account disconnected successfully")
                 else:

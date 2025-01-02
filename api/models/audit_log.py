@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, DateTime, JSON, ForeignKey
 from sqlalchemy.sql import func
 from api.config.database import Base
 
+
 class AuditLog(Base):
     __tablename__ = "audit_logs"
 

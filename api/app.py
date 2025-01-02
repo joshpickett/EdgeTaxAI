@@ -17,15 +17,16 @@ import logging
 logging.basicConfig(
     filename="api_startup.log",  # Log file for API startup and routes
     level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
+    format="%(asctime)s - %(levelname)s - %(message)s",
 )
+
 
 def create_app():
     """
     Factory function to create the Flask app.
     """
     app = Flask(__name__)
-    app.config.from_object('api.config.Config')
+    app.config.from_object("api.config.Config")
     CORS(app)  # Enable Cross-Origin Resource Sharing for frontend requests
 
     # Register error handlers
@@ -47,6 +48,7 @@ def create_app():
     log_api_startup(app)
     return app
 
+
 def log_api_startup(app):
     """
     Logs all registered routes and startup information.
@@ -56,10 +58,11 @@ def log_api_startup(app):
 
     for rule in app.url_map.iter_rules():
         if rule.endpoint != "static":  # Exclude static files
-            methods = ','.join(rule.methods - {"HEAD", "OPTIONS"})
+            methods = ",".join(rule.methods - {"HEAD", "OPTIONS"})
             logging.info(f"{rule.endpoint} – {rule.rule} [{methods}]")
 
     logging.info("Flask API Server started successfully.")
+
 
 if __name__ == "__main__":
     app = create_app()

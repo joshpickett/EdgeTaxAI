@@ -3,6 +3,7 @@ import requests
 import logging
 from utils.validators import validate_email, validate_phone, validate_password
 
+
 def account_creation_page(api_base_url):
     st.title("Create Account")
 
@@ -18,7 +19,9 @@ def account_creation_page(api_base_url):
         if not validate_phone(phone_number):
             errors.append("Invalid phone number format")
         if not validate_password(password):
-            errors.append("Password must be at least 8 characters with numbers and special characters")
+            errors.append(
+                "Password must be at least 8 characters with numbers and special characters"
+            )
         return errors
 
     if st.button("Create Account"):
@@ -29,7 +32,7 @@ def account_creation_page(api_base_url):
                     "full_name": full_name,
                     "email": email,
                     "phone_number": phone_number,
-                    "password": password
+                    "password": password,
                 }
                 response = requests.post(f"{api_base_url}/auth/signup", json=payload)
             else:

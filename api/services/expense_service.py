@@ -14,6 +14,7 @@ from api.models.expenses import Expenses, ExpenseCategory
 from api.config.database import SessionLocal
 from datetime import datetime
 
+
 class ExpenseService:
     def __init__(self):
         self.db = SessionLocal()
@@ -21,11 +22,11 @@ class ExpenseService:
     def create_expense(self, data: Dict[str, Any]) -> Expenses:
         try:
             new_expense = Expenses(
-                user_id=data['user_id'],
-                category=data['category'],
-                description=data['description'],
-                amount=data['amount'],
-                date=data['date']
+                user_id=data["user_id"],
+                category=data["category"],
+                description=data["description"],
+                amount=data["amount"],
+                date=data["date"],
             )
             self.db.add(new_expense)
             self.db.commit()
@@ -35,16 +36,14 @@ class ExpenseService:
             raise e
 
     def get_expense(self, expense_id: int, user_id: int) -> Expenses:
-        return self.db.query(Expenses).filter(
-            Expenses.id == expense_id,
-            Expenses.user_id == user_id
-        ).first()
+        return (
+            self.db.query(Expenses)
+            .filter(Expenses.id == expense_id, Expenses.user_id == user_id)
+            .first()
+        )
 
     def get_expenses_paginated(
-        self, 
-        user_id: int, 
-        page: int = 1, 
-        per_page: int = 20
+        self, user_id: int, page: int = 1, per_page: int = 20
     ) -> Tuple[int, List[Expenses]]:
         query = self.db.query(Expenses).filter(Expenses.user_id == user_id)
         total = query.count()

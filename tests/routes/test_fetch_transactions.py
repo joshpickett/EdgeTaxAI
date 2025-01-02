@@ -22,7 +22,7 @@ def test_fetch_transactions_success(mock_transactions_get, client):
     mock_response = Mock()
     mock_response.transactions = [
         {"name": "Test Transaction", "amount": 10.0, "date": "2024-12-01"},
-        {"name": "Test Transaction 2", "amount": 20.0, "date": "2024-12-02"}
+        {"name": "Test Transaction 2", "amount": 20.0, "date": "2024-12-02"},
     ]
     mock_transactions_get.return_value = mock_response
 
@@ -39,7 +39,9 @@ def test_fetch_transactions_success(mock_transactions_get, client):
 @patch("api.routes.bank_routes.plaid_client.transactions_get")
 def test_fetch_transactions_missing_fields(mock_transactions_get, client):
     """Test fetching transactions with missing user_id."""
-    response = client.get("/plaid/transactions?start_date=2024-12-01&end_date=2024-12-20")
+    response = client.get(
+        "/plaid/transactions?start_date=2024-12-01&end_date=2024-12-20"
+    )
 
     assert response.status_code == 400
     assert b"Invalid or missing User ID" in response.data
@@ -48,7 +50,9 @@ def test_fetch_transactions_missing_fields(mock_transactions_get, client):
 @patch("api.routes.bank_routes.plaid_client.transactions_get")
 def test_fetch_transactions_invalid_date(mock_transactions_get, client):
     """Test fetching transactions with invalid date format."""
-    response = client.get("/plaid/transactions?user_id=1&start_date=invalid-date&end_date=2024-12-20")
+    response = client.get(
+        "/plaid/transactions?user_id=1&start_date=invalid-date&end_date=2024-12-20"
+    )
 
     assert response.status_code == 400
     assert b"Invalid date format" in response.data
@@ -79,7 +83,9 @@ def test_fetch_transactions_invalid_request_params(client):
 @patch("api.routes.bank_routes.plaid_client.transactions_get")
 def test_fetch_transactions_no_user_id(mock_transactions_get, client):
     """Test when no user_id is provided."""
-    response = client.get("/plaid/transactions?start_date=2024-12-01&end_date=2024-12-20")
+    response = client.get(
+        "/plaid/transactions?start_date=2024-12-01&end_date=2024-12-20"
+    )
 
     assert response.status_code == 400
     assert b"Invalid or missing User ID" in response.data

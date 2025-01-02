@@ -10,7 +10,13 @@ else:
 
 from typing import Dict, Any, Optional, List, Union
 from sqlalchemy.orm import Session
-from api.models.gig_platform import GigPlatform, GigTrip, GigEarnings, PlatformType, GigPlatformStatus
+from api.models.gig_platform import (
+    GigPlatform,
+    GigTrip,
+    GigEarnings,
+    PlatformType,
+    GigPlatformStatus,
+)
 from api.schemas.gig_schemas import GigPlatformCreate, GigTripCreate
 from api.models.income import Income
 from api.models.expenses import Expenses
@@ -21,6 +27,7 @@ from datetime import datetime
 from api.utils.encryption_utils import EncryptionManager
 import logging
 
+
 class GigPlatformService:
     def __init__(self, db: Session):
         self.db = db
@@ -28,7 +35,9 @@ class GigPlatformService:
         self.encryption_manager = EncryptionManager()
         self.sync_manager = SyncManager()
 
-    def create_platform(self, user_id: int, platform_data: GigPlatformCreate) -> GigPlatform:
+    def create_platform(
+        self, user_id: int, platform_data: GigPlatformCreate
+    ) -> GigPlatform:
         """Create a new platform connection"""
         try:
             platform = GigPlatform(
@@ -39,7 +48,7 @@ class GigPlatformService:
                 access_token=platform_data.access_token,
                 refresh_token=platform_data.refresh_token,
                 account_status=GigPlatformStatus.PENDING,
-                metadata=platform_data.metadata
+                metadata=platform_data.metadata,
             )
 
             self.db.add(platform)
@@ -53,30 +62,36 @@ class GigPlatformService:
     async def sync_platform_data(self, platform_id: int) -> Dict[str, Any]:
         """Sync platform data and create/update records"""
         try:
-            platform = self.db.query(GigPlatform).filter(
-                GigPlatform.id == platform_id,
-                GigPlatform.is_active == True
-            ).first()
-             
+            platform = (
+                self.db.query(GigPlatform)
+                .filter(GigPlatform.id == platform_id, GigPlatform.is_active == True)
+                .first()
+            )
+
             if not platform:
                 raise ValueError("Platform connection not found")
- 
+
             api_client = PlatformAPI(
-                platform=platform.platform,
-                access_token=platform.decrypted_access_token
+                platform=platform.platform, access_token=platform.decrypted_access_token
             )
 
             # Fetch and process platform data
             raw_data = await api_client.fetch_trips()
-            processed_data = await self.processor.process_platform_data(platform.platform, raw_data)
+            processed_data = await self.processor.process_platform_data(
+                platform.platform, raw_data
+            )
 
             # Process each trip
             for trip_data in processed_data["trips"]:
                 # Check if trip already exists
-                existing_trip = self.db.query(GigTrip).filter(
-                    GigTrip.platform_id == platform.id,
-                    GigTrip.trip_id == trip_data["trip_id"]
-                ).first()
+                existing_trip = (
+                    self.db.query(GigTrip)
+                    .filter(
+                        GigTrip.platform_id == platform.id,
+                        GigTrip.trip_id == trip_data["trip_id"],
+                    )
+                    .first()
+                )
 
                 if existing_trip:
                     continue
@@ -93,7 +108,7 @@ class GigPlatformService:
                     base_fare=trip_data.get("base_fare"),
                     tips=trip_data.get("tips"),
                     bonuses=trip_data.get("bonuses"),
-                    metadata=trip_data.get("metadata")
+                    metadata=trip_data.get("metadata"),
                 )
                 self.db.add(trip)
 
@@ -105,7 +120,7 @@ class GigPlatformService:
                     tips=trip_data.get("tips", 0),
                     platform_fees=trip_data.get("platform_fees", 0),
                     mileage=trip_data.get("distance", 0),
-                    trip=trip
+                    trip=trip,
                 )
                 self.db.add(income)
 
@@ -118,7 +133,7 @@ class GigPlatformService:
                             description=expense_data["description"],
                             category=expense_data.get("category", "TRANSPORTATION"),
                             date=trip_data["start_time"].date(),
-                            trip=trip
+                            trip=trip,
                         )
                         self.db.add(expense)
 
@@ -128,16 +143,19 @@ class GigPlatformService:
                 period_start=min(t["start_time"] for t in processed_data["trips"]),
                 period_end=max(t["end_time"] for t in processed_data["trips"]),
                 gross_earnings=sum(t["earnings"] for t in processed_data["trips"]),
-                net_earnings=sum(t["earnings"] - t.get("platform_fees", 0) for t in processed_data["trips"]),
+                net_earnings=sum(
+                    t["earnings"] - t.get("platform_fees", 0)
+                    for t in processed_data["trips"]
+                ),
                 trips_count=len(processed_data["trips"]),
-                metadata={"sync_date": datetime.utcnow().isoformat()}
+                metadata={"sync_date": datetime.utcnow().isoformat()},
             )
             self.db.add(earnings_summary)
 
             platform.last_sync = datetime.utcnow()
             platform.account_status = GigPlatformStatus.ACTIVE
             self.db.commit()
-            
+
             # Trigger sync manager
             await self.sync_manager.sync_platform_data(platform.user_id)
 
@@ -163,7 +181,7 @@ class GigPlatformService:
                 gross_earnings=earnings_data.gross_earnings,
                 net_earnings=earnings_data.net_earnings,
                 trips_count=earnings_data.trips_count,
-                metadata=earnings_data.metadata
+                metadata=earnings_data.metadata,
             )
             self.db.add(earnings)
             self.db.commit()

@@ -13,10 +13,11 @@ import logging
 
 # Configure logging
 logging.basicConfig(
-    filename='api_config.log',
+    filename="api_config.log",
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    format="%(asctime)s - %(levelname)s - %(message)s",
 )
+
 
 class APIConfig:
     PLAID_CLIENT_ID = os.getenv("PLAID_CLIENT_ID")
@@ -25,14 +26,16 @@ class APIConfig:
     PLAID_ENDPOINTS = {
         "sandbox": "https://sandbox.plaid.com",
         "development": "https://development.plaid.com",
-        "production": "https://api.plaid.com"
+        "production": "https://api.plaid.com",
     }
 
     @classmethod
     def get_plaid_host(cls):
         """Get Plaid API host based on environment."""
         try:
-            host = cls.PLAID_ENDPOINTS.get(cls.PLAID_ENV, cls.PLAID_ENDPOINTS["sandbox"])
+            host = cls.PLAID_ENDPOINTS.get(
+                cls.PLAID_ENV, cls.PLAID_ENDPOINTS["sandbox"]
+            )
             logging.info(f"Using Plaid host: {host}")
             return host
         except Exception as e:

@@ -7,9 +7,10 @@ import logging
 from .pki_manager import PKIManager
 from cryptography import x509
 
+
 class XMLSigner:
     """Sign XML documents for IRS submissions"""
-    
+
     def __init__(self):
         self.pki_manager = PKIManager()
         self.logger = logging.getLogger(__name__)
@@ -30,23 +31,21 @@ class XMLSigner:
 
             # Sign the digest
             signature = private_key.sign(
-                digest_value,
-                padding.PKCS1v15(),
-                hashes.SHA256()
+                digest_value, padding.PKCS1v15(), hashes.SHA256()
             )
 
             # Add signature to XML
-            sig_element = ElementTree.SubElement(root, 'Signature')
-            sig_value = ElementTree.SubElement(sig_element, 'SignatureValue')
+            sig_element = ElementTree.SubElement(root, "Signature")
+            sig_value = ElementTree.SubElement(sig_element, "SignatureValue")
             sig_value.text = b64encode(signature).decode()
 
             # Add certificate
-            cert_element = ElementTree.SubElement(sig_element, 'X509Certificate')
+            cert_element = ElementTree.SubElement(sig_element, "X509Certificate")
             cert_element.text = b64encode(
                 certificate.public_bytes(encoding=x509.Encoding.DER)
             ).decode()
 
-            return ElementTree.tostring(root, encoding='unicode')
+            return ElementTree.tostring(root, encoding="unicode")
         except Exception as e:
             self.logger.error(f"Error signing XML: {str(e)}")
             raise
@@ -55,22 +54,22 @@ class XMLSigner:
         """Verify XML signature"""
         try:
             root = ElementTree.fromstring(signed_xml)
-            
+
             # Extract signature and certificate
-            sig_element = root.find('Signature')
+            sig_element = root.find("Signature")
             if sig_element is None:
                 return False
 
-            signature = b64decode(sig_element.find('SignatureValue').text)
-            cert_data = b64decode(sig_element.find('X509Certificate').text)
-            
+            signature = b64decode(sig_element.find("SignatureValue").text)
+            cert_data = b64decode(sig_element.find("X509Certificate").text)
+
             # Load certificate
             certificate = x509.load_der_x509_certificate(cert_data)
             public_key = certificate.public_key()
 
             # Remove signature for digest calculation
             root.remove(sig_element)
-            xml_without_sig = ElementTree.tostring(root, encoding='unicode')
+            xml_without_sig = ElementTree.tostring(root, encoding="unicode")
 
             # Calculate digest
             digest = hashes.Hash(hashes.SHA256())
@@ -80,10 +79,7 @@ class XMLSigner:
             # Verify signature
             try:
                 public_key.verify(
-                    signature,
-                    digest_value,
-                    padding.PKCS1v15(),
-                    hashes.SHA256()
+                    signature, digest_value, padding.PKCS1v15(), hashes.SHA256()
                 )
                 return True
             except:

@@ -4,9 +4,10 @@ from lxml import etree
 import os
 from api.config.mef_config import MEF_CONFIG
 
+
 class MeFValidator:
     def __init__(self):
-        self.schema_path = MEF_CONFIG['VALIDATION']['SCHEMA_PATH']
+        self.schema_path = MEF_CONFIG["VALIDATION"]["SCHEMA_PATH"]
         self.schemas = self._load_schemas()
         self.logger = logging.getLogger(__name__)
 
@@ -14,9 +15,11 @@ class MeFValidator:
         """Load all IRS XML schemas"""
         schemas = {}
         try:
-            for form_type, version in MEF_CONFIG['VALIDATION']['SCHEMA_VERSIONS'].items():
+            for form_type, version in MEF_CONFIG["VALIDATION"][
+                "SCHEMA_VERSIONS"
+            ].items():
                 schema_file = f"{self.schema_path}/{form_type.lower()}_{version}.xsd"
-                with open(schema_file, 'rb') as f:
+                with open(schema_file, "rb") as f:
                     schema_document = etree.parse(f)
                     schemas[form_type] = etree.XMLSchema(schema_document)
             return schemas
@@ -29,26 +32,20 @@ class MeFValidator:
         try:
             # Parse XML
             xml_document = etree.fromstring(xml_string.encode())
-            
+
             # Get appropriate schema
             schema = self.schemas.get(form_type)
             if not schema:
                 raise ValueError(f"No schema found for form type: {form_type}")
-            
+
             # Validate
             schema.assertValid(xml_document)
-            
-            return {
-                'is_valid': True,
-                'errors': None
-            }
-            
+
+            return {"is_valid": True, "errors": None}
+
         except etree.DocumentInvalid as e:
             self.logger.error(f"XML validation error: {str(e)}")
-            return {
-                'is_valid': False,
-                'errors': self._format_validation_errors(e)
-            }
+            return {"is_valid": False, "errors": self._format_validation_errors(e)}
         except Exception as e:
             self.logger.error(f"Validation error: {str(e)}")
             raise
@@ -57,29 +54,28 @@ class MeFValidator:
         """Format validation errors into readable messages"""
         return [
             {
-                'line': err.line,
-                'column': err.column,
-                'message': err.message,
-                'path': err.path
+                "line": err.line,
+                "column": err.column,
+                "message": err.message,
+                "path": err.path,
             }
             for err in error.error_log
         ]
 
-    def validate_business_rules(self, xml_document: etree.Element, form_type: str) -> Dict[str, Any]:
+    def validate_business_rules(
+        self, xml_document: etree.Element, form_type: str
+    ) -> Dict[str, Any]:
         """Validate business rules specific to form type"""
         try:
             rules = self._get_business_rules(form_type)
             violations = []
-            
+
             for rule in rules:
                 if not self._check_rule(xml_document, rule):
-                    violations.append(rule['message'])
-            
-            return {
-                'is_valid': len(violations) == 0,
-                'violations': violations
-            }
-            
+                    violations.append(rule["message"])
+
+            return {"is_valid": len(violations) == 0, "violations": violations}
+
         except Exception as e:
             self.logger.error(f"Business rule validation error: {str(e)}")
             raise
@@ -87,17 +83,17 @@ class MeFValidator:
     def _get_business_rules(self, form_type: str) -> list:
         """Get business rules for specific form type"""
         rules = {
-            '1099K': [
+            "1099K": [
                 {
-                    'xpath': '//GrossAmount',
-                    'rule': lambda x: float(x) >= 0,
-                    'message': 'Gross amount cannot be negative'
+                    "xpath": "//GrossAmount",
+                    "rule": lambda x: float(x) >= 0,
+                    "message": "Gross amount cannot be negative",
                 },
                 {
-                    'xpath': '//CardTransactions',
-                    'rule': lambda x: int(x) >= 0,
-                    'message': 'Number of transactions cannot be negative'
-                }
+                    "xpath": "//CardTransactions",
+                    "rule": lambda x: int(x) >= 0,
+                    "message": "Number of transactions cannot be negative",
+                },
             ]
         }
         return rules.get(form_type, [])

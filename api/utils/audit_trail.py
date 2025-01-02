@@ -4,11 +4,14 @@ from typing import Dict, Any
 from sqlalchemy.orm import Session
 from api.config.database import SessionLocal
 
+
 class AuditLogger:
     def __init__(self):
         self.db = SessionLocal()
-        
-    def log_tax_analysis(self, user_id: str, action: str, details: Dict[str, Any]) -> None:
+
+    def log_tax_analysis(
+        self, user_id: str, action: str, details: Dict[str, Any]
+    ) -> None:
         """Log tax analysis operations"""
         self.logger.info(
             f"Tax Analysis - User: {self._mask_identifier(str(user_id))}, "
@@ -17,11 +20,11 @@ class AuditLogger:
         )
 
     def _setup_logger(self):
-        self.logger = logging.getLogger('audit_trail')
+        self.logger = logging.getLogger("audit_trail")
         self.logger.setLevel(logging.INFO)
-        handler = logging.FileHandler('audit_trail.log')
+        handler = logging.FileHandler("audit_trail.log")
         formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
         handler.setFormatter(formatter)
         self.logger.addHandler(handler)
@@ -46,7 +49,7 @@ class AuditLogger:
 
     def _mask_identifier(self, identifier: str) -> str:
         """Mask sensitive information in logs"""
-        if '@' in identifier:
-            username, domain = identifier.split('@')
+        if "@" in identifier:
+            username, domain = identifier.split("@")
             return f"{username[:2]}***@{domain}"
         return f"{identifier[:2]}***{identifier[-2:]}"
