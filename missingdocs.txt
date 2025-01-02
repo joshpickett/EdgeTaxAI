@@ -1,0 +1,55 @@
+Question ID	Question Text	Input Type	Conditions	Required Documents Triggered	Enhancements Needed	Files to Update
+foreignIncome	Did you earn income from outside the U.S.?	Boolean	N/A	- Form 2555: Foreign Earned Income Exclusion
+- Form 8938: Foreign Financial Assets
+- FBAR: Foreign Bank and Financial Accounts Report	Add question to detect foreign income; enhance QuestionnaireMapper to trigger relevant documents.	- QuestionnaireMapper.ts
+- Question.tsx
+- RequiredDocumentsList.tsx
+selfEmployed	Are you self-employed or own a small business?	Boolean	N/A	- Form 1099-NEC: Non-employee Compensation
+- Schedule C: Profit or Loss from Business	Add logic to automatically trigger both forms for self-employed users.	- QuestionnaireMapper.ts
+- QuestionnaireStepper.tsx
+- DocumentManager.tsx
+state	What is your state of residence?	Dropdown	N/A	- State-specific forms (e.g., California Energy Credit, New York-specific credits)	Add dropdown to Question.tsx for state selection; implement logic in QuestionnaireMapper for state-specific document triggers.	- QuestionnaireMapper.ts
+- Question.tsx
+- SharedWizardDocumentRequirementsScreen.tsx
+nonCashDonations	Did you donate items (non-cash) exceeding $500?	Boolean	answer === true	- Form 8283: Non-Cash Charitable Contributions	Add logic to detect high-value non-cash donations and trigger Form 8283.	- QuestionnaireMapper.ts
+- Question.tsx
+- RequiredDocumentsList.tsx
+casualtyLoss	Did you experience property damage due to a disaster?	Boolean	answer === true	- Form 4684: Casualties and Thefts	Add question to detect casualty losses and trigger Form 4684.	- QuestionnaireMapper.ts
+- Question.tsx
+- RequiredDocumentsList.tsx
+rentalIncome	Did you earn income from rental properties?	Boolean	N/A	- Schedule E: Supplemental Income and Loss
+- Lease Agreements: Proof of rental income	Add logic for lease agreement document checks; validate expenses and income consistency.	- QuestionnaireMapper.ts
+- DocumentManager.tsx
+- SharedWizardDocumentRequirementsScreen.tsx
+capitalGains	Did you sell stocks, bonds, or other investments?	Boolean	answer === true	- Form 8949: Sales of Capital Assets
+- Schedule D: Capital Gains and Losses	Add enhanced validation to ensure sales match uploaded brokerage statements.	- QuestionnaireMapper.ts
+- DocumentManager.tsx
+- DocumentUploader.tsx
+energyImprovements	Did you make energy-efficient improvements to your home?	Boolean	answer === true	- Form 5695: Residential Energy Credits	Add question for home energy improvements and trigger Form 5695 for applicable users.	- QuestionnaireMapper.ts
+- Question.tsx
+- RequiredDocumentsList.tsx
+childCareExpenses	Did you pay for childcare services?	Boolean	answer === true	- Form 2441: Child and Dependent Care Expenses	Ensure childcare expenses match uploaded receipts.	- QuestionnaireMapper.ts
+- QuestionnaireStepper.tsx
+- DocumentManager.tsx
+educationExpenses	Did you or a dependent pay for tuition?	Boolean	answer === true	- Form 1098-T: Tuition Statement
+- Form 8863: Education Credits (American Opportunity or Lifetime Learning)	Add tuition and credit validation checks based on answers; trigger both forms.	- QuestionnaireMapper.ts
+- DocumentManager.tsx
+- SharedWizardDocumentUploadScreen.tsx
+foreignAccounts	Do you own foreign financial accounts over $10,000?	Boolean	N/A	- FBAR: Foreign Bank and Financial Accounts Report
+- Form 8938: Foreign Financial Assets Report	Add validation to ensure FBAR and Form 8938 are triggered for high-value foreign accounts.	- QuestionnaireMapper.ts
+- DocumentManager.tsx
+- RequiredDocumentsList.tsx
+earlyRetirement	Did you withdraw from retirement accounts early?	Boolean	answer === true	- Form 5329: Additional Taxes on Qualified Plans
+- Form 8606: Nondeductible IRAs	Add logic to validate penalties and early withdrawal details.	- QuestionnaireMapper.ts
+- DocumentManager.tsx
+- RequiredDocumentsList.tsx
+inheritance	Did you inherit significant assets?	Boolean	answer === true	- Appraisal or Valuation Documents: Proof of inherited value	Add appraisal/valuation upload support; validate high-value assets against reported income.	- QuestionnaireMapper.ts
+- Question.tsx
+- DocumentUploader.tsx
+foreignGifts	Did you receive foreign gifts over $100,000?	Boolean	answer === true	- Form 3520: Foreign Gifts and Trusts	Add logic to detect large foreign gifts and trigger Form 3520.	- QuestionnaireMapper.ts
+- Question.tsx
+- DocumentUploader.tsx
+vehicleForBusiness	Did you use a personal vehicle for business?	Boolean	answer === true	- Mileage Logs
+- Form 4562: Depreciation and Amortization	Add detailed validation for mileage logs and depreciation claims.	- QuestionnaireMapper.ts
+- DocumentManager.tsx
+- RequiredDocumentsList.tsx
