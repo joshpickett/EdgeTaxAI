@@ -3,7 +3,27 @@ export const IRS_CONSTANTS = {
     FORM_1040: '1040',
     FORM_1099_NEC: '1099-NEC',
     FORM_1099_K: '1099-K',
-    SCHEDULE_C: 'SCHEDULE-C'
+    SCHEDULE_C: 'SCHEDULE-C',
+    W2: {
+      name: 'Form W-2',
+      description: 'Wage and Tax Statement',
+      required: true
+    },
+    FORM_1099_NEC: {
+      name: 'Form 1099-NEC',
+      description: 'Nonemployee Compensation',
+      required: true
+    },
+    FORM_1099_K: {
+      name: 'Form 1099-K',
+      description: 'Payment Card and Third Party Network Transactions',
+      required: true
+    },
+    SCHEDULE_C: {
+      name: 'Schedule C',
+      description: 'Profit or Loss from Business',
+      required: true
+    }
   },
 
   VALIDATION_CODES: {

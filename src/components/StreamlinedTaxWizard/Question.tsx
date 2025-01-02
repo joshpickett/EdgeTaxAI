@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { COLORS } from '../../../assets/config/colors';
 import { SPACING } from '../../../assets/config/spacing';
 import { TYPOGRAPHY } from '../../../assets/config/typography';
@@ -7,9 +7,9 @@ interface QuestionProps {
   question: {
     id: string;
     text: string;
+    helpText?: string;
     type: string;
     options?: string[];
-    helpText?: string;
   };
   answer: any;
   onAnswer: (answer: any) => void;
@@ -18,8 +18,16 @@ interface QuestionProps {
 export const Question: React.FC<QuestionProps> = ({
   question,
   answer,
-  onAnswer
+  onAnswer,
+  validation
 }) => {
+  const [touched, setTouched] = useState(false);
+  
+  const handleChange = (value: any) => {
+    setTouched(true);
+    onAnswer(value);
+  };
+
   const renderInput = () => {
     switch (question.type) {
       case 'boolean':
@@ -30,7 +38,7 @@ export const Question: React.FC<QuestionProps> = ({
                 ...styles.booleanButton,
                 ...(answer === true ? styles.selectedButton : {})
               }}
-              onClick={() => onAnswer(true)}
+              onClick={() => handleChange(true)}
             >
               Yes
             </button>
@@ -39,7 +47,7 @@ export const Question: React.FC<QuestionProps> = ({
                 ...styles.booleanButton,
                 ...(answer === false ? styles.selectedButton : {})
               }}
-              onClick={() => onAnswer(false)}
+              onClick={() => handleChange(false)}
             >
               No
             </button>
@@ -64,7 +72,7 @@ export const Question: React.FC<QuestionProps> = ({
                         newAnswer.splice(index, 1);
                       }
                     }
-                    onAnswer(newAnswer);
+                    handleChange(newAnswer);
                   }}
                   style={styles.checkbox}
                 />
@@ -79,7 +87,7 @@ export const Question: React.FC<QuestionProps> = ({
           <input
             type="text"
             value={answer || ''}
-            onChange={(e) => onAnswer(e.target.value)}
+            onChange={(e) => handleChange(e.target.value)}
             style={styles.textInput}
           />
         );
@@ -88,9 +96,14 @@ export const Question: React.FC<QuestionProps> = ({
 
   return (
     <div className="question" style={styles.container}>
-      <h3 style={styles.questionText}>{question.text}</h3>
+      <h3 style={styles.questionText}>
+        {question.text}
+      </h3>
+
       {question.helpText && (
-        <p style={styles.helpText}>{question.helpText}</p>
+        <p className="help-text">
+          {question.helpText}
+        </p>
       )}
       {renderInput()}
     </div>

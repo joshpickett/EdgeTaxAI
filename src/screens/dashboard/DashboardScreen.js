@@ -1,14 +1,20 @@
-import React, { useEffect, useState, useCallback } from "react";
-import { ScrollView, RefreshControl, StyleSheet } from "react-native";
-import DashboardOverview from "components/DashboardOverview";
-import { sharedReportingService } from "services/sharedReportingService";
-import { colors, spacing } from "styles/tokens";
+import { UnifiedDashboard } from '../UnifiedDashboard';
+import { useAuth } from '../../hooks/useAuth';
 
-const DashboardScreen = ({ onLogout }) => {
-  const [dashboardData, setDashboardData] = useState(null);
+const DashboardScreen = ({ navigation }) => {
+  const { user, logout } = useAuth();
 
-  // ...rest of the code...
+  const handleLogout = async () => {
+    await logout();
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Login' }],
+    });
+  };
 
+  return (
+    <UnifiedDashboard userId={user.id} onLogout={handleLogout} />
+  );
 };
 
 const styles = StyleSheet.create({
@@ -18,5 +24,3 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background.default 
   },
 });
-
-// ...rest of the code...
