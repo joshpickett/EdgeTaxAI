@@ -7,16 +7,24 @@
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/variables.css">
     <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/blog.css">
 </head>
 <body>
     <header>
         <h1>EdgeTaxAI</h1>
-        <nav>
+        <div class="auth-buttons">
+            <a href="blog.html">Blog</a>
             <a href="index.html">Home</a>
             <a href="about.html">About Us</a>
-            <a href="blog.html">Blog</a>
-        </nav>
+            <a href="#" class="signup">Sign Up</a>
+        </div>
     </header>
+
+    <nav class="breadcrumbs">
+        <a href="index.html">Home</a> > 
+        <a href="blog.html">Blog</a> > 
+        <span>Article Title</span>
+    </nav>
 
     <main>
         <article class="blog-post">
@@ -32,6 +40,24 @@
                 <p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
             </section>
         </article>
+
+        <section class="social-share">
+            <h4>Share this article</h4>
+            <div class="share-buttons">
+                <a href="#" class="share-button twitter">Twitter</a>
+                <a href="#" class="share-button linkedin">LinkedIn</a>
+                <a href="#" class="share-button facebook">Facebook</a>
+            </div>
+        </section>
+
+        <section class="related-posts">
+            <h4>Related Articles</h4>
+            <div class="related-grid">
+                <a href="#" class="related-post">Understanding Tax Deductions</a>
+                <a href="#" class="related-post">Quarterly Tax Payments Guide</a>
+                <a href="#" class="related-post">International Tax Tips</a>
+            </div>
+        </section>
 
         <nav class="post-navigation">
             <a href="blog.html" class="back-to-blog">&larr; Back to Blog</a>

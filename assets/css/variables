@@ -1,12 +1,29 @@
 :root {
     --primary-color: #21CEBA;
+    --primary-light: #4DDECF;
+    --primary-dark: #189F94;
+    
     --secondary-gradient-start: #2ECD70;
     --secondary-gradient-end: #86DE94;
+    
     --light-grey: #F8F8F8;
     --medium-grey: #707070;
+    --dark-grey: #333333;
+    
     --text-primary: #000000;
     --text-secondary: #666666;
     --text-disabled: #999999;
+    --text-hint: #BBBBBB;
+    
+    /* Shadow Variables */
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.12);
+    --shadow-md: 0 2px 4px rgba(0,0,0,0.12);
+    --shadow-lg: 0 4px 8px rgba(0,0,0,0.12);
+    
+    /* Border Radius */
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
     
     /* Spacing Variables */
     --spacing-sm: 10px;

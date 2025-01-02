@@ -2,7 +2,10 @@ export const TYPOGRAPHY = {
   fontFamily: {
     regular: 'Nunito-Regular', // Nunito regular
     medium: 'Nunito-SemiBold', // Nunito semi-bold
-    bold: 'Nunito-Bold' // Nunito bold
+    bold: 'Nunito-Bold', // Nunito bold
+    light: 'Nunito-Light', // Nunito light
+    extraBold: 'Nunito-ExtraBold', // Nunito extra bold
+    italic: 'Nunito-Italic' // Nunito italic
   },
   fontSize: {
     xs: 12, // Extra small text

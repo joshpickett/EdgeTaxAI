@@ -7,36 +7,62 @@
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/variables.css">
     <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/blog.css">
 </head>
 <body>
     <header>
         <h1>EdgeTaxAI</h1>
-        <nav>
+        <div class="auth-buttons">
+            <a href="blog.html" class="active">Blog</a>
             <a href="index.html">Home</a>
             <a href="about.html">About Us</a>
-            <a href="blog.html" class="active">Blog</a>
-        </nav>
+            <a href="#" class="signup">Sign Up</a>
+        </div>
     </header>
 
-    <main>
-        <section class="hero">
-            <h2>Our Blog</h2>
-            <p>Explore our latest articles on taxes, finance, and more!</p>
-        </section>
+    <nav class="breadcrumbs">
+        <a href="index.html">Home</a> > <span>Blog</span>
+    </nav>
 
-        <section class="blog-list">
-            <article>
+    <section class="hero">
+        <h2>Our Blog</h2>
+        <p>Explore our latest articles on taxes, finance, and more!</p>
+        <div class="search-container">
+            <input type="text" id="searchInput" placeholder="Search articles...">
+            <button id="searchButton">
+                <span class="search-icon">🔍</span>
+            </button>
+        </div>
+    </section>
+
+    <section class="blog-grid">
+        <article class="blog-card">
+            <div class="blog-image">
                 <img src="images/blog-post1.jpg" alt="How to Optimize Taxes for Gig Workers">
+            </div>
+            <div class="blog-content">
                 <h3><a href="blog-post1.html">How to Optimize Taxes for Gig Workers</a></h3>
                 <p>A quick guide to maximizing deductions for gig workers and expats...</p>
-            </article>
-            <article>
+                <span class="post-date">January 1, 2024</span>
+            </div>
+        </article>
+        <article class="blog-card">
+            <div class="blog-image">
                 <img src="images/blog-post2.jpg" alt="Top 5 Tax-Saving Tips for Expats">
+            </div>
+            <div class="blog-content">
                 <h3><a href="blog-post2.html">Top 5 Tax-Saving Tips for Expats</a></h3>
                 <p>Learn how to minimize your taxes while working abroad...</p>
-            </article>
-        </section>
-    </main>
+                <span class="post-date">January 2, 2024</span>
+            </div>
+        </article>
+    </section>
+    
+    <div class="pagination">
+        <button class="pagination-btn" id="prevPage">Previous</button>
+        <div id="pageNumbers"></div>
+        <button class="pagination-btn" id="nextPage">Next</button>
+    </div>
 
     <footer>
         <p>&copy; 2024 EdgeTaxAI</p>
@@ -46,5 +72,6 @@
             <a href="#">Contact Us</a>
         </div>
     </footer>
+    <script src="js/blog.js"></script>
 </body>
 </html>
