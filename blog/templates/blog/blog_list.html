@@ -1,0 +1,32 @@
+{% extends 'blog/base.html' %}
+
+{% block title %}Blog | EdgeTaxAI{% endblock %}
+
+{% block content %}
+<nav class="breadcrumbs">
+    <a href="/">Home</a> > <span>Blog</span>
+</nav>
+
+<div class="search-container">
+    <input type="text" id="searchInput" placeholder="Search articles...">
+    <button id="searchButton">🔍</button>
+</div>
+
+<section class="blog-grid">
+    {% for post in posts %}
+    <article class="blog-card" data-post-id="{{ post.id }}">
+        <div class="blog-content">
+            <h3><a href="{% url 'blog:blog_detail' post.slug %}">{{ post.title }}</a></h3>
+            <p>{{ post.content|truncatewords:30 }}</p>
+            <span class="post-date">{{ post.created_on|date:"F j, Y" }}</span>
+        </div>
+    </article>
+    {% empty %}
+    <p>No blog posts available.</p>
+    {% endfor %}
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/blog.js' %}"></script>
+{% endblock %}
