@@ -1,151 +1,127 @@
-import { Platform } from 'react-native';
-import { 
-  OCRResult, 
-  DocumentType, 
-  VerificationResult, 
-  ProcessingOptions 
-} from '../types/ocr';
-import { OfflineQueueManager } from './offlineQueueManager';
-import { PlatformDetector } from '../utils/platformDetector';
-import { verificationService } from '../../shared/services/verificationService';
+import { OpticalCharacterRecognitionService } from './opticalCharacterRecognitionService';
+import { DocumentValidationService } from './documentValidationService';
+import { DocumentType } from '../types/documents';
 
-export class UnifiedOCRService {
-  private offlineQueue: OfflineQueueManager;
-  private platformDetector: PlatformDetector;
-  private readonly confidenceThreshold = 0.8;
-  private verificationService: typeof verificationService;
+interface OpticalCharacterRecognitionResult {
+  success: boolean;
+  data: {
+    wages?: number;
+    interest?: number;
+    dividends?: number;
+    otherIncome?: number;
+    freelanceIncome?: number;
+    contractorPayments?: number;
+    homeOfficeExpenses?: number;
+    totalHomeSquareFootage?: number;
+    officeSquareFootage?: number;
+    metadata?: Record<string, any>;
+  };
+  error?: string;
+}
+
+export class UnifiedOpticalCharacterRecognitionService {
+  private opticalCharacterRecognitionService: OpticalCharacterRecognitionService;
+  private validationService: DocumentValidationService;
 
   constructor() {
-    this.offlineQueue = new OfflineQueueManager();
-    this.platformDetector = new PlatformDetector();
-    this.verificationService = verificationService;
+    this.opticalCharacterRecognitionService = new OpticalCharacterRecognitionService();
+    this.validationService = new DocumentValidationService();
   }
 
-  async processDocument(
-    file: File | string,
-    options: ProcessingOptions = {}
-  ): Promise<OCRResult> {
+  async processDocument(file: File, context: string): Promise<OpticalCharacterRecognitionResult> {
     try {
-      // Handle offline scenario
-      if (!navigator.onLine) {
-        await this.offlineQueue.addToQueue('processDocument', { file, options });
+      // Validate document first
+      const validationResult = await this.validationService.validateDocument(file);
+      if (!validationResult.isValid) {
         return {
-          status: 'queued',
-          message: 'Document will be processed when online'
+          success: false,
+          data: {},
+          error: validationResult.error
         };
       }
 
-      const platform = this.platformDetector.getCurrentPlatform();
-      const processedResult = await this.processForPlatform(file, platform, options);
+      // Process with Optical Character Recognition
+      const opticalCharacterRecognitionResult = await this.opticalCharacterRecognitionService.processDocument(file);
       
-      const enhancedResults = await this.validateAndEnhanceResults(processedResult);
-      const verificationResults = await this.verificationService.verifyDocument(enhancedResults);
-      return { ...enhancedResults, verificationResults };
-    } catch (error) {
-      throw this.handleError(error);
-    }
-  }
+      if (!opticalCharacterRecognitionResult.success) {
+        return {
+          success: false,
+          data: {},
+          error: 'Failed to process document with Optical Character Recognition'
+        };
+      }
 
-  async verifyField(
-    field: string,
-    value: string,
-    documentType: DocumentType
-  ): Promise<VerificationResult> {
-    try {
-      const verificationRules = this.getVerificationRules(documentType);
-      const result = await this.performVerification(field, value, verificationRules);
-      
+      // Extract relevant information based on context
+      const extractedData = this.extractRelevantData(opticalCharacterRecognitionResult.data, context);
+
       return {
-        isValid: result.isValid,
-        confidence: result.confidence,
-        suggestions: result.suggestions
+        success: true,
+        data: {
+          ...extractedData,
+          documentType: this.determineDocumentType(opticalCharacterRecognitionResult.data),
+          metadata: opticalCharacterRecognitionResult.metadata
+        }
       };
+
     } catch (error) {
-      throw this.handleError(error);
-    }
-  }
-
-  private async processForPlatform(
-    file: File | string,
-    platform: string,
-    options: ProcessingOptions
-  ): Promise<any> {
-    switch (platform) {
-      case 'mobile':
-        return this.processMobileDocument(file, options);
-      case 'web':
-        return this.processWebDocument(file, options);
-      default:
-        throw new Error(`Unsupported platform: ${platform}`);
-    }
-  }
-
-  private async processMobileDocument(
-    file: string,
-    options: ProcessingOptions
-  ): Promise<any> {
-    // Mobile-specific processing logic
-    const imageProcessor = new MobileImageProcessor();
-    const processedImage = await imageProcessor.prepare(file);
-    return this.performOCR(processedImage, options);
-  }
-
-  private async processWebDocument(
-    file: File,
-    options: ProcessingOptions
-  ): Promise<any> {
-    // Web-specific processing logic
-    const imageProcessor = new WebImageProcessor();
-    const processedImage = await imageProcessor.prepare(file);
-    return this.performOCR(processedImage, options);
-  }
-
-  private async performOCR(
-    processedImage: any,
-    options: ProcessingOptions
-  ): Promise<any> {
-    // Core OCR logic
-    const result = await this.sendToOCREngine(processedImage);
-    return this.enhanceResults(result, options);
-  }
-
-  private validateAndEnhanceResults(rawResults: any): OCRResult {
-    const enhancedResults = {
-      ...rawResults,
-      fields: this.enhanceFields(rawResults.fields),
-      confidence: this.calculateOverallConfidence(rawResults.fields),
-      needsVerification: false,
-      processedAt: new Date().toISOString()
-    };
-
-    enhancedResults.needsVerification = 
-      enhancedResults.confidence < this.confidenceThreshold;
-
-    return enhancedResults;
-  }
-
-  private enhanceFields(fields: Record<string, any>): Record<string, any> {
-    return Object.entries(fields).reduce((acc, [key, value]) => {
-      acc[key] = {
-        value: value.text,
-        confidence: value.confidence,
-        needsVerification: value.confidence < this.confidenceThreshold,
-        suggestions: value.alternatives || []
+      console.error('Error in unified Optical Character Recognition processing:', error);
+      return {
+        success: false,
+        data: {},
+        error: 'Error processing document'
       };
-      return acc;
-    }, {});
+    }
   }
 
-  private calculateOverallConfidence(fields: Record<string, any>): number {
-    const confidences = Object.values(fields).map(f => f.confidence);
-    return confidences.reduce((sum, conf) => sum + conf, 0) / confidences.length;
+  private extractRelevantData(opticalCharacterRecognitionData: any, context: string): Record<string, any> {
+    switch (context) {
+      case 'income':
+      case 'general_income':
+        return {
+          wages: this.extractNumeric(opticalCharacterRecognitionData.wages || opticalCharacterRecognitionData.salary),
+          interest: this.extractNumeric(opticalCharacterRecognitionData.interest),
+          dividends: this.extractNumeric(opticalCharacterRecognitionData.dividends),
+          otherIncome: this.extractNumeric(opticalCharacterRecognitionData.otherIncome)
+        };
+      case 'freelance_income':
+        return {
+          freelanceIncome: this.extractNumeric(opticalCharacterRecognitionData.freelanceIncome || opticalCharacterRecognitionData.nonemployeeCompensation),
+          contractorPayments: this.extractNumeric(opticalCharacterRecognitionData.contractorPayments),
+          homeOfficeExpenses: this.extractNumeric(opticalCharacterRecognitionData.homeOfficeExpenses),
+          totalHomeSquareFootage: this.extractNumeric(opticalCharacterRecognitionData.totalHomeSquareFootage),
+          officeSquareFootage: this.extractNumeric(opticalCharacterRecognitionData.officeSquareFootage),
+          businessUsePercentage: this.calculateBusinessUsePercentage(opticalCharacterRecognitionData)
+        };
+      default:
+        return {};
+    }
   }
 
-  private handleError(error: any): Error {
-    // Enhanced error handling
-    console.error('OCR Error:', error);
-    return new Error(`OCR processing failed: ${error.message}`);
+  private extractNumeric(value: any): number | undefined {
+    if (!value) return undefined;
+    const numeric = parseFloat(value.toString().replace(/[^0-9.-]+/g, ''));
+    return isNaN(numeric) ? undefined : numeric;
+  }
+
+  private calculateBusinessUsePercentage(data: any): number | undefined {
+    const total = this.extractNumeric(data.totalHomeSquareFootage);
+    const office = this.extractNumeric(data.officeSquareFootage);
+    
+    if (total && office && total > 0) {
+      return (office / total) * 100;
+    }
+    return undefined;
+  }
+
+  private determineDocumentType(opticalCharacterRecognitionData: any): DocumentType {
+    // Logic to determine document type based on Optical Character Recognition data
+    if (opticalCharacterRecognitionData.formType === 'W-2') return DocumentType.W2;
+    if (opticalCharacterRecognitionData.formType === '1099-INT') return DocumentType.FORM_1099;
+    if (opticalCharacterRecognitionData.formType === '1099-DIV') return DocumentType.FORM_1099;
+    if (opticalCharacterRecognitionData.formType === '1099-MISC') return DocumentType.FORM_1099;
+    if (opticalCharacterRecognitionData.formType === '1099-NEC') return DocumentType.FORM_1099_NEC;
+    if (opticalCharacterRecognitionData.formType === '1099-K') return DocumentType.FORM_1099K;
+    // Add more document type detection logic
+    return DocumentType.OTHER;
   }
 }
-
-export const unifiedOCRService = new UnifiedOCRService();
