@@ -7,8 +7,6 @@ import jwt
 import logging
 from datetime import datetime, timedelta
 import os
-
-# Direct imports from utils
 from api.utils.token_manager import TokenManager
 from api.utils.session_manager import SessionManager
 from api.utils.error_handler import AuthError, handle_api_error
