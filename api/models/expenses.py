@@ -22,9 +22,8 @@ class Expenses(Base):
     # Core fields from database schema
     description = Column(String(500), nullable=False)
     amount = Column(Numeric(10, 2), nullable=False)
-    category = Column(SQLEnum(ExpenseCategory), default=ExpenseCategory.UNCATEGORIZED)
+    category = Column(SQLEnum(ExpenseCategory), default=ExpenseCategory.UNCATEGORIZED, nullable=False)
     date = Column(DateTime(timezone=True), nullable=False)
-    # Additional fields from database schema
     
     # Additional fields from database schema
     confidence_score = Column(Float, default=0.0)
@@ -36,7 +35,7 @@ class Expenses(Base):
     receipt_url = Column(String(512), nullable=True)
     transaction_id = Column(String(100), nullable=True)
     document_id = Column(Integer, ForeignKey("documents.id"), nullable=True)
-    tax_year = Column(Integer)
+    tax_year = Column(Integer, nullable=True)
     is_deductible = Column(Boolean, default=False)
 
     # Relationships

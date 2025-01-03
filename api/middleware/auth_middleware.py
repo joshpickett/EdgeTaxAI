@@ -41,14 +41,13 @@ def token_required(function: Callable) -> Callable:
 
             # Get user from database
             db = SessionLocal()
-            claims = token_manager.verify_token(token)
-            user = db.query(Users).filter(Users.id == claims["user_id"]).first()
-            if not user:
-                raise AuthError("User not found", 401)
-
-            # Validate token
             try:
+                # Validate token
                 claims = token_manager.verify_token(token)
+                user = db.query(Users).filter(Users.id == claims["user_id"]).first()
+                if not user:
+                    raise AuthError("User not found", 401)
+
                 request.user = claims
                 audit_logger.log_auth_success(claims["user_id"], "token_verification")
                 return function(*args, **kwargs)
@@ -63,6 +62,8 @@ def token_required(function: Callable) -> Callable:
                 raise AuthError("Token has expired", 401)
             except jwt.InvalidTokenError:
                 raise AuthError("Invalid token", 401)
+            finally:
+                db.close()
 
         if not token:
             raise AuthError("Token is missing", 401)

@@ -13,5 +13,8 @@ class Income(Base):
     start_date = Column(DateTime(timezone=True))
     end_date = Column(DateTime(timezone=True))
     description = Column(String(500))
-    
-    ...rest of the code...
+
+    # Relationships
+    user = relationship("Users", back_populates="income")
+
+# Ensure the Users model exists and has a back_populates="income" relationship defined

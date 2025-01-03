@@ -25,7 +25,7 @@ class SecurityMiddleware:
         """Decorator to validate required API headers"""
 
         @wraps(f)
-        async def decorated_function(*args, **kwargs):
+        def decorated_function(*args, **kwargs):
             required_headers = SECURITY_CONFIG["API_SECURITY"]["REQUIRED_HEADERS"]
             missing_headers = [
                 header for header in required_headers if header not in request.headers
@@ -42,7 +42,7 @@ class SecurityMiddleware:
                     400,
                 )
 
-            return await f(*args, **kwargs)
+            return f(*args, **kwargs)
 
         return decorated_function
 
@@ -50,7 +50,7 @@ class SecurityMiddleware:
         """Decorator to ensure request data is encrypted"""
 
         @wraps(f)
-        async def decorated_function(*args, **kwargs):
+        def decorated_function(*args, **kwargs):
             try:
                 # Check if request data is encrypted
                 if request.is_json:
@@ -66,9 +66,9 @@ class SecurityMiddleware:
                         return jsonify({"error": "Invalid encryption"}), 400
 
                     # Replace request data with decrypted data
-                    request.data = decrypted_data
+                    request._cached_json = decrypted_data
 
-                return await f(*args, **kwargs)
+                return f(*args, **kwargs)
             except Exception as e:
                 self.logger.error(f"Encryption middleware error: {str(e)}")
                 return jsonify({"error": "Security check failed"}), 500
@@ -79,10 +79,10 @@ class SecurityMiddleware:
         """Decorator to verify IP whitelist for IRS submissions"""
 
         @wraps(f)
-        async def decorated_function(*args, **kwargs):
+        def decorated_function(*args, **kwargs):
             client_ip = request.remote_addr
             if client_ip not in self.allowed_ips:
-                await self.audit_logger.log_document_access(
+                self.audit_logger.log_document_access(
                     user_id=request.user.id if request.user else None,
                     document_id=None,
                     access_type="ip_whitelist_violation",
@@ -91,7 +91,7 @@ class SecurityMiddleware:
                 )
                 return jsonify({"error": "IP not authorized"}), 403
 
-            return await f(*args, **kwargs)
+            return f(*args, **kwargs)
 
         return decorated_function
 
@@ -99,10 +99,10 @@ class SecurityMiddleware:
         """Decorator to audit API requests"""
 
         @wraps(f)
-        async def decorated_function(*args, **kwargs):
+        def decorated_function(*args, **kwargs):
             try:
                 # Log request details
-                await self.audit_logger.log_document_access(
+                self.audit_logger.log_document_access(
                     user_id=request.user.id if request.user else None,
                     document_id=kwargs.get("document_id"),
                     access_type="api_request",
@@ -115,10 +115,10 @@ class SecurityMiddleware:
                     },
                 )
 
-                response = await f(*args, **kwargs)
+                response = f(*args, **kwargs)
 
                 # Log response status
-                await self.audit_logger.log_document_access(
+                self.audit_logger.log_document_access(
                     user_id=request.user.id if request.user else None,
                     document_id=kwargs.get("document_id"),
                     access_type="api_response",

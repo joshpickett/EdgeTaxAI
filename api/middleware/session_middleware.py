@@ -3,10 +3,10 @@ from flask import request, jsonify
 from http import HTTPStatus
 from api.utils.session_manager import SessionManager
 from api.utils.audit_logger import AuditLogger
+from api.config.database import SessionLocal
 
 session_manager = SessionManager()
-audit_logger = AuditLogger()
-
+audit_logger = AuditLogger(db=SessionLocal())
 
 def validate_session():
     def decorator(f):
@@ -19,16 +19,28 @@ def validate_session():
                     HTTPStatus.UNAUTHORIZED,
                 )
 
-            if not session_manager.validate_session(session_id):
+            try:
+                if not session_manager.validate_session(session_id):
+                    audit_logger.log_security_event(
+                        user_id=None,
+                        event_type="invalid_session",
+                        ip_address=request.remote_addr,
+                        details={"session_id": session_id},
+                    )
+                    return (
+                        jsonify({"error": "Invalid or expired session"}),
+                        HTTPStatus.UNAUTHORIZED,
+                    )
+            except Exception as e:
                 audit_logger.log_security_event(
                     user_id=None,
-                    event_type="invalid_session",
+                    event_type="session_validation_error",
                     ip_address=request.remote_addr,
-                    details={"session_id": session_id},
+                    details={"error": str(e)},
                 )
                 return (
-                    jsonify({"error": "Invalid or expired session"}),
-                    HTTPStatus.UNAUTHORIZED,
+                    jsonify({"error": "Session validation failed"}),
+                    HTTPStatus.INTERNAL_SERVER_ERROR,
                 )
 
             return f(*args, **kwargs)

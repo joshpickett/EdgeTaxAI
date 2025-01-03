@@ -8,9 +8,9 @@ class FormProgress(Base):
     __tablename__ = "form_progress"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     form_type = Column(String, nullable=False)
-    progress_data = Column(JSON)
+    progress_data = Column(JSON, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     last_modified = Column(DateTime(timezone=True), onupdate=func.now())
 

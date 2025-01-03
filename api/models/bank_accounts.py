@@ -33,7 +33,7 @@ class BankAccounts(Base):
     account_type = Column(Enum(BankAccountType), nullable=False)
 
     # Plaid specific fields
-    plaid_account_id = Column(String(255), nullable=True)
+    plaid_account_id = Column(String(255), nullable=True, unique=True)
     plaid_access_token = Column(String(255), nullable=True)
     plaid_item_id = Column(String(255), nullable=True)
     plaid_institution_id = Column(String(255), nullable=True)

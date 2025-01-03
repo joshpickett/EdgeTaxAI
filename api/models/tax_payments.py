@@ -19,5 +19,6 @@ class TaxPayments(Base):
     payment_type = Column(SQLAlchemyEnum(PaymentType))
     source = Column(String(100))
     confirmation_number = Column(String(100))
-    
-    ...rest of the code...
+
+    # Relationships
+    user = relationship("Users", back_populates="tax_payments")
