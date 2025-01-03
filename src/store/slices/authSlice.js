@@ -1,50 +1,38 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { apiClient } from '../../services/apiClient';
+// src/store/slices/authSlice.ts
+
+import { createAsyncThunk, createSlice } from '@reduxjs/toolkit';
+import { UnifiedAuthService } from 'shared/services/unifiedAuthService';
+
+const authService = UnifiedAuthService.getInstance();
 
 export const loginUser = createAsyncThunk(
   'auth/login',
-  async (credentials, { rejectWithValue }) => {
-    try {
-      const response = await apiClient.login(credentials);
-      return response.data;
-    } catch (error) {
-      return rejectWithValue(error.message);
-    }
+  async (credentials: any) => {
+    return await authService.login(credentials);
   }
 );
 
-export const verifyOneTimePassword = createAsyncThunk(
-  'auth/verifyOneTimePassword',
-  async (data, { rejectWithValue }) => {
-    try {
-      const response = await apiClient.verifyOneTimePassword(data);
-      return response.data;
-    } catch (error) {
-      return rejectWithValue(error.message);
-    }
+export const verifyOTP = createAsyncThunk(
+  'auth/verifyOTP',
+  async (data: any) => {
+    return await authService.verifyOTP(data);
   }
 );
-
-const initialState = {
-  user: null,
-  token: null,
-  isAuthenticated: false,
-  loading: false,
-  error: null,
-  otpSent: false,
-};
 
 const authSlice = createSlice({
   name: 'auth',
-  initialState,
+  initialState: {
+    user: null,
+    isAuthenticated: false,
+    loading: false,
+    error: null,
+    otpSent: false,
+  },
   reducers: {
     logout: (state) => {
       state.user = null;
-      state.token = null;
       state.isAuthenticated = false;
-    },
-    clearError: (state) => {
-      state.error = null;
+      authService.logout();
     },
   },
   extraReducers: (builder) => {
@@ -59,25 +47,7 @@ const authSlice = createSlice({
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload;
-      })
-      .addCase(verifyOneTimePassword.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(verifyOneTimePassword.fulfilled, (state, action) => {
-        state.loading = false;
-        state.user = action.payload.user;
-        state.token = action.payload.token;
-        state.isAuthenticated = true;
-        state.otpSent = false;
-      })
-      .addCase(verifyOneTimePassword.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload;
+        state.error = action.error.message;
       });
   },
 });
-
-export const { logout, clearError } = authSlice.actions;
-export default authSlice.reducer;
