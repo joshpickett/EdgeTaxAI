@@ -24,6 +24,7 @@ class Expenses(Base):
     amount = Column(Numeric(10, 2), nullable=False)
     category = Column(SQLEnum(ExpenseCategory), default=ExpenseCategory.UNCATEGORIZED)
     date = Column(DateTime(timezone=True), nullable=False)
+    # Additional fields from database schema
     
     # Additional fields from database schema
     confidence_score = Column(Float, default=0.0)
