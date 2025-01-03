@@ -1,15 +1,18 @@
 import os
 import sys
 from sqlalchemy.orm import Session
+from typing import Dict, Any, Optional
+from datetime import datetime, timezone
 from api.models.users import Users, UserRole
-from api.models.trusted_devices import TrustedDevices
-from api.setup_path import setup_python_path
+from api.utils.encryption_utils import EncryptionManager
+from api.utils.validators import validate_login_input
+from api.utils.token_manager import TokenManager
+from api.utils.session_manager import SessionManager
 from api.utils.biometric_auth import BiometricAuthentication
 from api.exceptions.auth_exceptions import AuthenticationError, APIError
 from api.utils.audit_trail import AuditLogger
 from api.utils.device_fingerprint import DeviceFingerprint
 from api.utils.otp_service import generate_otp, send_otp
-from api.utils.validators import validate_login_input
 
 # Set up path for both package and direct execution
 setup_python_path()
@@ -18,11 +21,9 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, Tuple
 from api.config.database import SessionLocal
-from api.utils.session_manager import SessionManager
-from api.utils.token_manager import TokenManager
-from api.utils.password_utils import hash_password, verify_password
 
 session_manager = SessionManager()
+encryption_manager = EncryptionManager()
 
 
 class AuthService:
@@ -161,13 +162,15 @@ class AuthService:
         except Exception as e:
             logging.error(f"Error updating last login: {str(e)}")
 
-    def handle_login(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def handle_login(self, data: Dict[str, Any]) -> Dict[str, Any]:
         try:
             validate_login_input(data)
+            
             identifier = data.get("email") or data.get("phone_number")
-            remember_device = data.get("remember_device", False)
+            device_info = data.get("device_info", {})
 
-            # Check for account lockout
+            # Enhanced security checks
+            await encryption_manager.rotate_key_if_needed()
             if self.is_account_locked(identifier):
                 raise AuthenticationError(
                     "Account temporarily locked. Please try again later."
@@ -182,7 +185,7 @@ class AuthService:
                 return {"error": "User not found"}
 
             # Handle remembered devices
-            if remember_device:
+            if device_info.get("remember_device", False):
                 device_token = self.register_trusted_device(user.id, device_fingerprint)
 
             # Additional login logic here...

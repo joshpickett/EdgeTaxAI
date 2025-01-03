@@ -3,10 +3,10 @@ from flask import request, jsonify
 from http import HTTPStatus
 from api.utils.session_manager import SessionManager
 from api.utils.audit_logger import AuditLogger
-from api.config.database import SessionLocal
 
 session_manager = SessionManager()
-audit_logger = AuditLogger(db=SessionLocal())
+audit_logger = AuditLogger()
+
 
 def validate_session():
     def decorator(f):
@@ -14,34 +14,15 @@ def validate_session():
         def decorated_function(*args, **kwargs):
             session_id = request.headers.get("Session-Id")
             if not session_id:
-                return (
-                    jsonify({"error": "No session ID provided"}),
-                    HTTPStatus.UNAUTHORIZED,
-                )
+                return jsonify({"error": "No session ID provided"}), HTTPStatus.UNAUTHORIZED
 
-            try:
-                if not session_manager.validate_session(session_id):
-                    audit_logger.log_security_event(
-                        user_id=None,
-                        event_type="invalid_session",
-                        ip_address=request.remote_addr,
-                        details={"session_id": session_id},
-                    )
-                    return (
-                        jsonify({"error": "Invalid or expired session"}),
-                        HTTPStatus.UNAUTHORIZED,
-                    )
-            except Exception as e:
+            session = session_manager.get_session(session_id)
+            if not session:
                 audit_logger.log_security_event(
-                    user_id=None,
-                    event_type="session_validation_error",
-                    ip_address=request.remote_addr,
-                    details={"error": str(e)},
+                    event_type="invalid_session",
+                    details={"session_id": session_id}
                 )
-                return (
-                    jsonify({"error": "Session validation failed"}),
-                    HTTPStatus.INTERNAL_SERVER_ERROR,
-                )
+                return jsonify({"error": "Invalid session"}), HTTPStatus.UNAUTHORIZED
 
             return f(*args, **kwargs)
 

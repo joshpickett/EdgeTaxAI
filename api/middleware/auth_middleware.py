@@ -1,25 +1,25 @@
 from functools import wraps
 from flask import request, jsonify
 from typing import Callable, Any, Optional
-from api.models.users import Users
-from api.config.database import SessionLocal
-import jwt
 import logging
 from datetime import datetime, timedelta
-import os
 from api.utils.token_manager import TokenManager
 from api.utils.session_manager import SessionManager
-from api.utils.error_handler import AuthError, handle_api_error, APIError
-from api.utils.audit_trail import AuditLogger
+from api.utils.encryption_utils import EncryptionManager
+from api.utils.validators import validate_token_format
+from api.exceptions.auth_exceptions import AuthError
+import os
+import jwt
 
 # Initialize components
-token_manager = TokenManager()
+encryption_manager = EncryptionManager()
 session_manager = SessionManager()
-audit_logger = AuditLogger()
+token_manager = TokenManager()
+
 REFRESH_THRESHOLD = 300  # 5 minutes before expiry
 
 
-class AuthError(APIError):
+class AuthError(Exception):
     """Custom authentication error class"""
 
     pass
@@ -36,34 +36,20 @@ def token_required(function: Callable) -> Callable:
             authorization_header = request.headers["Authorization"]
             try:
                 token = authorization_header.split(" ")[1]
+                if not validate_token_format(token):
+                    raise AuthError("Invalid token format")
             except IndexError:
                 raise AuthError("Invalid token format", 401)
 
-            # Get user from database
-            db = SessionLocal()
-            try:
-                # Validate token
-                claims = token_manager.verify_token(token)
-                user = db.query(Users).filter(Users.id == claims["user_id"]).first()
-                if not user:
-                    raise AuthError("User not found", 401)
+            # Verify token and session
+            claims = token_manager.verify_token(token)
+            if not claims:
+                raise AuthError("Invalid token")
 
-                request.user = claims
-                audit_logger.log_auth_success(claims["user_id"], "token_verification")
-                return function(*args, **kwargs)
-            except jwt.ExpiredSignatureError:
-                audit_logger.log_auth_failure(claims.get("user_id"), "token_expired")
-                if token_manager.can_refresh(token):
-                    new_token = token_manager.refresh_token(token)
-                    if new_token:
-                        response = function(*args, **kwargs)
-                        response.headers["New-Token"] = new_token
-                        return response
-                raise AuthError("Token has expired", 401)
-            except jwt.InvalidTokenError:
-                raise AuthError("Invalid token", 401)
-            finally:
-                db.close()
+            # Validate token
+            request.user = claims
+            logging.info(f"User {claims['user_id']} authenticated successfully.")
+            return function(*args, **kwargs)
 
         if not token:
             raise AuthError("Token is missing", 401)
@@ -114,7 +100,7 @@ def validate_token_format(token: str) -> bool:
         return False
 
 
-def handle_api_error(error: APIError) -> tuple:
+def handle_api_error(error: Exception) -> tuple:
     """Handle API errors with proper logging and response"""
     logging.error(f"API Error: {error.message}")
     response = {

@@ -3,10 +3,10 @@ import os
 from flask import Blueprint, request, jsonify
 from api.setup_path import setup_python_path
 from api.services.auth_service import AuthService
-from api.services.db_service import DatabaseService
 from api.utils.token_manager import TokenManager
 from api.utils.session_manager import SessionManager
 from api.utils.rate_limit import rate_limit
+from api.utils.validators import validate_login_input
 from api.exceptions.auth_exceptions import AuthenticationError
 
 setup_python_path(__file__)
@@ -98,26 +98,12 @@ def login():
     """
     try:
         data = request.json
+        validation_errors = validate_login_input(data)
+        if validation_errors:
+            return jsonify({"errors": validation_errors}), 400
+
         response = auth_service.handle_login(data)
-        if response.get("success"):
-            # Generate tokens
-            access_token = TokenManager.generate_access_token(data)
-            refresh_token = TokenManager.generate_refresh_token(data)
-            # Create session
-            SessionManager.create_session(data, request.headers.get("User-Agent"))
-            return (
-                jsonify(
-                    {
-                        "message": "Login successful",
-                        "access_token": access_token,
-                        "refresh_token": refresh_token,
-                    }
-                ),
-                200,
-            )
-
-        return jsonify({"error": "User not found"}), 404
-
+        return jsonify(response)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

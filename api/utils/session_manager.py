@@ -1,13 +1,15 @@
 import redis
 import uuid
 from datetime import datetime
-
+from api.utils.encryption_utils import EncryptionManager
 
 class SessionManager:
     def __init__(self):
         self.redis_client = redis.Redis(host="localhost", port=6379, db=0)
         self.session_timeout = 3600  # 1 hour
         self.max_sessions_per_user = 5
+        self.encryption_manager = EncryptionManager()
+        self.session_prefix = "session:"
 
     def create_session(self, user_id: str, device_info: str) -> str:
         """Create a new session"""
@@ -23,7 +25,8 @@ class SessionManager:
             "created_at": datetime.now().isoformat(),
             "last_active": datetime.now().isoformat(),
         }
-        self.redis_client.setex(session_id, self.session_timeout, session_data)
+        encrypted_data = self.encryption_manager.encrypt(str(session_data))
+        self.redis_client.setex(f"{self.session_prefix}{session_id}", self.session_timeout, encrypted_data)
         return session_id
 
     def enforce_session_limit(self, user_id: str) -> None:

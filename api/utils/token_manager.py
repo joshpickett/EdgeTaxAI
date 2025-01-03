@@ -1,6 +1,11 @@
 import os
 import sys
 from api.setup_path import setup_python_path
+from datetime import datetime, timedelta
+from typing import Optional, Dict, Any
+import jwt
+from models.users import Users
+from api.utils.encryption_utils import EncryptionManager
 
 # Set up path for both package and direct execution
 if __name__ == "__main__":
@@ -8,37 +13,45 @@ if __name__ == "__main__":
 else:
     setup_python_path()
 
-import jwt
-from utils.db_utils import get_db_connection
-from models.users import Users  # Assuming the Users model is defined in models/users.py
-from datetime import datetime, timedelta
-from typing import Dict, Any
-
 class TokenManager:
     def __init__(self):
-        self.db = get_db_connection()
         self.secret_key = os.getenv('JWT_SECRET_KEY', 'your-secret-key')
-        self.token_storage = TokenStorage()
+        self.encryption_manager = EncryptionManager()
+        self.access_token_expire = timedelta(hours=1)
+        self.refresh_token_expire = timedelta(days=7)
+        self.refresh_threshold = timedelta(minutes=5)
 
     def generate_access_token(self, user: Users) -> str:
         """Generate access token for user"""
         payload = {
             'user_id': user.id,
-            'exp': datetime.utcnow() + timedelta(hours=1),
+            'exp': datetime.utcnow() + self.access_token_expire,
             'iat': datetime.utcnow()
         }
         token = jwt.encode(payload, self.secret_key, algorithm='HS256')
-        return token
+        encrypted_token = self.encryption_manager.encrypt(token)
+        return encrypted_token
 
     def generate_refresh_token(self, user: Users) -> str:
         """Generate refresh token for user"""
         payload = {
             'user_id': user.id,
-            'exp': datetime.utcnow() + timedelta(days=30),
+            'exp': datetime.utcnow() + self.refresh_token_expire,
             'iat': datetime.utcnow()
         }
         token = jwt.encode(payload, self.secret_key, algorithm='HS256')
-        return token
+        encrypted_token = self.encryption_manager.encrypt(token)
+        return encrypted_token
+
+    def verify_token(self, token: str) -> Optional[Dict]:
+        try:
+            decrypted_token = self.encryption_manager.decrypt(token)
+            if not decrypted_token:
+                return None
+            claims = jwt.decode(decrypted_token, self.secret_key, algorithms=['HS256'])
+            return claims
+        except jwt.InvalidTokenError:
+            return None
 
     # Additional methods for token management can be added here
 

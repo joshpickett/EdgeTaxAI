@@ -1,17 +1,20 @@
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { setupSrcPath } from '../setup_path';
-setupSrcPath();
+import { SharedValidator } from 'shared/utils/validators';
 import InputField from './InputField';
-import Button from './CustomButton';
-import { colors, spacing, typography } from '../styles/tokens';
+import CustomButton from './CustomButton';
 
 const LoginForm = ({ onSubmit }) => {
   const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [errors, setErrors] = useState({});
 
   const handleSubmit = () => {
-    onSubmit({ email, password });
+    const validationErrors = SharedValidator.validateAuth({ email });
+    if (validationErrors.length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
+    onSubmit({ email });
   };
 
   return (
@@ -21,15 +24,10 @@ const LoginForm = ({ onSubmit }) => {
         value={email}
         onChangeText={setEmail}
         autoCapitalize="none"
+        error={errors.email}
         keyboardType="email-address"
       />
-      <InputField
-        label="Password"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
-      <Button title="Login" onPress={handleSubmit} style={styles.button} />
+      <CustomButton title="Login" onPress={handleSubmit} style={styles.button} />
     </View>
   );
 };
