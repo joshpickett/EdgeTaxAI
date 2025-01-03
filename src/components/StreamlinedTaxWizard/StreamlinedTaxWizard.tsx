@@ -13,6 +13,7 @@ import { SharedWizardDocumentRequirementsScreen } from './SharedWizardDocumentRe
 import { SharedWizardDocumentUploadScreen } from './SharedWizardDocumentUploadScreen';
 import { SharedWizardReviewScreen } from './SharedWizardReviewScreen';
 import { SharedWizardCompletionScreen } from './SharedWizardCompletionScreen';
+import { DocumentType } from '../../types/documents';
 
 const formProgressService = new FormProgressService();
 const formValidationService = new FormValidationService();
@@ -29,12 +30,12 @@ export const StreamlinedTaxWizard: React.FC<StreamlinedTaxWizardProps> = ({
   onComplete
 }) => {
   const questionnaireMapper = new QuestionnaireMapper();
-  const [currentScreen, setCurrentScreen] = useState<'landing' | 'questionnaire' | 'requirements' | 'upload' | 'review' | 'complete'>('landing');
+  const [currentStep, setCurrentStep] = useState<'landing' | 'questionnaire' | 'requirements' | 'upload' | 'review' | 'complete'>('landing');
   const [answers, setAnswers] = useState<Record<string, any>>({});
-  const [requiredDocuments, setRequiredDocuments] = useState([]);
+  const [requiredDocuments, setRequiredDocuments] = useState<DocumentType[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-  const [uploadedDocuments, setUploadedDocuments] = useState([]);
+  const [uploadedDocuments, setUploadedDocuments] = useState<Map<string, File>>(new Map());
 
   useEffect(() => {
     // Load saved progress on mount
@@ -42,28 +43,31 @@ export const StreamlinedTaxWizard: React.FC<StreamlinedTaxWizardProps> = ({
       const savedProgress = await formProgressService.get_progress(userId);
       if (savedProgress) {
         setAnswers(savedProgress.answers);
-        setCurrentScreen(savedProgress.currentStep);
+        setCurrentStep(savedProgress.currentStep);
       }
     };
     loadSavedProgress();
   }, [userId]);
 
   const handleStartWizard = () => {
-    setCurrentScreen('questionnaire');
+    setCurrentStep('questionnaire');
   };
 
   const handleQuestionnaireComplete = (questionnaireAnswers: Record<string, any>) => {
     setAnswers(questionnaireAnswers);
-    setCurrentScreen('requirements'); 
+    setCurrentStep('requirements'); 
   };
 
   const handleDocumentUpload = async (file: File, documentId: string) => {
-    // Upload logic
-    setUploadedDocuments(prev => [...prev, { id: documentId, file }]);
+    setUploadedDocuments(prev => {
+      const updated = new Map(prev);
+      updated.set(documentId, file);
+      return updated;
+    });
   };
 
   const handleReviewComplete = () => {
-    setCurrentScreen('complete');
+    setCurrentStep('complete');
     onComplete();
   };
 
@@ -113,52 +117,54 @@ export const StreamlinedTaxWizard: React.FC<StreamlinedTaxWizardProps> = ({
 
   return (
     <div className="streamlined-tax-wizard"> 
-      {currentScreen === 'landing' && (
+      {currentStep === 'landing' && (
         <SharedWizardLandingScreen
           onStart={handleStartWizard}
           documents={requiredDocuments}
           documentCount={requiredDocuments.length}
-          completedDocuments={uploadedDocuments.length}
+          completedDocuments={uploadedDocuments.size}
         />
       )}
 
-      {currentScreen === 'questionnaire' && (
+      {currentStep === 'questionnaire' && (
         <SharedWizardQuestionnaireScreen
           onComplete={handleQuestionnaireComplete}
           initialAnswers={answers}
         />
       )}
 
-      {currentScreen === 'requirements' && (
+      {currentStep === 'requirements' && (
         <SharedWizardDocumentRequirementsScreen
           requiredDocuments={requiredDocuments}
-          onContinue={() => setCurrentScreen('upload')}
-          onBack={() => setCurrentScreen('questionnaire')}
+          onContinue={() => setCurrentStep('upload')}
+          onBack={() => setCurrentStep('questionnaire')}
         />
       )}
 
-      {currentScreen === 'upload' && (
+      {currentStep === 'upload' && (
         <SharedWizardDocumentUploadScreen
           requiredDocuments={requiredDocuments}
-          onUpload={handleDocumentUpload}
-          onComplete={() => setCurrentScreen('review')}
-          onBack={() => setCurrentScreen('requirements')}
+          onUpload={(file, docId) => handleDocumentUpload(file, docId)}
+          uploadedDocuments={uploadedDocuments}
+          onRemoveDocument={(docId) => handleRemoveDocument(docId)}
+          onComplete={() => setCurrentStep('review')}
+          onBack={() => setCurrentStep('requirements')}
         />
       )}
 
-      {currentScreen === 'review' && (
+      {currentStep === 'review' && (
         <SharedWizardReviewScreen
-          documents={uploadedDocuments}
+          documents={Array.from(uploadedDocuments.values())}
           onSubmit={handleReviewComplete}
-          onBack={() => setCurrentScreen('upload')}
+          onBack={() => setCurrentStep('upload')}
           onReupload={handleDocumentUpload}
         />
       )}
 
-      {currentScreen === 'complete' && (
+      {currentStep === 'complete' && (
         <SharedWizardCompletionScreen
           documentCount={requiredDocuments.length}
-          completedDocuments={uploadedDocuments.length}
+          completedDocuments={uploadedDocuments.size}
           onDashboardRedirect={() => {/* Navigate to dashboard */}}
         />
       )}
