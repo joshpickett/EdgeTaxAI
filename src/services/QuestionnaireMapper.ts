@@ -1,5 +1,6 @@
 import { DocumentType } from '../types/documents';
 import { IRS_CONSTANTS } from '../shared/constants/irs';
+import { TAX_QUESTIONS } from '../config/questionConfig';
 
 interface DocumentRequirement {
   id: string;
@@ -16,15 +17,33 @@ export class QuestionnaireMapper {
   private stateSpecificRules: Map<string, DocumentRequirement[]>;
 
   constructor() {
+    this.initializeFromConfig();
     this.documentRules = new Map();
-    this.internationalRules = new Map();
-    this.stateSpecificRules = new Map();
-    this.initializeStateRules();
-    this.initializeInternationalRules();
-    this.initializeBasicRules();
+    this.initializeRules();
   }
 
-  private initializeBasicRules() {
+  private initializeFromConfig() {
+    TAX_QUESTIONS.forEach(question => {
+      if (question.documentTriggers) {
+        this.documentRules.set(question.id, 
+          this.createDocumentRequirements(question.documentTriggers)
+        );
+      }
+    });
+  }
+
+  private initializeRules() {
+    // Add foreign income rules
+    this.documentRules.set('foreignIncome', [
+      {
+        id: 'form_2555',
+        type: DocumentType.FORM_2555,
+        name: 'Form 2555',
+        description: 'Foreign Earned Income',
+        required: true
+      }
+    ]);
+
     // Existing rules remain...
      
     // Add Schedule A (Itemized Deductions)
@@ -186,20 +205,12 @@ export class QuestionnaireMapper {
     ]);
 
     // Add casualty loss documents
-    this.documentRules.set('casualty_loss', [
+    this.documentRules.set('casualtyLoss', [
       {
         id: 'form_4684',
         type: DocumentType.FORM_4684,
         name: 'Form 4684',
         description: 'Casualties and Thefts',
-        required: true,
-        conditions: ['has_casualty_loss']
-      },
-      {
-        id: 'damage_documentation',
-        type: DocumentType.RECEIPT,
-        name: 'Damage Documentation',
-        description: 'Photos, receipts, and appraisals of damaged property',
         required: true,
         conditions: ['has_casualty_loss']
       }
@@ -447,8 +458,12 @@ export class QuestionnaireMapper {
   private evaluateConditions(conditions: string[], answers: Record<string, any>): boolean {
     return conditions.every(condition => {
       switch (condition) {
+        case 'has_casualty_loss':
+          return answers.casualtyLoss === true;
+        case 'has_foreign_income':
+          return answers.foreignIncome === true;
         case 'foreign_assets_threshold_met':
-          return (answers.foreign_assets_value || 0) >= 50000;
+          return (answers.foreignAssetsValue || 0) >= 50000;
         case 'fbar_threshold_met':
           return (answers.foreign_accounts_value || 0) >= 10000;
         case 'high_value_donations':
@@ -498,6 +513,19 @@ export class QuestionnaireMapper {
         default:
           return true;
       }
+    });
+  }
+
+  private createDocumentRequirements(documentTriggers: DocumentType[]): DocumentRequirement[] {
+    return documentTriggers.map(trigger => {
+      return {
+        id: trigger.toString(),
+        type: trigger,
+        name: trigger.toString(),
+        description: `Required documentation for ${trigger}`,
+        required: true,
+        conditions: []
+      };
     });
   }
 }

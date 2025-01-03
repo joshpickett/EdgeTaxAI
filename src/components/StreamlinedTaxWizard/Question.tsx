@@ -1,16 +1,11 @@
 import React, { useState } from 'react';
+import { QuestionConfig } from '../../config/questionConfig';
 import { COLORS } from '../../../assets/config/colors';
 import { SPACING } from '../../../assets/config/spacing';
 import { TYPOGRAPHY } from '../../../assets/config/typography';
 
 interface QuestionProps {
-  question: {
-    id: string;
-    text: string;
-    helpText?: string;
-    type: string;
-    options?: string[];
-  };
+  question: QuestionConfig;
   answer: any;
   onAnswer: (answer: any) => void;
 }
@@ -19,7 +14,6 @@ export const Question: React.FC<QuestionProps> = ({
   question,
   answer,
   onAnswer,
-  validation
 }) => {
   const [touched, setTouched] = useState(false);
   
@@ -47,6 +41,33 @@ export const Question: React.FC<QuestionProps> = ({
           <select value={answer || ''} onChange={(e) => handleChange(e.target.value)}>
             {question.options?.map(option => <option key={option} value={option}>{option}</option>)}
           </select>
+        );
+
+      case 'currency':
+        return (
+          <div style={styles.currencyInput}>
+            <span style={styles.currencySymbol}>$</span>
+            <input
+              type="number"
+              value={answer || ''}
+              onChange={(e) => handleChange(parseFloat(e.target.value))}
+              min={0}
+              step="0.01"
+              style={styles.numberInput}
+            />
+          </div>
+        );
+
+      case 'number':
+        return (
+          <input
+            type="number"
+            value={answer || ''}
+            onChange={(e) => handleChange(parseFloat(e.target.value))}
+            min={question.validation?.min || 0}
+            max={question.validation?.max}
+            style={styles.numberInput}
+          />
         );
 
       case 'boolean':
@@ -101,6 +122,16 @@ export const Question: React.FC<QuestionProps> = ({
           </div>
         );
 
+      case 'date':
+        return (
+          <input
+            type="date"
+            value={answer || ''}
+            onChange={(e) => handleChange(e.target.value)}
+            style={styles.dateInput}
+          />
+        );
+
       default:
         return (
           <input
@@ -117,12 +148,13 @@ export const Question: React.FC<QuestionProps> = ({
     <div className="question" style={styles.container}>
       <h3 style={styles.questionText}>
         {question.text}
+        {question.required && (
+          <span style={styles.requiredIndicator}>*</span>
+        )}
       </h3>
 
       {question.helpText && (
-        <p className="help-text">
-          {question.helpText}
-        </p>
+        <div style={styles.helpText}>{question.helpText}</div>
       )}
       {renderInput()}
     </div>
@@ -197,5 +229,35 @@ const styles = {
     borderRadius: '4px',
     fontSize: TYPOGRAPHY.fontSize.md,
     fontFamily: TYPOGRAPHY.fontFamily.regular
+  },
+  currencyInput: {
+    position: 'relative',
+    display: 'inline-block'
+  },
+  currencySymbol: {
+    position: 'absolute',
+    left: SPACING.sm,
+    top: '50%',
+    transform: 'translateY(-50%)',
+    color: COLORS.text.secondary
+  },
+  numberInput: {
+    paddingLeft: SPACING.xl,
+    width: '100%',
+    padding: SPACING.sm,
+    border: `1px solid ${COLORS.border}`,
+    borderRadius: '4px',
+    fontSize: TYPOGRAPHY.fontSize.md
+  },
+  dateInput: {
+    width: '100%',
+    padding: SPACING.sm,
+    border: `1px solid ${COLORS.border}`,
+    borderRadius: '4px',
+    fontSize: TYPOGRAPHY.fontSize.md
+  },
+  requiredIndicator: {
+    color: COLORS.error,
+    marginLeft: SPACING.xs
   }
 };

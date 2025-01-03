@@ -3,6 +3,7 @@ import { COLORS } from '../../../../assets/config/colors';
 import { SPACING } from '../../../../assets/config/spacing';
 import { TYPOGRAPHY } from '../../../../assets/config/typography';
 import { QuestionnaireMapper } from '../../../services/QuestionnaireMapper';
+import { TAX_QUESTIONS } from '../../../config/questionConfig';
 
 interface SharedWizardQuestionnaireScreenProps {
   onComplete: (answers: Record<string, any>) => void;
@@ -27,30 +28,7 @@ export const SharedWizardQuestionnaireScreen: React.FC<SharedWizardQuestionnaire
   const [answers, setAnswers] = useState<Record<string, any>>(initialAnswers);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const questions: Question[] = [
-    {
-      id: 'self_employment',
-      text: 'Did you have any self-employment income?',
-      type: 'boolean'
-    },
-    {
-      id: 'gig_platforms',
-      text: 'Which gig economy platforms did you work with?',
-      type: 'multiselect',
-      options: ['Uber', 'Lyft', 'DoorDash', 'Instacart', 'Other'],
-      conditional: (answers) => answers.self_employment === true
-    },
-    {
-      id: 'rental_income',
-      text: 'Did you receive any rental income?',
-      type: 'boolean'
-    },
-    {
-      id: 'foreign_income',
-      text: 'Did you have any foreign income or accounts?',
-      type: 'boolean'
-    }
-  ];
+  const questions = TAX_QUESTIONS;
 
   useEffect(() => {
     if (onSaveProgress) {
