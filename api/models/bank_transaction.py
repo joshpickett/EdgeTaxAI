@@ -19,7 +19,7 @@ class BankTransaction(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     bank_account_id = Column(
-        Integer, ForeignKey("bank_accounts.id", ondelete="CASCADE")
+        Integer, ForeignKey("bank_accounts.id", ondelete="CASCADE"), nullable=False
     )
     plaid_transaction_id = Column(String(255), unique=True, nullable=True)
     amount = Column(Numeric(10, 2), nullable=False)

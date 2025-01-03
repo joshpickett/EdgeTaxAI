@@ -1,6 +1,6 @@
 from functools import wraps
 from flask import request, jsonify
-from typing import Callable, Any
+from typing import Callable, Any, Optional
 from api.models.users import Users
 from api.config.database import SessionLocal
 import jwt
@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 import os
 from api.utils.token_manager import TokenManager
 from api.utils.session_manager import SessionManager
-from api.utils.error_handler import AuthError, handle_api_error
+from api.utils.error_handler import AuthError, handle_api_error, APIError
 from api.utils.audit_trail import AuditLogger
 
 # Initialize components

@@ -25,12 +25,12 @@ class Deductions(Base):
     __tablename__ = "deductions"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
-    type = Column(SQLAlchemyEnum(DeductionType))
-    description = Column(String(500))
-    amount = Column(Numeric(10, 2))
-    calculated_amount = Column(Numeric(10, 2))
-    tax_year = Column(Integer)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    type = Column(SQLAlchemyEnum(DeductionType), nullable=False)
+    description = Column(String(500), nullable=True)
+    amount = Column(Numeric(10, 2), nullable=False)
+    calculated_amount = Column(Numeric(10, 2), nullable=True)
+    tax_year = Column(Integer, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

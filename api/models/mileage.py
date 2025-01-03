@@ -8,14 +8,14 @@ class Mileage(Base):
     __tablename__ = "mileage"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     start_location = Column(String(255), nullable=False)
     end_location = Column(String(255), nullable=False)
     distance = Column(Float, nullable=False)
     date = Column(DateTime(timezone=True), nullable=False)
-    purpose = Column(String(500))
-    expense_id = Column(Integer, ForeignKey("expenses.id", nullable=True))
-    deduction_id = Column(Integer, ForeignKey("deductions.id", nullable=True))
+    purpose = Column(String(500), nullable=True)
+    expense_id = Column(Integer, ForeignKey("expenses.id"), nullable=True)
+    deduction_id = Column(Integer, ForeignKey("deductions.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -31,11 +31,11 @@ class RecurringTrip(Base):
     __tablename__ = "recurring_trips"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"))
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     start_location = Column(String(255), nullable=False)
     end_location = Column(String(255), nullable=False)
     frequency = Column(String(50), nullable=False)  # daily, weekly, monthly
-    purpose = Column(String(500))
+    purpose = Column(String(500), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
