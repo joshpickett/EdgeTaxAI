@@ -1,18 +1,25 @@
 from flask import Blueprint, request, jsonify
 from ..controllers.ocr_controller import OCRController
 from ..utils.error_handler import handle_api_error
-from ..utils.rate_limit import rate_limit
+from ..utils.monitoring import MonitoringSystem
+from ..utils.error_metrics_collector import ErrorMetricsCollector
 from ..config import Config
 import logging
+from datetime import datetime
 
 ocr_bp = Blueprint("ocr", __name__)
 ocr_controller = OCRController()
+monitoring = MonitoringSystem()
+error_collector = ErrorMetricsCollector()
 
 @ocr_bp.route("/analyze-receipt", methods=["POST"])
 @rate_limit(requests_per_minute=Config.OCR_RATE_LIMIT["DEFAULT"])
 async def analyze_receipt():
-    """Analyze receipt image and extract structured data."""
+    """Process receipt image and extract relevant information."""
     try:
+        start_time = datetime.now()
+        monitoring.log_performance_metric("receipt_processing_start", start_time)
+
         if "receipt" not in request.files:
             return jsonify({"error": "No receipt file provided"}), 400
 
@@ -24,9 +31,13 @@ async def analyze_receipt():
         file.seek(0)
 
         result = await ocr_controller.handle_receipt_processing(file.read(), user_id)
+        monitoring.log_performance_metric("receipt_processing_end", start_time, datetime.now())
         return jsonify(result), 200
 
     except Exception as e:
+        await error_collector.collect_error(e, "receipt_processing")
+        monitoring.alert("error", "Receipt processing failed", {"error": str(e)})
+        logging.error(f"Receipt processing error: {e}")
         return handle_api_error(e)
 
 @ocr_bp.route("/extract-expense", methods=["POST"])

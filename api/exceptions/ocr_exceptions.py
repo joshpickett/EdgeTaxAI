@@ -1,15 +1,23 @@
-class OCRProcessingError(Exception):
-    """Raised when Optical Character Recognition processing fails"""
+class OCRBaseException(Exception):
+    """Base exception for OCR-related errors"""
     pass
 
-class DocumentValidationError(Exception):
+class OCRProcessingError(OCRBaseException):
+    """Raised when OCR processing fails"""
+    pass
+
+class DocumentValidationError(OCRBaseException):
     """Raised when document validation fails"""
     pass
 
-class BatchProcessingError(Exception):
+class BatchProcessingError(OCRBaseException):
     """Raised when batch processing fails"""
     pass
 
-class DocumentClassificationError(Exception):
+class DocumentClassificationError(OCRBaseException):
     """Raised when document classification fails"""
+    pass
+
+class OCRServiceError(OCRBaseException):
+    """Raised when OCR service encounters an error"""
     pass
