@@ -1,24 +1,15 @@
-import os
-import sys
-from api.setup_path import setup_python_path
-
-# Set up path for both package and direct execution
-if __name__ == "__main__":
-    setup_python_path(__file__)
-else:
-    setup_python_path()
-
 import logging
 from typing import Dict, Any, Optional
 from google.cloud import vision
-import re
 from datetime import datetime
-
+import re
+from ..exceptions.ocr_exceptions import OCRProcessingError, DocumentValidationError
 
 class OCRProcessor:
     def __init__(self):
         self.client = vision.ImageAnnotatorClient()
         self.confidence_threshold = 0.8
+        self.logger = logging.getLogger(__name__)
 
     def process_receipt(self, image_content: bytes) -> Dict[str, Any]:
         """Process receipt image and extract structured data"""
@@ -27,23 +18,25 @@ class OCRProcessor:
             response = self.client.text_detection(image=image)
 
             if not response.text_annotations:
-                return {"error": "No text detected"}
+                raise DocumentValidationError("No text detected in image")
 
-            extracted_text = response.text_annotations[0].description
+            raw_text = response.text_annotations[0].description
+            confidence_score = self._calculate_confidence(response)
 
             # Extract key information
             data = {
-                "date": self._extract_date(extracted_text),
-                "total": self._extract_total(extracted_text),
-                "vendor": self._extract_vendor(extracted_text),
-                "items": self._extract_line_items(extracted_text),
-                "confidence_score": self._calculate_confidence(response),
+                "raw_text": raw_text,
+                "date": self._extract_date(raw_text),
+                "total": self._extract_total(raw_text),
+                "vendor": self._extract_vendor(raw_text),
+                "items": self._extract_line_items(raw_text),
+                "confidence_score": confidence_score,
             }
 
             return data
         except Exception as e:
-            logging.error(f"OCR processing error: {e}")
-            return {"error": str(e)}
+            self.logger.error(f"OCR processing error: {e}")
+            raise OCRProcessingError(f"Failed to process receipt: {str(e)}")
 
     def _extract_date(self, text: str) -> Optional[str]:
         """Extract date from receipt text"""
